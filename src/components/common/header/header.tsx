@@ -72,31 +72,31 @@ export const Header = component$<HeaderProps>((props) => {
             <div class="hidden sm:ml-6 sm:block">
               <div class="flex space-x-4">
                 {/* Current: "bg-gray-900 text-white", Default: "text-gray-300 hover:bg-gray-700 hover:text-white" */}
-                <a
-                  href="#"
+                <Link
+                  href="/payroll"
                   class="rounded-md px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
                   aria-current="page"
                 >
                   Nómina
-                </a>
-                <a
+                </Link>
+                <Link
                   href="#"
                   class="rounded-md px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
                 >
                   Matrícula
-                </a>
-                <a
+                </Link>
+                <Link
                   href="#"
                   class="rounded-md px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
                 >
                   Gestión de eventos
-                </a>
-                <a
+                </Link>
+                <Link
                   href="#"
                   class="rounded-md px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
                 >
                   Gestión de informes
-                </a>
+                </Link>
               </div>
             </div>
           </div>
@@ -173,7 +173,7 @@ export const Header = component$<HeaderProps>((props) => {
                 tabIndex={-1}
               >
                 {/* Active: "bg-gray-100 outline-none", Not Active: "" */}
-                <a
+                <Link
                   href="#"
                   class="block px-4 py-2 text-sm text-gray-700"
                   role="menuitem"
@@ -181,8 +181,8 @@ export const Header = component$<HeaderProps>((props) => {
                   id="user-menu-item-0"
                 >
                   Your Profile
-                </a>
-                <a
+                </Link>
+                <Link
                   href="#"
                   class="block px-4 py-2 text-sm text-gray-700"
                   role="menuitem"
@@ -190,8 +190,8 @@ export const Header = component$<HeaderProps>((props) => {
                   id="user-menu-item-1"
                 >
                   Settings
-                </a>
-                <a
+                </Link>
+                <Link
                   href="#"
                   class="block px-4 py-2 text-sm text-gray-700"
                   role="menuitem"
@@ -199,7 +199,7 @@ export const Header = component$<HeaderProps>((props) => {
                   id="user-menu-item-2"
                 >
                   Sign out
-                </a>
+                </Link>
               </div>
             </div>
           </div>
@@ -209,31 +209,31 @@ export const Header = component$<HeaderProps>((props) => {
         <div class="sm:hidden" id="mobile-menu">
           <div class="space-y-1 px-2 pb-3 pt-2">
             {/* Current: "bg-gray-900 text-white", Default: "text-gray-300 hover:bg-gray-700 hover:text-white" */}
-            <a
-              href="#"
+            <Link
+              href="/payroll"
               class="block rounded-md px-3 py-2 text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
               aria-current="page"
             >
               Nómina
-            </a>
-            <a
+            </Link>
+            <Link
               href="#"
               class="block rounded-md px-3 py-2 text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
             >
               Matrícula
-            </a>
-            <a
+            </Link>
+            <Link
               href="#"
               class="block rounded-md px-3 py-2 text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
             >
               Gestión de eventos
-            </a>
-            <a
+            </Link>
+            <Link
               href="#"
               class="block rounded-md px-3 py-2 text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
             >
               Gestión de informes
-            </a>
+            </Link>
           </div>
         </div>
       </nav>
