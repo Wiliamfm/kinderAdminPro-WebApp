@@ -1,13 +1,17 @@
 import { component$, Slot } from "@builder.io/qwik";
-import { type RequestHandler } from "@builder.io/qwik-city";
+import { routeLoader$, type RequestHandler } from "@builder.io/qwik-city";
 import { isAuthenticated } from "../services/auth/AuthService";
+import { Header } from "~/components/common/header/header";
 
 export const onRequest: RequestHandler = async (event) => {
   let userIdCookie = event.cookie.get("user_id");
-  if((!userIdCookie || !(await isAuthenticated(userIdCookie.value))) && !event.url.pathname.toLowerCase().startsWith("/login")){
+  if (
+    (!userIdCookie || !(await isAuthenticated(userIdCookie.value))) &&
+    !event.url.pathname.toLowerCase().startsWith("/login")
+  ) {
     throw event.redirect(308, "/login");
   }
-}
+};
 
 export const onGet: RequestHandler = async ({ cacheControl }) => {
   // Control caching for this request for best performance and to reduce hosting costs:
@@ -20,6 +24,17 @@ export const onGet: RequestHandler = async ({ cacheControl }) => {
   });
 };
 
+export const useLoginStatus = routeLoader$((event) => {
+  let userId = event.cookie.get("user_id")?.value ?? "";
+  return isAuthenticated(userId);
+});
+
 export default component$(() => {
-  return <Slot />;
+  const loginStatus = useLoginStatus();
+  return (
+    <>
+      {loginStatus.value && <Header />}
+      <Slot />
+    </>
+  );
 });
