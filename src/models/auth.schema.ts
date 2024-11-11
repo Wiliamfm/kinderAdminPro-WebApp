@@ -3,10 +3,10 @@ import { NonEmptyOrWhitSpaceStringModel } from "./common/string.schema";
 
 export const LoginRequestModel = z.object({
   username: NonEmptyOrWhitSpaceStringModel,
-  password: NonEmptyOrWhitSpaceStringModel
+  password: NonEmptyOrWhitSpaceStringModel,
 });
 
 export const LoginResponseModel = z.object({
   username: NonEmptyOrWhitSpaceStringModel,
-  token: NonEmptyOrWhitSpaceStringModel
+  token: NonEmptyOrWhitSpaceStringModel,
 });

@@ -7,7 +7,7 @@ export const BaseResponseModel = z.object({
   errorMessage: z.any(),
 });
 
-function createBaseResponseSchema<T>(value: T){
+function createBaseResponseSchema<T>(value: T) {
   return {
     success: z.boolean(),
     code: z.number().min(100).max(599),
