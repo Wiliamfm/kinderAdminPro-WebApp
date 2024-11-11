@@ -1,5 +1,13 @@
 import { component$, Slot } from "@builder.io/qwik";
-import type { RequestHandler } from "@builder.io/qwik-city";
+import { type RequestHandler } from "@builder.io/qwik-city";
+import { isAuthenticated } from "../services/auth/AuthService";
+
+export const onRequest: RequestHandler = async (event) => {
+  let userIdCookie = event.cookie.get("user_id");
+  if((!userIdCookie || !(await isAuthenticated(userIdCookie.value))) && !event.url.pathname.toLowerCase().startsWith("/login")){
+    throw event.redirect(308, "/login");
+  }
+}
 
 export const onGet: RequestHandler = async ({ cacheControl }) => {
   // Control caching for this request for best performance and to reduce hosting costs:
