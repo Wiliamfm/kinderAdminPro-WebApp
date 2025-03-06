@@ -27,7 +27,7 @@ export default component$(() => {
   const loginStatusLoader = useLoginStatus();
 
   return (
-    <div>
+    <div class="h-dvh">
       {loginStatusLoader.value.isLoggedIn && <Header />}
       < Slot />
     </div>
