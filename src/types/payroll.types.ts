@@ -6,3 +6,10 @@ export type Employee = TableActions & {
   job: string;
   salary: number;
 }
+
+export type EmployeeResponse = {
+  id: string;
+  name: string;
+  job: string;
+  salary: number;
+}
