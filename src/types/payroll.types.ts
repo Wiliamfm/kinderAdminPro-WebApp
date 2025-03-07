@@ -13,3 +13,9 @@ export type EmployeeResponse = {
   job: string;
   salary: number;
 }
+
+export type EmployeeJobResponse = {
+  id: string;
+  name: string;
+  salary: number;
+}
