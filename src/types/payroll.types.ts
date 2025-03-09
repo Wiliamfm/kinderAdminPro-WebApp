@@ -12,10 +12,18 @@ export type EmployeeResponse = {
   name: string;
   job: string;
   salary: number;
+  leaves?: EmployeeLeave[];
 }
 
 export type EmployeeJobResponse = {
   id: string;
   name: string;
   salary: number;
+}
+
+export type EmployeeLeave = {
+  id: string;
+  startDate: Date;
+  endDate: Date;
+  employeeId: string;
 }

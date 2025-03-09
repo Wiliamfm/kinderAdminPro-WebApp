@@ -13,7 +13,12 @@ const employees: EmployeeResponse[] = [
 const employeeJobs: EmployeeJobResponse[] = [
   { id: "1", name: "test job", salary: 1000 },
   { id: "2", name: "test job 2", salary: 2000 },
-]
+];
+
+const employeeLeaves = [
+  { id: "1", startDate: new Date("2025-04-05"), endDate: new Date("2025-04-05"), employeeId: "1" },
+  { id: "2", startDate: new Date("2025-05-06"), endDate: new Date("2025-05-06"), employeeId: "1" },
+];
 
 export const createEmployee = server$(function(name: string, job: string, salary: number) {
   const lastId = employees.length + 1;
@@ -38,7 +43,7 @@ export const updateEmployee = server$(function(id: string, name: string, jobId: 
   if (!employee || !job) {
     throw new Error("Employee or Job not found!");
   }
-  if(job.salary !== salary) {
+  if (job.salary !== salary) {
     throw new Error("Cannot change job's salary!");
   }
   employee.name = name;
@@ -59,3 +64,26 @@ export const deleteEmployee = server$(function(id: string) {
 export const getEmployeeJobs = server$(function() {
   return employeeJobs;
 });
+
+export const getEmployeeLeaves = server$(function() {
+  return employeeLeaves;
+});
+
+export const getEmployeesWithLeaves = server$(function() {
+  return employees.map(e => {
+    const leaves = employeeLeaves.filter(l => l.employeeId === e.id);
+    const employeeResponse: EmployeeResponse = {
+      id: e.id, name: e.name, job: e.job, salary: e.salary, leaves: leaves
+    };
+    return employeeResponse;
+  });
+});
+
+export const createEmployeeLeave = server$(function(employeeId: string, startDate: Date, endDate: Date) {
+  const lastId = employeeLeaves.length + 1;
+  const employeeLeave = {
+    id: lastId.toString(), startDate: startDate, endDate: endDate, employeeId: employeeId
+  };
+  employeeLeaves.push(employeeLeave);
+  return employeeLeave;
+})
