@@ -1,6 +1,9 @@
 import { component$, useSignal } from "@builder.io/qwik";
 import { Form, routeAction$, routeLoader$, z, zod$, type DocumentHead } from "@builder.io/qwik-city";
-import { getEmployee, getEmployeeJobs, updateEmployee } from "~/services/payroll.service";
+import { useGetEmployeeJobs } from "~/loaders/payroll.loader";
+import { getEmployee, updateEmployee } from "~/services/payroll.service";
+
+export { useGetEmployeeJobs } from "~/loaders/payroll.loader";
 
 export const useGetEmployee = routeLoader$(async (event) => {
   const id = event.params.id;
@@ -9,11 +12,6 @@ export const useGetEmployee = routeLoader$(async (event) => {
     throw event.redirect(302, "/payroll/employee");
   }
   return { employee };
-});
-
-export const useGetEmployeeJobs = routeLoader$(async () => {
-  const employeeJobs = await getEmployeeJobs();
-  return { employeeJobs };
 });
 
 export const useUpdateEmployee = routeAction$(async (data, event) => {

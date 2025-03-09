@@ -1,8 +1,11 @@
-import { component$ } from "@builder.io/qwik";
-import { routeLoader$, type DocumentHead } from "@builder.io/qwik-city";
+import { component$, useSignal } from "@builder.io/qwik";
+import { Form, routeAction$, routeLoader$, z, zod$, type DocumentHead } from "@builder.io/qwik-city";
 import Table, { TableHeader, TableProps } from "~/components/common/table/table";
-import { deleteEmployee, getEmployees } from "~/services/payroll.service";
+import { createEmployee, deleteEmployee, getEmployeeJobs, getEmployees } from "~/services/payroll.service";
 import { Employee, EmployeeResponse } from "~/types/payroll.types";
+import { useGetEmployeeJobs } from "~/loaders/payroll.loader";
+
+export { useGetEmployeeJobs } from "~/loaders/payroll.loader";
 
 export const useGetEmployees = routeLoader$(async () => {
   const response = await getEmployees();
@@ -35,8 +38,29 @@ export const useGetEmployees = routeLoader$(async () => {
   }
 });
 
+export const useCreateEmployee = routeAction$(async (data, event) => {
+  const jobs = await getEmployeeJobs();
+  const job = jobs.find((j) => j.id === data.job);
+  if (!job) {
+    return event.fail(404, { message: "Job not found!" });
+  }
+  const employee = await createEmployee(data.name, job.name, job.salary).catch((error) => {
+    console.error(error);
+    return event.fail(500, { message: "Unable to create employee!" });
+  });
+  console.log("Response:", employee);
+  return employee;
+}, zod$({
+  name: z.string().min(3),
+  job: z.string().min(1),
+}));
+
 export default component$(() => {
+  const btnCloseModalRef = useSignal<HTMLButtonElement>();
   const employeesLoader = useGetEmployees();
+  const getEmployeeJobsLoader = useGetEmployeeJobs();
+
+  const createEmployeeAction = useCreateEmployee();
 
   const headers: TableHeader[] = [
     { name: "Nombre", key: "name" },
@@ -52,6 +76,60 @@ export default component$(() => {
   return (
     <div class="flex flex-col place-items-center h-full space-y-10">
       <h1 class="mt-18 text-4xl">Gestion de Empleados</h1>
+
+      {/*<!-- Modal toggle -->*/}
+      <button data-modal-target="employee-form-modal" data-modal-toggle="employee-form-modal" class="relative inline-flex items-center justify-center p-0.5 mb-2 me-2 overflow-hidden text-sm font-medium text-gray-900 rounded-lg group bg-gradient-to-br from-red-200 via-red-300 to-yellow-200 group-hover:from-red-200 group-hover:via-red-300 group-hover:to-yellow-200 dark:text-white dark:hover:text-gray-900 focus:ring-4 focus:outline-none focus:ring-red-100 dark:focus:ring-red-400" type="button">
+        <span class="relative px-5 py-2.5 transition-all ease-in duration-75 bg-white dark:bg-gray-900 rounded-md group-hover:bg-transparent group-hover:dark:bg-transparent">
+          Agregar Empleado
+        </span>
+      </button>
+
+      {/*<!-- Main modal -->*/}
+      <div id="employee-form-modal" tabIndex={-1} aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+        <div class="relative p-4 w-full max-w-md max-h-full">
+          {/*<!-- Modal content -->*/}
+          <div class="relative bg-white rounded-lg shadow-sm dark:bg-gray-700">
+            {/*<!-- Modal header -->*/}
+            <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600 border-gray-200">
+              <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
+                Agregar Empleado
+              </h3>
+              <button ref={btnCloseModalRef} type="button" class="end-2.5 text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white" data-modal-hide="employee-form-modal">
+                <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                  <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6" />
+                </svg>
+                <span class="sr-only">Close modal</span>
+              </button>
+            </div>
+            {/*<!-- Modal body -->*/}
+            <div class="p-4 md:p-5">
+              <Form class="space-y-4" action={createEmployeeAction} onSubmitCompleted$={(_, element) => {
+                if(createEmployeeAction.value?.failed){
+                  console.error(createEmployeeAction.value.message);
+                  return;
+                }
+                console.log("createEmployeeAction completed:\n", createEmployeeAction.value);
+                element.reset();
+                btnCloseModalRef.value?.click();
+              }}>
+                <div>
+                  <label for="name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Nombre</label>
+                  <input type="name" name="name" id="name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" placeholder="Juan Perez" required />
+                </div>
+                <div>
+                  <label for="jobs" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Seleccione un cargo</label>
+                  <select id="jobs" name="job" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                    {getEmployeeJobsLoader.value.employeeJobs.map((job) => (
+                      <option value={job.id} key={job.id}>{job.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <button type="submit" class="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Crear empleado</button>
+              </Form>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <Table {...tableProps} />
     </div>
