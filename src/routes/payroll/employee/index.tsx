@@ -1,49 +1,26 @@
-import { $, component$, useSignal } from "@builder.io/qwik";
+import { $, component$, useSignal, useStore } from "@builder.io/qwik";
 import { routeAction$, routeLoader$, z, zod$, type DocumentHead } from "@builder.io/qwik-city";
 import Table, { TableHeader, TableProps } from "~/components/common/table/table";
-import { createEmployee, createEmployeeLeave, deleteEmployee, getEmployeeJobs, getEmployeesWithLeaves } from "~/services/payroll.service";
-import { Employee, EmployeeResponse } from "~/types/payroll.types";
+import { createEmployee, createEmployeeLeave, deleteEmployee, getEmployeeJobs, getEmployeeLeaves, getEmployeesWithLeaves } from "~/services/payroll.service";
+import { EmployeeResponse } from "~/types/payroll.types";
 import { useGetEmployeeJobs } from "~/loaders/payroll.loader";
 import FormModal from "~/components/common/modal/formModal/formModal";
+import { InstanceOptions, Modal, ModalInterface, ModalOptions } from "flowbite";
 
 export { useGetEmployeeJobs } from "~/loaders/payroll.loader";
 
 export const useGetEmployees = routeLoader$(async () => {
   const response = await getEmployeesWithLeaves();
-  const employees: Employee[] = response.map((e: EmployeeResponse) => {
-    return {
-      id: e.id, name: e.name, job: e.job, salary: e.salary, actions: [
-        <a href={`/payroll/employee/${e.id}`}>
-          <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
-            <path fill-rule="evenodd" d="M5 8a4 4 0 1 1 7.796 1.263l-2.533 2.534A4 4 0 0 1 5 8Zm4.06 5H7a4 4 0 0 0-4 4v1a2 2 0 0 0 2 2h2.172a2.999 2.999 0 0 1-.114-1.588l.674-3.372a3 3 0 0 1 .82-1.533L9.06 13Zm9.032-5a2.907 2.907 0 0 0-2.056.852L9.967 14.92a1 1 0 0 0-.273.51l-.675 3.373a1 1 0 0 0 1.177 1.177l3.372-.675a1 1 0 0 0 .511-.273l6.07-6.07a2.91 2.91 0 0 0-.944-4.742A2.907 2.907 0 0 0 18.092 8Z" clip-rule="evenodd" />
-          </svg>
-        </a >,
-        <button class="cursor-pointer" onClick$={async () => {
-          var employee = await deleteEmployee(e.id).catch((error) => {
-            console.error(error);
-          });
-          if (employee) {
-            alert("Empleado Eliminado!");
-            window.location.reload();
-          }
-        }}>
-          <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
-            <path fill-rule="evenodd" d="M5 8a4 4 0 1 1 8 0 4 4 0 0 1-8 0Zm-2 9a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1Zm13-6a1 1 0 1 0 0 2h4a1 1 0 1 0 0-2h-4Z" clip-rule="evenodd" />
-          </svg>
-        </button>,
-        <button class="cursor-pointer" onClick$={async () => {
-
-        }}>
-          <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
-            <path fill-rule="evenodd" d="M5 5a1 1 0 0 0 1-1 1 1 0 1 1 2 0 1 1 0 0 0 1 1h1a1 1 0 0 0 1-1 1 1 0 1 1 2 0 1 1 0 0 0 1 1h1a1 1 0 0 0 1-1 1 1 0 1 1 2 0 1 1 0 0 0 1 1 2 2 0 0 1 2 2v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a2 2 0 0 1 2-2ZM3 19v-7a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Zm6.01-6a1 1 0 1 0-2 0 1 1 0 0 0 2 0Zm2 0a1 1 0 1 1 2 0 1 1 0 0 1-2 0Zm6 0a1 1 0 1 0-2 0 1 1 0 0 0 2 0Zm-10 4a1 1 0 1 1 2 0 1 1 0 0 1-2 0Zm6 0a1 1 0 1 0-2 0 1 1 0 0 0 2 0Zm2 0a1 1 0 1 1 2 0 1 1 0 0 1-2 0Z" clip-rule="evenodd" />
-          </svg>
-        </button>,
-      ]
-    }
-  })
   return {
-    employees: employees,
+    employees: response,
   }
+});
+
+export const useGetEmployesLeaves = routeLoader$(async () => {
+  const leaves = await getEmployeeLeaves();
+  return {
+    leaves: leaves
+  };
 });
 
 export const useCreateEmployee = routeAction$(async (data, event) => {
@@ -90,8 +67,28 @@ export const useCreateEmployeeLeave = routeAction$(async (data, event) => {
 }));
 
 export default component$(() => {
+  const leavesHeader: TableHeader[] = [
+    { name: "Id del empleado", key: "employeeId" },
+    {
+      name: "Fecha de Inicio", key: "startDate", format: $((date: Date) => {
+        return date.toLocaleDateString();
+      })
+    },
+    {
+      name: "Fecha de Finalización", key: "endDate", format: $((date: Date) => {
+        return date.toLocaleDateString();
+      })
+    },
+    //{ name: "Acciones", key: "actions" },
+  ];
   const employeesLoader = useGetEmployees();
   const getEmployeeJobsLoader = useGetEmployeeJobs();
+  const leavesLoader = useGetEmployesLeaves();
+  const leavesModalRef = useSignal<HTMLDivElement>();
+  const employeeLeavesTableProps = useStore({
+    headers: leavesHeader,
+    data: leavesLoader.value.leaves,
+  });
 
   const createEmployeeAction = useCreateEmployee();
   const createEmployeeLeaveAction = useCreateEmployeeLeave();
@@ -118,10 +115,68 @@ export default component$(() => {
     { name: "Salario", key: "salary" },
     { name: "Acciones", key: "actions" },
   ]
+  const employees = employeesLoader.value.employees.map((e: EmployeeResponse) => {
+    return {
+      id: e.id, name: e.name, job: e.job, salary: e.salary, actions: [
+        <a href={`/payroll/employee/${e.id}`}>
+          <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+            <path fill-rule="evenodd" d="M5 8a4 4 0 1 1 7.796 1.263l-2.533 2.534A4 4 0 0 1 5 8Zm4.06 5H7a4 4 0 0 0-4 4v1a2 2 0 0 0 2 2h2.172a2.999 2.999 0 0 1-.114-1.588l.674-3.372a3 3 0 0 1 .82-1.533L9.06 13Zm9.032-5a2.907 2.907 0 0 0-2.056.852L9.967 14.92a1 1 0 0 0-.273.51l-.675 3.373a1 1 0 0 0 1.177 1.177l3.372-.675a1 1 0 0 0 .511-.273l6.07-6.07a2.91 2.91 0 0 0-.944-4.742A2.907 2.907 0 0 0 18.092 8Z" clip-rule="evenodd" />
+          </svg>
+        </a >,
+        <button class="cursor-pointer" onClick$={async () => {
+          var employee = await deleteEmployee(e.id).catch((error) => {
+            console.error(error);
+          });
+          if (employee) {
+            alert("Empleado Eliminado!");
+            window.location.reload();
+          }
+        }}>
+          <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+            <path fill-rule="evenodd" d="M5 8a4 4 0 1 1 8 0 4 4 0 0 1-8 0Zm-2 9a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1Zm13-6a1 1 0 1 0 0 2h4a1 1 0 1 0 0-2h-4Z" clip-rule="evenodd" />
+          </svg>
+        </button>,
+        <button class="cursor-pointer" onClick$={async () => {
+          const $modalElement = leavesModalRef.value;
+
+          const modalOptions: ModalOptions = {
+            placement: "top-center",
+            backdrop: "dynamic",
+            backdropClasses:
+              'bg-gray-900/50 dark:bg-gray-900/80 fixed inset-0 z-40',
+            closable: true,
+            onHide: () => {
+              console.log('modal is hidden');
+            },
+            onShow: () => {
+              console.log('modal is shown');
+            },
+            onToggle: () => {
+              console.log('modal has been toggled');
+            },
+          };
+
+          // instance options object
+          const instanceOptions: InstanceOptions = {
+            id: 'modalEl',
+            override: true
+          };
+
+          const modal: ModalInterface = new Modal($modalElement, modalOptions, instanceOptions);
+          modal.show();
+          employeeLeavesTableProps.data = leavesLoader.value.leaves.filter(l => l.employeeId === e.id);
+        }}>
+          <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+            <path fill-rule="evenodd" d="M5 5a1 1 0 0 0 1-1 1 1 0 1 1 2 0 1 1 0 0 0 1 1h1a1 1 0 0 0 1-1 1 1 0 1 1 2 0 1 1 0 0 0 1 1h1a1 1 0 0 0 1-1 1 1 0 1 1 2 0 1 1 0 0 0 1 1 2 2 0 0 1 2 2v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a2 2 0 0 1 2-2ZM3 19v-7a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Zm6.01-6a1 1 0 1 0-2 0 1 1 0 0 0 2 0Zm2 0a1 1 0 1 1 2 0 1 1 0 0 1-2 0Zm6 0a1 1 0 1 0-2 0 1 1 0 0 0 2 0Zm-10 4a1 1 0 1 1 2 0 1 1 0 0 1-2 0Zm6 0a1 1 0 1 0-2 0 1 1 0 0 0 2 0Zm2 0a1 1 0 1 1 2 0 1 1 0 0 1-2 0Z" clip-rule="evenodd" />
+          </svg>
+        </button>,
+      ]
+    }
+  });
   const tableProps: TableProps = {
     headers: headers,
-    data: employeesLoader.value.employees,
-  }
+    data: employees,
+  };
 
   return (
     <div class="flex flex-col place-items-center h-full space-y-10">
@@ -171,6 +226,63 @@ export default component$(() => {
             </select>
           </div>
         </FormModal>
+      </div>
+
+      <div
+        ref={leavesModalRef}
+        id="leavesModal"
+        tabIndex={-1}
+        aria-hidden="true"
+        class="fixed left-0 right-0 top-0 z-50 hidden h-[calc(100%-1rem)] max-h-full w-full overflow-y-auto overflow-x-hidden p-4 md:inset-0"
+      >
+        <div class="relative max-h-full w-full max-w-2xl">
+          {/*<!-- Modal content -->*/}
+          <div class="relative rounded-lg bg-white shadow-sm dark:bg-gray-700">
+            {/*<!-- Modal header -->*/}
+            <div
+              class="flex items-start justify-between rounded-t border-b p-5 dark:border-gray-600"
+            >
+              <h3
+                class="text-xl font-semibold text-gray-900 dark:text-white lg:text-2xl"
+              >
+                Registro de incapacidades
+              </h3>
+              <button
+                type="button"
+                class="ms-auto inline-flex h-8 w-8 items-center justify-center rounded-lg bg-transparent text-sm text-gray-400 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-600 dark:hover:text-white"
+                onClick$={() => {
+                  //leavesModalRef.value?.hide();
+                }}
+              >
+                <svg
+                  class="h-3 w-3"
+                  aria-hidden="true"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 14 14"
+                >
+                  <path
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"
+                  />
+                </svg>
+                <span class="sr-only">Close modal</span>
+              </button>
+            </div>
+            {/*<!-- Modal body -->*/}
+            <div class="space-y-6 p-6">
+              <Table {...employeeLeavesTableProps} />
+            </div>
+            {/*<!-- Modal footer -->*/}
+            <div
+              class="flex items-center space-x-2 rtl:space-x-reverse rounded-b border-t border-gray-200 p-6 dark:border-gray-600"
+            >
+            </div>
+          </div>
+        </div>
       </div>
 
       <Table {...tableProps} />

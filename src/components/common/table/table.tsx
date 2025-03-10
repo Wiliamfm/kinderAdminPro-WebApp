@@ -1,8 +1,9 @@
-import { JSXChildren, component$ } from "@builder.io/qwik";
+import { JSXChildren, QRL, Slot, component$ } from "@builder.io/qwik";
 
 export type TableHeader = {
   name: string;
   key: string;
+  format?: QRL;
 }
 
 export type TableProps = {
@@ -24,6 +25,7 @@ export default component$<TableProps>(({ headers, data }) => {
           </tr>
         </thead>
         <tbody>
+          <Slot />
           {data.map((row, index) => (
             <tr key={index} class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 border-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
               {/* TODO: Allow a more flexible table styles for each row and column */}
@@ -33,7 +35,7 @@ export default component$<TableProps>(({ headers, data }) => {
                     {action}
                   </div>
                 ))}</td> : < td key={index} class="px-6 py-4" >
-                  {row[header.key]}
+                  {header.format ? header.format(row[header.key]) : row[header.key]}
                 </td>
               ))}
             </tr>

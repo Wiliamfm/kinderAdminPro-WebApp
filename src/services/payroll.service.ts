@@ -1,5 +1,5 @@
 import { server$ } from "@builder.io/qwik-city";
-import { EmployeeJobResponse, EmployeeResponse } from "~/types/payroll.types";
+import { EmployeeJobResponse, EmployeeLeave, EmployeeResponse } from "~/types/payroll.types";
 
 const employees: EmployeeResponse[] = [
   {
@@ -15,7 +15,7 @@ const employeeJobs: EmployeeJobResponse[] = [
   { id: "2", name: "test job 2", salary: 2000 },
 ];
 
-const employeeLeaves = [
+const employeeLeaves: EmployeeLeave[] = [
   { id: "1", startDate: new Date("2025-04-05"), endDate: new Date("2025-04-05"), employeeId: "1" },
   { id: "2", startDate: new Date("2025-05-06"), endDate: new Date("2025-05-06"), employeeId: "1" },
 ];
