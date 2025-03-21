@@ -27,3 +27,12 @@ export type EmployeeLeave = {
   endDate: Date;
   employeeId: string;
 }
+
+export type CalendarEvent = {
+  id?: string;
+  title: string;
+  description: string;
+  startDate: Date;
+  endDate: Date;
+  isAllDay: boolean;
+}

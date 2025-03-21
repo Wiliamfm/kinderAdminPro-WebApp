@@ -1,15 +1,16 @@
-import { QRL, Slot, component$, useSignal } from "@builder.io/qwik";
+import { QRL, Signal, Slot, component$, useSignal } from "@builder.io/qwik";
 import { ActionStore, Form } from "@builder.io/qwik-city";
 
 export type modalFormProps = {
   modalId: string;
-  modalBtnClass: string;
+  modalBtnClass?: string;
   modalTitle: string;
   modalBtnName: string;
-  formBtnName: string;
+  formBtnName?: string;
   formBtnClass: string;
   formAction: ActionStore<any, any, any>;
   formOnSubmitFn: QRL;
+  btnModalRef?: Signal<HTMLButtonElement | undefined>;
 };
 
 export default component$<modalFormProps>((props) => {
@@ -18,7 +19,7 @@ export default component$<modalFormProps>((props) => {
   return (
     <div>
       {/*<!-- Modal toggle -->*/}
-      <button data-modal-target={props.modalId} data-modal-toggle={props.modalId} class={props.modalBtnClass} type="button">
+      <button ref={props.btnModalRef} data-modal-target={props.modalId} data-modal-toggle={props.modalId} class={props.modalBtnClass} type="button">
         <span class="relative px-5 py-2.5 transition-all ease-in duration-75 bg-white dark:bg-gray-900 rounded-md group-hover:bg-transparent group-hover:dark:bg-transparent">
           {props.modalBtnName}
         </span>
@@ -26,9 +27,9 @@ export default component$<modalFormProps>((props) => {
 
       {/*<!-- Main modal -->*/}
       <div id={props.modalId} tabIndex={-1} aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
-        <div class="relative p-4 w-full max-w-md max-h-full">
+        <div class="relative min-w-3xs p-4 w-full max-w-md max-h-full">
           {/*<!-- Modal content -->*/}
-          <div class="relative bg-white rounded-lg shadow-sm dark:bg-gray-700">
+          <div class="relative flex-grow bg-white rounded-lg shadow-sm dark:bg-gray-700">
             {/*<!-- Modal header -->*/}
             <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600 border-gray-200">
               <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
@@ -48,7 +49,13 @@ export default component$<modalFormProps>((props) => {
                 btnCloseModalRef.value?.click();
               }}>
                 <Slot />
-                <button type="submit" class={props.formBtnClass}>{props.formBtnName}</button>
+                <button type="submit" class={props.formBtnClass}>
+                  {props.formBtnName ? props.formBtnName :
+                    <Slot name="formSlot">
+                      {props.formBtnName}
+                    </Slot>
+                  }
+                </button>
               </Form>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import { server$ } from "@builder.io/qwik-city";
-import { EmployeeJobResponse, EmployeeLeave, EmployeeResponse } from "~/types/payroll.types";
+import { CalendarEvent, EmployeeJobResponse, EmployeeLeave, EmployeeResponse } from "~/types/payroll.types";
 
 const employees: EmployeeResponse[] = [
   {
@@ -86,4 +86,21 @@ export const createEmployeeLeave = server$(function(employeeId: string, startDat
   };
   employeeLeaves.push(employeeLeave);
   return employeeLeave;
-})
+});
+
+const calendarEvents: CalendarEvent[] = [];
+
+export const createCalendarEvent = server$(function(event: CalendarEvent) {
+  const lastId = String(calendarEvents.length + 1);
+  // const { id, ...eventProps } = event;
+  // const calendarEvent: CalendarEvent = { id: lastId, ...eventProps };
+  const calendarEvent: CalendarEvent = { id: lastId, ...event };
+  console.info("Calendar event created: ", calendarEvent);
+  calendarEvents.push(calendarEvent);
+  return calendarEvent;
+});
+
+export const getCalendarEvents = server$(function() {
+  console.info("Getting calendar events: ", calendarEvents.length);
+  return calendarEvents;
+});
