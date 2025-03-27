@@ -30,7 +30,7 @@ export default component$<TableProps>(({ headers, data }) => {
             <tr key={index} class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 border-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
               {/* TODO: Allow a more flexible table styles for each row and column */}
               {headers.map((header, index) => (
-                header.key === "actions" ? <td key={index} class="px-6 py-4">{row[header.key].map((action: JSXChildren, index: number) => (
+                header.key === "actions" ? <td key={index} class="px-6 py-4 flex">{row[header.key].map((action: JSXChildren, index: number) => (
                   <div key={index}>
                     {action}
                   </div>
