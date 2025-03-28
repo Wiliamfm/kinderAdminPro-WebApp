@@ -1,13 +1,14 @@
 import { $, component$, useSignal, useStore } from "@builder.io/qwik";
-import { Link, routeAction$, routeLoader$, z, zod$, type DocumentHead } from "@builder.io/qwik-city";
+import { Form, Link, routeAction$, routeLoader$, z, zod$, type DocumentHead } from "@builder.io/qwik-city";
 import Table, { TableHeader, TableProps } from "~/components/common/table/table";
-import { createEmployee, createEmployeeLeave, deleteEmployee, getEmployeeJobs, getEmployeeLeaves, getEmployeesWithLeaves } from "~/services/payroll.service";
-import { EmployeeResponse } from "~/types/payroll.types";
+import { createEmployee, createEmployeeLeave, deleteEmployee, getEmployeeInvoices, getEmployeeJobs, getEmployeeLeaves, getEmployeesWithLeaves } from "~/services/payroll.service";
+import { EmployeeInvoiceResponse, EmployeeResponse } from "~/types/payroll.types";
 import { useGetEmployeeJobs } from "~/loaders/payroll.loader";
+import { useCreateEmployeeInvoice } from "~/services/payroll.service";
 import FormModal from "~/components/common/modal/formModal/formModal";
-import { InstanceOptions, Modal, ModalInterface, ModalOptions } from "flowbite";
 
 export { useGetEmployeeJobs } from "~/loaders/payroll.loader";
+export { useCreateEmployeeInvoice } from "~/services/payroll.service";
 
 export const useGetEmployees = routeLoader$(async () => {
   const response = await getEmployeesWithLeaves();
@@ -79,20 +80,38 @@ export default component$(() => {
         return date.toLocaleDateString();
       })
     },
-    //{ name: "Acciones", key: "actions" },
+  ];
+  const invoicesHeader: TableHeader[] = [
+    { name: "Id del empleado", key: "employeeId" },
+    {
+      name: "Fecha de pago", key: "invoiceDate", format: $((date: Date) => {
+        return date.toLocaleDateString();
+      })
+    },
+    { name: "Factura", key: "invoicePath" }
   ];
 
   const employeesLoader = useGetEmployees();
   const getEmployeeJobsLoader = useGetEmployeeJobs();
   const leavesLoader = useGetEmployesLeaves();
 
+  const selectedEmployee = useSignal("");
+  const employeeInvoices = useStore({
+    invoices: [] as EmployeeInvoiceResponse[],
+  });
+  const showEmployeeInvoiceForm = useSignal(false);
   const employeeLeavesTableProps = useStore({
     headers: leavesHeader,
     data: leavesLoader.value.leaves,
   });
+  const employeeInvoicesTableProps = useStore({
+    headers: invoicesHeader,
+    data: [] as EmployeeInvoiceResponse[],
+  });
 
   const createEmployeeAction = useCreateEmployee();
   const createEmployeeLeaveAction = useCreateEmployeeLeave();
+  const createEmployeeInvoiceAction = useCreateEmployeeInvoice();
 
   const employeeFormFn = $((_: any, element: HTMLFormElement) => {
     if (createEmployeeAction.value?.failed) {
@@ -142,7 +161,12 @@ export default component$(() => {
             <path fill-rule="evenodd" d="M5 5a1 1 0 0 0 1-1 1 1 0 1 1 2 0 1 1 0 0 0 1 1h1a1 1 0 0 0 1-1 1 1 0 1 1 2 0 1 1 0 0 0 1 1h1a1 1 0 0 0 1-1 1 1 0 1 1 2 0 1 1 0 0 0 1 1 2 2 0 0 1 2 2v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a2 2 0 0 1 2-2ZM3 19v-7a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Zm6.01-6a1 1 0 1 0-2 0 1 1 0 0 0 2 0Zm2 0a1 1 0 1 1 2 0 1 1 0 0 1-2 0Zm6 0a1 1 0 1 0-2 0 1 1 0 0 0 2 0Zm-10 4a1 1 0 1 1 2 0 1 1 0 0 1-2 0Zm6 0a1 1 0 1 0-2 0 1 1 0 0 0 2 0Zm2 0a1 1 0 1 1 2 0 1 1 0 0 1-2 0Z" clip-rule="evenodd" />
           </svg>
         </button>,
-        <button class="cursor-pointer" data-modal-target="invoicesModal" data-modal-toggle="invoicesModal">
+        <button class="cursor-pointer" data-modal-target="invoicesModal" data-modal-toggle="invoicesModal" onClick$={async () => {
+          selectedEmployee.value = e.id;
+          employeeInvoices.invoices.length = 0;
+          employeeInvoices.invoices = await getEmployeeInvoices({ employeeId: e.id });
+          employeeInvoicesTableProps.data = employeeInvoices.invoices;
+        }}>
           <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
             <path fill-rule="evenodd" d="M5.617 2.076a1 1 0 0 1 1.09.217L8 3.586l1.293-1.293a1 1 0 0 1 1.414 0L12 3.586l1.293-1.293a1 1 0 0 1 1.414 0L16 3.586l1.293-1.293A1 1 0 0 1 19 3v18a1 1 0 0 1-1.707.707L16 20.414l-1.293 1.293a1 1 0 0 1-1.414 0L12 20.414l-1.293 1.293a1 1 0 0 1-1.414 0L8 20.414l-1.293 1.293A1 1 0 0 1 5 21V3a1 1 0 0 1 .617-.924ZM9 7a1 1 0 0 0 0 2h6a1 1 0 1 0 0-2H9Zm0 4a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2H9Zm0 4a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2H9Z" clip-rule="evenodd" />
           </svg>
@@ -259,6 +283,37 @@ export default component$(() => {
         </div>
       </div>
 
+      <div
+        id="invoicesModal"
+        tabIndex={-1}
+        aria-hidden="true"
+        class="fixed left-0 right-0 top-0 z-50 hidden h-[calc(100%-1rem)] max-h-full w-full overflow-y-auto overflow-x-hidden p-4 md:inset-0"
+      >
+        <div class="relative max-h-full w-full max-w-2xl">
+          {/*<!-- Modal content -->*/}
+          <div class="relative rounded-lg bg-white shadow-sm dark:bg-gray-700">
+            {/*<!-- Modal header -->*/}
+            <div
+              class="flex items-start justify-between rounded-t border-b p-5 dark:border-gray-600"
+            >
+              <h3
+                class="text-xl font-semibold text-gray-900 dark:text-white lg:text-2xl"
+              >
+                Registro de facturas
+              </h3>
+              <button
+                type="button"
+                class="relative inline-flex items-center justify-center ms-auto p-0.5 mb-2 me-2 overflow-hidden text-xs font-medium text-gray-900 rounded-lg group bg-gradient-to-br from-red-200 via-red-300 to-yellow-200 group-hover:from-red-200 group-hover:via-red-300 group-hover:to-yellow-200 dark:text-white dark:hover:text-gray-900 focus:ring-4 focus:outline-none focus:ring-red-100 dark:focus:ring-red-400" onClick$={() => {
+                  showEmployeeInvoiceForm.value = !showEmployeeInvoiceForm.value;
+                }}>
+                <span class="relative px-5 py-2.5 transition-all ease-in duration-75 bg-white dark:bg-gray-900 rounded-md group-hover:bg-transparent group-hover:dark:bg-transparent">
+                  {showEmployeeInvoiceForm.value ? "Cerrar" : "Registrar nueva factura"}
+                </span>
+              </button>
+              <button
+                type="button"
+                class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-transparent text-sm text-gray-400 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-600 dark:hover:text-white"
+                data-modal-hide="invoicesModal"
               >
                 <svg
                   class="h-3 w-3"
@@ -280,7 +335,26 @@ export default component$(() => {
             </div>
             {/*<!-- Modal body -->*/}
             <div class="space-y-6 p-6">
-              <Table {...employeeLeavesTableProps} />
+              {showEmployeeInvoiceForm.value && <Form action={createEmployeeInvoiceAction} onSubmitCompleted$={(_, element) => {
+                if (createEmployeeInvoiceAction.value?.failed) {
+                  alert(createEmployeeInvoiceAction.value.message);
+                  return;
+                }
+                element.reset();
+                alert("Factura registrada correctamente");
+              }}>
+                <input type="hidden" name="employeeId" value={selectedEmployee.value} />
+                <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white" for="file_input">Subir factura</label>
+                <input name="invoice" class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400" aria-describedby="file_input_help" id="file_input" type="file" accept=".pdf" />
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-300" id="file_input_help">PDF</p>
+                <button class="relative inline-flex items-center justify-center p-0.5 mb-2 me-2 overflow-hidden text-sm font-medium text-gray-900 rounded-lg group bg-gradient-to-br from-red-200 via-red-300 to-yellow-200 group-hover:from-red-200 group-hover:via-red-300 group-hover:to-yellow-200 dark:text-white dark:hover:text-gray-900 focus:ring-4 focus:outline-none focus:ring-red-100 dark:focus:ring-red-400">
+                  <span class="relative px-5 py-2.5 transition-all ease-in duration-75 bg-white dark:bg-gray-900 rounded-md group-hover:bg-transparent group-hover:dark:bg-transparent">
+                    Subir
+                  </span>
+                </button>
+              </Form>
+              }
+              <Table {...employeeInvoicesTableProps} />
             </div>
             {/*<!-- Modal footer -->*/}
             <div

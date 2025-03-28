@@ -36,3 +36,14 @@ export type CalendarEvent = {
   endDate: Date;
   isAllDay: boolean;
 }
+
+export type EmployeeInvoiceRequest = {
+  employeeId: string;
+}
+
+export type EmployeeInvoiceResponse = {
+  id: string;
+  employeeId: string;
+  invoiceDate: Date;
+  invoicePath: string;
+}

@@ -1,5 +1,6 @@
-import { server$ } from "@builder.io/qwik-city";
-import { CalendarEvent, EmployeeJobResponse, EmployeeLeave, EmployeeResponse } from "~/types/payroll.types";
+import { routeAction$, server$, z, zod$ } from "@builder.io/qwik-city";
+import { CalendarEvent, EmployeeInvoiceRequest, EmployeeInvoiceResponse, EmployeeJobResponse, EmployeeLeave, EmployeeResponse } from "~/types/payroll.types";
+import * as fs from 'node:fs/promises';
 
 const employees: EmployeeResponse[] = [
   {
@@ -19,6 +20,10 @@ const employeeLeaves: EmployeeLeave[] = [
   { id: "1", startDate: new Date("2025-04-05"), endDate: new Date("2025-04-05"), employeeId: "1" },
   { id: "2", startDate: new Date("2025-05-06"), endDate: new Date("2025-05-06"), employeeId: "1" },
 ];
+
+const calendarEvents: CalendarEvent[] = [];
+
+const employeeInvoices: EmployeeInvoiceResponse[] = [];
 
 export const createEmployee = server$(function(name: string, job: string, salary: number) {
   const lastId = employees.length + 1;
@@ -88,8 +93,6 @@ export const createEmployeeLeave = server$(function(employeeId: string, startDat
   return employeeLeave;
 });
 
-const calendarEvents: CalendarEvent[] = [];
-
 export const createCalendarEvent = server$(function(event: CalendarEvent) {
   const lastId = String(calendarEvents.length + 1);
   // const { id, ...eventProps } = event;
@@ -104,3 +107,55 @@ export const getCalendarEvents = server$(function() {
   console.info("Getting calendar events: ", calendarEvents.length);
   return calendarEvents;
 });
+
+export const getEmployeeInvoices = server$(async function(request: EmployeeInvoiceRequest) {
+  const files = await fs.readdir("data/invoices/" + request.employeeId);
+  employeeInvoices.length = 0;
+  for (const file of files) {
+    employeeInvoices.push({
+      id: String(employeeInvoices.length + 1),
+      employeeId: request.employeeId,
+      invoiceDate: new Date(),
+      invoicePath: file
+    })
+  }
+  const invoices = employeeInvoices.filter(e => e.employeeId === request.employeeId);
+  console.info(`Getting employee invoices for employee ${request.employeeId}: ${invoices.length}`);
+  return invoices;
+});
+
+export const useCreateEmployeeInvoice = routeAction$(async (data, event) => {
+  //TODO: Use real users.
+  const fileName = crypto.randomUUID();
+  const dirPath = `data/invoices/${data.employeeId}`;
+  const filePath = `${dirPath}/${fileName}.pdf`;
+  await fs.mkdir(dirPath, { recursive: true });
+
+  const fileResponse = await fs.writeFile(filePath, new Uint8Array(await data.invoice.arrayBuffer())).catch((error) => {
+    console.error("ERROR: Unable to save file:\n", error);
+    return new Error("Unable to save file!");
+  });
+  if (fileResponse instanceof Error) {
+    return event.fail(500, { message: fileResponse.message });
+  }
+
+  const lastId = employeeInvoices.length + 1;
+  employeeInvoices.push({
+    id: lastId.toString(),
+    employeeId: data.employeeId,
+    invoiceDate: new Date(),
+    invoicePath: filePath,
+  });
+  console.log(employeeInvoices);
+
+  return {
+    success: true,
+    message: "Invoice saved successfully!"
+  };
+  //await Bun.write(`/data/invoices/${userId}/${fileName}.pdf`, data.invoice);
+}, zod$({
+  invoice: z.instanceof(File).refine((file) => {
+    return file.size > 0 && file.type.startsWith("application/") && file.type.endsWith("pdf") && file.name.endsWith(".pdf");
+  }),
+  employeeId: z.string()
+}));
