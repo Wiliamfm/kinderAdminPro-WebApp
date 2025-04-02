@@ -7,7 +7,7 @@ const employees: EmployeeResponse[] = [
     id: "1", name: "test employee", job: "test job", salary: 1000
   },
   {
-    id: "2", name: "test 2 employee", job: "test job", salary: 2000
+    id: "2", name: "test 2 employee", job: "test job 2", salary: 2000
   },
 ];
 
