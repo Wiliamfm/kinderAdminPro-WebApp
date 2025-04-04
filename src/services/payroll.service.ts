@@ -1,5 +1,5 @@
 import { routeAction$, server$, z, zod$ } from "@builder.io/qwik-city";
-import { CalendarEvent, CreateEmployeeInvoiceRequest, CreateEmployeeLeaveRequest, CreateEmployeeRequest, EmployeeInvoiceRequest, EmployeeInvoiceResponse, EmployeeJobResponse, EmployeeLeaveResponse, EmployeeResponse, UpdateEmployeeRequest } from "~/types/payroll.types";
+import { CalendarEvent, CreateEmployeeInvoiceRequest, CreateEmployeeJobRequest, CreateEmployeeLeaveRequest, CreateEmployeeRequest, EmployeeInvoiceRequest, EmployeeInvoiceResponse, EmployeeJobResponse, EmployeeLeaveResponse, EmployeeResponse, UpdateEmployeeJobRequest, UpdateEmployeeRequest } from "~/types/payroll.types";
 import * as fs from 'node:fs/promises';
 import { BaseError, ErrorResponse } from "~/types/shared.types";
 
@@ -69,8 +69,45 @@ export const deleteEmployee = server$(function(id: string) {
   return employee;
 });
 
-export const getEmployeeJobs = server$(function() {
+export const getEmployeesJobs = server$(function() {
   return employeeJobs;
+});
+
+export const getEmployeeJob = server$(function(id: string) {
+  return employeeJobs.find(e => e.id === id);
+});
+
+export const createEmployeeJob = server$(function(request: CreateEmployeeJobRequest) {
+  if (request.salary < 1000) {
+    return new BaseError("Salario no puede ser menor a 1000", 400, { salary: request.salary });
+  }
+  if (request.name.length === 0) {
+    return new BaseError("El nombre no puede estar vacio", 400, { name: request.name });
+  }
+  const lastId = employeeJobs.length + 1;
+  const newJob = { id: `${lastId}`, ...request };
+  employeeJobs.push(newJob);
+  return newJob
+});
+
+export const updateEmployeeJob = server$(function(request: UpdateEmployeeJobRequest) {
+  const job = employeeJobs.find(e => e.id === request.id);
+  if (!job) {
+    return new BaseError("Invalid job id!", 400, { id: request.id });
+  }
+  job.name = request.name;
+  job.salary = request.salary;
+  //employeeJobs[employeeJobs.indexOf(job)] = job;
+  return job;
+});
+
+export const deleteEmployeeJob = server$(function(id: string) {
+  var job = employeeJobs.find(e => e.id === id);
+  if (!job) {
+    return new BaseError("Invalid job id!", 400, { id: id });
+  }
+  employeeJobs.splice(employeeJobs.indexOf(job), 1);
+  return job;
 });
 
 export const getEmployeeLeaves = server$(function(employeeId: string) {

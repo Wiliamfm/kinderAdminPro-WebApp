@@ -48,7 +48,7 @@ export default component$(() => {
 
       <Form class="max-w-md mx-auto w-full" action={updateEmployeeAction} onSubmit$={() => {
         if (updateEmployeeAction.value?.failed) {
-          console.error("updateEmployeeAction failed:\n", updateEmployeeAction.value);
+          alert(`updateEmployeeAction failed:\n${updateEmployeeAction.value.message}`);
           return;
         }
         window.location.href = "/payroll/employees";

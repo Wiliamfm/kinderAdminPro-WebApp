@@ -26,6 +26,12 @@ export type CreateEmployeeJobRequest = {
   salary: number;
 }
 
+export type UpdateEmployeeJobRequest = {
+  id: string;
+  name: string;
+  salary: number;
+}
+
 export type EmployeeLeaveResponse = {
   id: string;
   employeeId: string;
