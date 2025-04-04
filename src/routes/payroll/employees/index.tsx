@@ -58,7 +58,7 @@ export const useCreateEmployeeLeave = routeAction$(async (data, event) => {
   return employeeLeave;
 }, zod$({
   employeeId: z.string().min(1),
-  startDate: z.coerce.date().min(new Date(), { message: "La fecha de inicio no puede ser pasada!" }),
+  startDate: z.coerce.date(),
   startTime: z.string(),
   endDate: z.coerce.date(),
   endTime: z.string(),
