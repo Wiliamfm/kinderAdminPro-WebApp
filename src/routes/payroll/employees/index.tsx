@@ -85,7 +85,7 @@ export default component$(() => {
         return date.toLocaleDateString();
       })
     },
-    { name: "Factura", key: "invoicePath" }
+    { name: "Factura", key: "fileName" }
   ];
 
   const employeesLoader = useGetEmployees();
@@ -162,7 +162,7 @@ export default component$(() => {
         <button class="cursor-pointer" data-modal-target="invoicesModal" data-modal-toggle="invoicesModal" onClick$={async () => {
           selectedEmployee.value = e.id;
           employeeInvoices.invoices.length = 0;
-          employeeInvoices.invoices = await getEmployeeInvoices({ employeeId: e.id, fileName: "" });
+          employeeInvoices.invoices = await getEmployeeInvoices({ employeeId: e.id });
           employeeInvoicesTableProps.data = employeeInvoices.invoices;
         }}>
           <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
@@ -333,13 +333,17 @@ export default component$(() => {
             </div>
             {/*<!-- Modal body -->*/}
             <div class="space-y-6 p-6">
-              {showEmployeeInvoiceForm.value && <Form action={createEmployeeInvoiceAction} onSubmitCompleted$={(_, element) => {
-                if (createEmployeeInvoiceAction.value?.failed) {
+              {showEmployeeInvoiceForm.value && <Form action={createEmployeeInvoiceAction} onSubmitCompleted$={async (_, element) => {
+                if (!createEmployeeInvoiceAction.value) {
+                  return;
+                }
+                if (createEmployeeInvoiceAction.value.failed) {
                   alert(createEmployeeInvoiceAction.value.message);
                   return;
                 }
                 element.reset();
-                alert("Factura registrada correctamente");
+                employeeInvoicesTableProps.data = await getEmployeeInvoices({ employeeId: createEmployeeInvoiceAction.value.employeeInvoice.employeeId });
+                alert(`Factura "${createEmployeeInvoiceAction.value.employeeInvoice.fileName}" registrada correctamente`);
               }}>
                 <input type="hidden" name="employeeId" value={selectedEmployee.value} />
                 <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white" for="file_input">Subir factura</label>

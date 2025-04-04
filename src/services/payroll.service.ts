@@ -1,5 +1,5 @@
 import { routeAction$, server$, z, zod$ } from "@builder.io/qwik-city";
-import { CalendarEvent, CreateEmployeeInvoiceRequest, CreateEmployeeLeaveRequest, CreateEmployeeRequest, EmployeeInvoiceResponse, EmployeeJobResponse, EmployeeLeaveResponse, EmployeeResponse, UpdateEmployeeRequest } from "~/types/payroll.types";
+import { CalendarEvent, CreateEmployeeInvoiceRequest, CreateEmployeeLeaveRequest, CreateEmployeeRequest, EmployeeInvoiceRequest, EmployeeInvoiceResponse, EmployeeJobResponse, EmployeeLeaveResponse, EmployeeResponse, UpdateEmployeeRequest } from "~/types/payroll.types";
 import * as fs from 'node:fs/promises';
 import { BaseError, ErrorResponse } from "~/types/shared.types";
 
@@ -22,7 +22,9 @@ const employeeLeaves: EmployeeLeaveResponse[] = [
   { id: "2", startDate: new Date("2025-05-06"), endDate: new Date("2025-05-06"), employeeId: "1" },
 ];
 
-const employeeInvoices: EmployeeInvoiceResponse[] = [];
+const employeeInvoices: EmployeeInvoiceResponse[] = [
+  { id: "1", employeeId: "1", invoiceDate: new Date(), invoicePath: "data/invoices/2/59d957ca-6278-443a-810e-b84727bd6c01.pdf", fileName: "test.pdf", }
+];
 
 const calendarEvents: CalendarEvent[] = [];
 
@@ -84,11 +86,18 @@ export const createEmployeeLeave = server$(function(request: CreateEmployeeLeave
   return employeeLeave;
 });
 
-export const getEmployeeInvoices = server$(async function(request: CreateEmployeeInvoiceRequest) {
-  const files = await fs.readdir("data/invoices/" + request.employeeId);
-  employeeInvoices.length = 0;
+export const getEmployeeInvoices = server$(async function(request: EmployeeInvoiceRequest) {
+  const dirPath = "data/invoices/" + request.employeeId;
+  await fs.mkdir(dirPath, { recursive: true });
+  const files = await fs.readdir(dirPath);
+  const invoices = employeeInvoices.filter(e => e.employeeId === request.employeeId);
   for (const file of files) {
-    employeeInvoices.push({
+    const invoice = invoices.find(f => {
+      const originalName = f.invoicePath.split("/").pop();
+      return originalName === file;
+    });
+    if (invoice) continue;
+    invoices.push({
       id: String(employeeInvoices.length + 1),
       employeeId: request.employeeId,
       invoiceDate: new Date(),
@@ -96,7 +105,6 @@ export const getEmployeeInvoices = server$(async function(request: CreateEmploye
       fileName: file,
     })
   }
-  const invoices = employeeInvoices.filter(e => e.employeeId === request.employeeId);
   return invoices;
 });
 
@@ -105,7 +113,6 @@ export const useCreateEmployeeInvoice = routeAction$(async (data, event) => {
   const fileName = crypto.randomUUID();
   const dirPath = `data/invoices/${data.employeeId}`;
   const filePath = `${dirPath}/${fileName}.pdf`;
-  await fs.mkdir(dirPath, { recursive: true });
 
   const fileResponse = await fs.writeFile(filePath, new Uint8Array(await data.invoice.arrayBuffer())).catch((error) => {
     console.error("ERROR: Unable to save file:\n", error);
@@ -116,18 +123,19 @@ export const useCreateEmployeeInvoice = routeAction$(async (data, event) => {
   }
 
   const lastId = employeeInvoices.length + 1;
-  employeeInvoices.push({
+  const employeeInvoice: EmployeeInvoiceResponse = {
     id: lastId.toString(),
     employeeId: data.employeeId,
     invoiceDate: new Date(),
     invoicePath: filePath,
-    fileName: filePath,
-  });
+    fileName: data.invoice.name,
+  }
+  employeeInvoices.push(employeeInvoice);
   console.log(employeeInvoices);
 
   return {
     success: true,
-    message: "Invoice saved successfully!"
+    employeeInvoice: employeeInvoice
   };
   //await Bun.write(`/data/invoices/${userId}/${fileName}.pdf`, data.invoice);
 }, zod$({

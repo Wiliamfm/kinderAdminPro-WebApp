@@ -47,6 +47,10 @@ export type EmployeeInvoiceResponse = {
   fileName: string;
 }
 
+export type EmployeeInvoiceRequest = {
+  employeeId: string;
+}
+
 export type CreateEmployeeInvoiceRequest = {
   employeeId: string;
   fileName: string;
