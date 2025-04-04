@@ -9,12 +9,6 @@ export type TableActions = {
   actions: JSXChildren[];
 }
 
-export type ErrorResponse = {
-  error?: Error;
-  message: string;
-  status: number;
-}
-
 export class BaseError extends Error {
   status: number;
   context: {};

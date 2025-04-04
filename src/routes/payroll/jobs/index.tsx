@@ -1,20 +1,15 @@
 import { component$ } from '@builder.io/qwik';
-import { routeLoader$ } from '@builder.io/qwik-city';
 import Table, { TableProps } from '~/components/common/table/table';
-import { deleteEmployeeJob, getEmployeesJobs } from '~/services/payroll.service';
+import { useGetEmployeeJobs } from '~/loaders/payroll.loader';
+import { deleteEmployeeJob } from '~/services/payroll.service';
 import { BaseError } from '~/types/shared.types';
 
-export const useGetEmployeeJobs = routeLoader$(async () => {
-  const response = await getEmployeesJobs();
-  return {
-    jobs: response,
-  }
-});
+export { useGetEmployeeJobs } from '~/loaders/payroll.loader';
 
 export default component$(() => {
   const getEmployeesJobsLoader = useGetEmployeeJobs();
 
-  const jobsTable = getEmployeesJobsLoader.value.jobs.map(j => {
+  const jobsTable = getEmployeesJobsLoader.value.employeeJobs.map(j => {
     return {
       ...j, actions: [
         <a href={`/payroll/jobs/${j.id}`} class="cursor-pointer">

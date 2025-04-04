@@ -1,7 +1,7 @@
 import { routeLoader$ } from "@builder.io/qwik-city";
-import { getEmployeeJobs } from "~/services/payroll.service";
+import { getEmployeesJobs } from "~/services/payroll.service";
 
 export const useGetEmployeeJobs = routeLoader$(async () => {
-  const employeeJobs = await getEmployeeJobs();
+  const employeeJobs = await getEmployeesJobs();
   return { employeeJobs };
 });

@@ -1,7 +1,7 @@
 import { $, component$, useSignal, useStore } from "@builder.io/qwik";
 import { Form, Link, routeAction$, routeLoader$, z, zod$, type DocumentHead } from "@builder.io/qwik-city";
 import Table, { TableHeader, TableProps } from "~/components/common/table/table";
-import { createEmployee, createEmployeeLeave, deleteEmployee, getEmployeeInvoices, getEmployeeJobs, getEmployeeLeaves, getEmployees } from "~/services/payroll.service";
+import { createEmployee, createEmployeeLeave, deleteEmployee, getEmployeeInvoices, getEmployeesJobs, getEmployeeLeaves, getEmployees } from "~/services/payroll.service";
 import { CreateEmployeeLeaveRequest, CreateEmployeeRequest, EmployeeInvoiceResponse, EmployeeLeaveResponse, EmployeeResponse } from "~/types/payroll.types";
 import { useGetEmployeeJobs } from "~/loaders/payroll.loader";
 import { useCreateEmployeeInvoice } from "~/services/payroll.service";
@@ -19,7 +19,7 @@ export const useGetEmployees = routeLoader$(async () => {
 });
 
 export const useCreateEmployee = routeAction$(async (data, event) => {
-  const jobs = await getEmployeeJobs();
+  const jobs = await getEmployeesJobs();
   const job = jobs.find((j) => j.id === data.job);
   if (!job) {
     return event.fail(404, { message: "Job not found!" });

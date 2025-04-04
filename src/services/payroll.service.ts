@@ -1,20 +1,20 @@
 import { routeAction$, server$, z, zod$ } from "@builder.io/qwik-city";
-import { CalendarEvent, CreateEmployeeInvoiceRequest, CreateEmployeeJobRequest, CreateEmployeeLeaveRequest, CreateEmployeeRequest, EmployeeInvoiceRequest, EmployeeInvoiceResponse, EmployeeJobResponse, EmployeeLeaveResponse, EmployeeResponse, UpdateEmployeeJobRequest, UpdateEmployeeRequest } from "~/types/payroll.types";
+import { CalendarEvent, CreateEmployeeJobRequest, CreateEmployeeLeaveRequest, CreateEmployeeRequest, EmployeeInvoiceRequest, EmployeeInvoiceResponse, EmployeeJobResponse, EmployeeLeaveResponse, EmployeeResponse, UpdateEmployeeJobRequest, UpdateEmployeeRequest } from "~/types/payroll.types";
 import * as fs from 'node:fs/promises';
-import { BaseError, ErrorResponse } from "~/types/shared.types";
-
-const employees: EmployeeResponse[] = [
-  {
-    id: "1", name: "test employee", job: { id: "1", name: "test job", salary: 1000 }
-  },
-  {
-    id: "2", name: "test 2 employee", job: { id: "2", name: "test job 2", salary: 2000 }
-  },
-];
+import { BaseError } from "~/types/shared.types";
 
 const employeeJobs: EmployeeJobResponse[] = [
   { id: "1", name: "test job", salary: 1000 },
   { id: "2", name: "test job 2", salary: 2000 },
+];
+
+const employees: EmployeeResponse[] = [
+  {
+    id: "1", name: "test employee", job: employeeJobs.find(e => e.id === "1")!
+  },
+  {
+    id: "2", name: "test 2 employee", job: employeeJobs.find(e => e.id === "2")!
+  },
 ];
 
 const employeeLeaves: EmployeeLeaveResponse[] = [
