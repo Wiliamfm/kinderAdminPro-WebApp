@@ -1,13 +1,14 @@
 import { routeAction$, server$, z, zod$ } from "@builder.io/qwik-city";
-import { CalendarEvent, EmployeeInvoiceRequest, EmployeeInvoiceResponse, EmployeeJobResponse, EmployeeLeave, EmployeeResponse } from "~/types/payroll.types";
+import { CalendarEvent, CreateEmployeeInvoiceRequest, CreateEmployeeLeaveRequest, CreateEmployeeRequest, EmployeeInvoiceResponse, EmployeeJobResponse, EmployeeLeaveResponse, EmployeeResponse, UpdateEmployeeRequest } from "~/types/payroll.types";
 import * as fs from 'node:fs/promises';
+import { BaseError, ErrorResponse } from "~/types/shared.types";
 
 const employees: EmployeeResponse[] = [
   {
-    id: "1", name: "test employee", job: "test job", salary: 1000
+    id: "1", name: "test employee", job: { id: "1", name: "test job", salary: 1000 }
   },
   {
-    id: "2", name: "test 2 employee", job: "test job 2", salary: 2000
+    id: "2", name: "test 2 employee", job: { id: "2", name: "test job 2", salary: 2000 }
   },
 ];
 
@@ -16,19 +17,23 @@ const employeeJobs: EmployeeJobResponse[] = [
   { id: "2", name: "test job 2", salary: 2000 },
 ];
 
-const employeeLeaves: EmployeeLeave[] = [
+const employeeLeaves: EmployeeLeaveResponse[] = [
   { id: "1", startDate: new Date("2025-04-05"), endDate: new Date("2025-04-05"), employeeId: "1" },
   { id: "2", startDate: new Date("2025-05-06"), endDate: new Date("2025-05-06"), employeeId: "1" },
 ];
 
-const calendarEvents: CalendarEvent[] = [];
-
 const employeeInvoices: EmployeeInvoiceResponse[] = [];
 
-export const createEmployee = server$(function(name: string, job: string, salary: number) {
+const calendarEvents: CalendarEvent[] = [];
+
+export const createEmployee = server$(function(request: CreateEmployeeRequest) {
   const lastId = employees.length + 1;
+  const job = employeeJobs.find(e => e.id === request.jobId);
+  if (!job) {
+    return new BaseError("Invalid job id!", 400, { id: request.jobId });
+  }
   const employee: EmployeeResponse = {
-    id: lastId.toString(), name: name, job: job, salary: salary
+    id: lastId.toString(), name: request.name, job: job
   };
   employees.push(employee);
   return employee;
@@ -42,25 +47,21 @@ export const getEmployee = server$(function(id: string) {
   return employees.find(e => e.id === id);
 });
 
-export const updateEmployee = server$(function(id: string, name: string, jobId: string, salary: number) {
-  const employee = employees.find(e => e.id === id);
-  const job = employeeJobs.find(e => e.id === jobId);
+export const updateEmployee = server$(function(request: UpdateEmployeeRequest) {
+  const employee = employees.find(e => e.id === request.id);
+  const job = employeeJobs.find(e => e.id === request.jobId);
   if (!employee || !job) {
-    throw new Error("Employee or Job not found!");
+    return new BaseError("Invalid employee or job id!", 400, { id: request.id, jobId: request.jobId });
   }
-  if (job.salary !== salary) {
-    throw new Error("Cannot change job's salary!");
-  }
-  employee.name = name;
-  employee.job = job.name;
-  employee.salary = salary;
+  employee.name = request.name;
+  employee.job = job;
   return employee;
 });
 
 export const deleteEmployee = server$(function(id: string) {
   var employee = employees.find(e => e.id === id);
   if (!employee) {
-    throw new Error("Employee not found!");
+    return new BaseError("Invalid employee id!", 400, { id: id });
   }
   employees.splice(employees.indexOf(employee), 1);
   return employee;
@@ -70,28 +71,71 @@ export const getEmployeeJobs = server$(function() {
   return employeeJobs;
 });
 
-export const getEmployeeLeaves = server$(function() {
-  return employeeLeaves;
+export const getEmployeeLeaves = server$(function(employeeId: string) {
+  return employeeLeaves.filter(x => x.employeeId === employeeId);
 });
 
-export const getEmployeesWithLeaves = server$(function() {
-  return employees.map(e => {
-    const leaves = employeeLeaves.filter(l => l.employeeId === e.id);
-    const employeeResponse: EmployeeResponse = {
-      id: e.id, name: e.name, job: e.job, salary: e.salary, leaves: leaves
-    };
-    return employeeResponse;
-  });
-});
-
-export const createEmployeeLeave = server$(function(employeeId: string, startDate: Date, endDate: Date) {
+export const createEmployeeLeave = server$(function(request: CreateEmployeeLeaveRequest) {
   const lastId = employeeLeaves.length + 1;
   const employeeLeave = {
-    id: lastId.toString(), startDate: startDate, endDate: endDate, employeeId: employeeId
+    id: lastId.toString(), startDate: request.startDate, endDate: request.endDate, employeeId: request.employeeId
   };
   employeeLeaves.push(employeeLeave);
   return employeeLeave;
 });
+
+export const getEmployeeInvoices = server$(async function(request: CreateEmployeeInvoiceRequest) {
+  const files = await fs.readdir("data/invoices/" + request.employeeId);
+  employeeInvoices.length = 0;
+  for (const file of files) {
+    employeeInvoices.push({
+      id: String(employeeInvoices.length + 1),
+      employeeId: request.employeeId,
+      invoiceDate: new Date(),
+      invoicePath: file,
+      fileName: file,
+    })
+  }
+  const invoices = employeeInvoices.filter(e => e.employeeId === request.employeeId);
+  return invoices;
+});
+
+export const useCreateEmployeeInvoice = routeAction$(async (data, event) => {
+  //TODO: Use real users.
+  const fileName = crypto.randomUUID();
+  const dirPath = `data/invoices/${data.employeeId}`;
+  const filePath = `${dirPath}/${fileName}.pdf`;
+  await fs.mkdir(dirPath, { recursive: true });
+
+  const fileResponse = await fs.writeFile(filePath, new Uint8Array(await data.invoice.arrayBuffer())).catch((error) => {
+    console.error("ERROR: Unable to save file:\n", error);
+    return new BaseError("Unable to save file!", 500, { message: error.message });
+  });
+  if (fileResponse instanceof Error) {
+    return event.fail(500, { message: fileResponse.message });
+  }
+
+  const lastId = employeeInvoices.length + 1;
+  employeeInvoices.push({
+    id: lastId.toString(),
+    employeeId: data.employeeId,
+    invoiceDate: new Date(),
+    invoicePath: filePath,
+    fileName: filePath,
+  });
+  console.log(employeeInvoices);
+
+  return {
+    success: true,
+    message: "Invoice saved successfully!"
+  };
+  //await Bun.write(`/data/invoices/${userId}/${fileName}.pdf`, data.invoice);
+}, zod$({
+  invoice: z.instanceof(File).refine((file) => {
+    return file.size > 0 && file.type.startsWith("application/") && file.type.endsWith("pdf") && file.name.endsWith(".pdf");
+  }),
+  employeeId: z.string()
+}));
 
 export const createCalendarEvent = server$(function(event: CalendarEvent) {
   const lastId = String(calendarEvents.length + 1);
@@ -107,55 +151,3 @@ export const getCalendarEvents = server$(function() {
   console.info("Getting calendar events: ", calendarEvents.length);
   return calendarEvents;
 });
-
-export const getEmployeeInvoices = server$(async function(request: EmployeeInvoiceRequest) {
-  const files = await fs.readdir("data/invoices/" + request.employeeId);
-  employeeInvoices.length = 0;
-  for (const file of files) {
-    employeeInvoices.push({
-      id: String(employeeInvoices.length + 1),
-      employeeId: request.employeeId,
-      invoiceDate: new Date(),
-      invoicePath: file
-    })
-  }
-  const invoices = employeeInvoices.filter(e => e.employeeId === request.employeeId);
-  console.info(`Getting employee invoices for employee ${request.employeeId}: ${invoices.length}`);
-  return invoices;
-});
-
-export const useCreateEmployeeInvoice = routeAction$(async (data, event) => {
-  //TODO: Use real users.
-  const fileName = crypto.randomUUID();
-  const dirPath = `data/invoices/${data.employeeId}`;
-  const filePath = `${dirPath}/${fileName}.pdf`;
-  await fs.mkdir(dirPath, { recursive: true });
-
-  const fileResponse = await fs.writeFile(filePath, new Uint8Array(await data.invoice.arrayBuffer())).catch((error) => {
-    console.error("ERROR: Unable to save file:\n", error);
-    return new Error("Unable to save file!");
-  });
-  if (fileResponse instanceof Error) {
-    return event.fail(500, { message: fileResponse.message });
-  }
-
-  const lastId = employeeInvoices.length + 1;
-  employeeInvoices.push({
-    id: lastId.toString(),
-    employeeId: data.employeeId,
-    invoiceDate: new Date(),
-    invoicePath: filePath,
-  });
-  console.log(employeeInvoices);
-
-  return {
-    success: true,
-    message: "Invoice saved successfully!"
-  };
-  //await Bun.write(`/data/invoices/${userId}/${fileName}.pdf`, data.invoice);
-}, zod$({
-  invoice: z.instanceof(File).refine((file) => {
-    return file.size > 0 && file.type.startsWith("application/") && file.type.endsWith("pdf") && file.name.endsWith(".pdf");
-  }),
-  employeeId: z.string()
-}));

@@ -1,18 +1,18 @@
-import { TableActions } from "./shared.types";
-
-export type Employee = TableActions & {
-  id: string;
-  name: string;
-  job: string;
-  salary: number;
-}
-
 export type EmployeeResponse = {
   id: string;
   name: string;
-  job: string;
-  salary: number;
-  leaves?: EmployeeLeave[];
+  job: EmployeeJobResponse;
+}
+
+export type CreateEmployeeRequest = {
+  name: string;
+  jobId: string;
+}
+
+export type UpdateEmployeeRequest = {
+  id: string;
+  name: string;
+  jobId: string;
 }
 
 export type EmployeeJobResponse = {
@@ -21,11 +21,35 @@ export type EmployeeJobResponse = {
   salary: number;
 }
 
-export type EmployeeLeave = {
+export type CreateEmployeeJobRequest = {
+  name: string;
+  salary: number;
+}
+
+export type EmployeeLeaveResponse = {
   id: string;
+  employeeId: string;
   startDate: Date;
   endDate: Date;
+}
+
+export type CreateEmployeeLeaveRequest = {
   employeeId: string;
+  startDate: Date;
+  endDate: Date;
+}
+
+export type EmployeeInvoiceResponse = {
+  id: string;
+  employeeId: string;
+  invoiceDate: Date;
+  invoicePath: string;
+  fileName: string;
+}
+
+export type CreateEmployeeInvoiceRequest = {
+  employeeId: string;
+  fileName: string;
 }
 
 export type CalendarEvent = {
@@ -35,15 +59,4 @@ export type CalendarEvent = {
   startDate: Date;
   endDate: Date;
   isAllDay: boolean;
-}
-
-export type EmployeeInvoiceRequest = {
-  employeeId: string;
-}
-
-export type EmployeeInvoiceResponse = {
-  id: string;
-  employeeId: string;
-  invoiceDate: Date;
-  invoicePath: string;
 }

@@ -2,6 +2,8 @@ import { component$, useSignal } from "@builder.io/qwik";
 import { Form, routeAction$, routeLoader$, z, zod$, type DocumentHead } from "@builder.io/qwik-city";
 import { useGetEmployeeJobs } from "~/loaders/payroll.loader";
 import { getEmployee, updateEmployee } from "~/services/payroll.service";
+import { UpdateEmployeeRequest } from "~/types/payroll.types";
+import { BaseError } from "~/types/shared.types";
 
 export { useGetEmployeeJobs } from "~/loaders/payroll.loader";
 
@@ -15,13 +17,14 @@ export const useGetEmployee = routeLoader$(async (event) => {
 });
 
 export const useUpdateEmployee = routeAction$(async (data, event) => {
-  const employeeId = event.params.id;
-  const response = await updateEmployee(employeeId, data.name, data.job, data.salary).catch((error) => {
-    console.error("updateEmployee error:\n", error);
-    return event.fail(500, error.message);
-  });
-  if (response.failed) {
-    console.error("response failed:\n", response);
+  const request: UpdateEmployeeRequest = {
+    id: event.params.id,
+    name: data.name,
+    jobId: data.job,
+  }
+  const response = await updateEmployee(request);
+  if (response instanceof BaseError) {
+    return event.fail(response.status, { message: response.message });
   }
   return response;
 }, zod$({
@@ -35,7 +38,7 @@ export default component$(() => {
   const getEmployeeJobsLoader = useGetEmployeeJobs();
 
   const employeeName = useSignal(getEmployeeLoader.value.employee.name);
-  const selectedJobSalary = useSignal(getEmployeeLoader.value.employee.salary);
+  const selectedJobSalary = useSignal(getEmployeeLoader.value.employee.job.salary);
 
   const updateEmployeeAction = useUpdateEmployee();
 
@@ -67,7 +70,7 @@ export default component$(() => {
               selectedJobSalary.value = selectedJob.salary;
             }}>
               {getEmployeeJobsLoader.value.employeeJobs.map((job) => (
-                <option value={job.id} key={job.id}>{job.name}</option>
+                <option value={job.id} key={job.id} selected={job.id === getEmployeeLoader.value.employee.job.id}>{job.name}</option>
               ))}
             </select>
           </div>

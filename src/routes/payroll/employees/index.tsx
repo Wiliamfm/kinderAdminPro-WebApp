@@ -1,27 +1,21 @@
 import { $, component$, useSignal, useStore } from "@builder.io/qwik";
 import { Form, Link, routeAction$, routeLoader$, z, zod$, type DocumentHead } from "@builder.io/qwik-city";
 import Table, { TableHeader, TableProps } from "~/components/common/table/table";
-import { createEmployee, createEmployeeLeave, deleteEmployee, getEmployeeInvoices, getEmployeeJobs, getEmployeeLeaves, getEmployeesWithLeaves } from "~/services/payroll.service";
-import { EmployeeInvoiceResponse, EmployeeResponse } from "~/types/payroll.types";
+import { createEmployee, createEmployeeLeave, deleteEmployee, getEmployeeInvoices, getEmployeeJobs, getEmployeeLeaves, getEmployees } from "~/services/payroll.service";
+import { CreateEmployeeLeaveRequest, CreateEmployeeRequest, EmployeeInvoiceResponse, EmployeeLeaveResponse, EmployeeResponse } from "~/types/payroll.types";
 import { useGetEmployeeJobs } from "~/loaders/payroll.loader";
 import { useCreateEmployeeInvoice } from "~/services/payroll.service";
 import FormModal from "~/components/common/modal/formModal/formModal";
+import { BaseError } from "~/types/shared.types";
 
 export { useGetEmployeeJobs } from "~/loaders/payroll.loader";
 export { useCreateEmployeeInvoice } from "~/services/payroll.service";
 
 export const useGetEmployees = routeLoader$(async () => {
-  const response = await getEmployeesWithLeaves();
+  const response = await getEmployees();
   return {
     employees: response,
   }
-});
-
-export const useGetEmployesLeaves = routeLoader$(async () => {
-  const leaves = await getEmployeeLeaves();
-  return {
-    leaves: leaves
-  };
 });
 
 export const useCreateEmployee = routeAction$(async (data, event) => {
@@ -30,12 +24,15 @@ export const useCreateEmployee = routeAction$(async (data, event) => {
   if (!job) {
     return event.fail(404, { message: "Job not found!" });
   }
-  const employee = await createEmployee(data.name, job.name, job.salary).catch((error) => {
-    console.error(error);
-    return event.fail(500, { message: "Unable to create employee!" });
-  });
-  console.log("Response:", employee);
-  return employee;
+  const request: CreateEmployeeRequest = {
+    name: data.name,
+    jobId: job.id
+  }
+  const response = await createEmployee(request);
+  if (response instanceof BaseError) {
+    return event.fail(response.status, { message: response.message });
+  }
+  return response;
 }, zod$({
   name: z.string().min(3),
   job: z.string().min(1),
@@ -52,12 +49,12 @@ export const useCreateEmployeeLeave = routeAction$(async (data, event) => {
     return event.fail(400, { message: "La fecha de inicio debe ser menor a la fecha de finalización!" });
   }
 
-  const request = {
+  const request: CreateEmployeeLeaveRequest = {
     employeeId: data.employeeId,
     startDate: startDate,
     endDate: endDate,
   };
-  const employeeLeave = createEmployeeLeave(request.employeeId, request.startDate, request.endDate);
+  const employeeLeave = createEmployeeLeave(request);
   return employeeLeave;
 }, zod$({
   employeeId: z.string().min(1),
@@ -93,7 +90,6 @@ export default component$(() => {
 
   const employeesLoader = useGetEmployees();
   const getEmployeeJobsLoader = useGetEmployeeJobs();
-  const leavesLoader = useGetEmployesLeaves();
 
   const selectedEmployee = useSignal("");
   const employeeInvoices = useStore({
@@ -102,7 +98,7 @@ export default component$(() => {
   const showEmployeeInvoiceForm = useSignal(false);
   const employeeLeavesTableProps = useStore({
     headers: leavesHeader,
-    data: leavesLoader.value.leaves,
+    data: [] as EmployeeLeaveResponse[],
   });
   const employeeInvoicesTableProps = useStore({
     headers: invoicesHeader,
@@ -123,7 +119,7 @@ export default component$(() => {
 
   const employeeLeaveFormFn = $((_: any, element: HTMLFormElement) => {
     if (createEmployeeLeaveAction.value?.failed) {
-      console.error(createEmployeeLeaveAction.value.message);
+      alert(createEmployeeLeaveAction.value.message);
       return;
     }
     element.reset();
@@ -137,7 +133,7 @@ export default component$(() => {
   ]
   const employees = employeesLoader.value.employees.map((e: EmployeeResponse) => {
     return {
-      id: e.id, name: e.name, job: e.job, salary: e.salary, actions: [
+      id: e.id, name: e.name, job: e.job.name, salary: e.job.salary, actions: [
         <Link href={`${e.id}`}>
           <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
             <path fill-rule="evenodd" d="M5 8a4 4 0 1 1 7.796 1.263l-2.533 2.534A4 4 0 0 1 5 8Zm4.06 5H7a4 4 0 0 0-4 4v1a2 2 0 0 0 2 2h2.172a2.999 2.999 0 0 1-.114-1.588l.674-3.372a3 3 0 0 1 .82-1.533L9.06 13Zm9.032-5a2.907 2.907 0 0 0-2.056.852L9.967 14.92a1 1 0 0 0-.273.51l-.675 3.373a1 1 0 0 0 1.177 1.177l3.372-.675a1 1 0 0 0 .511-.273l6.07-6.07a2.91 2.91 0 0 0-.944-4.742A2.907 2.907 0 0 0 18.092 8Z" clip-rule="evenodd" />
@@ -156,7 +152,9 @@ export default component$(() => {
             <path fill-rule="evenodd" d="M5 8a4 4 0 1 1 8 0 4 4 0 0 1-8 0Zm-2 9a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1Zm13-6a1 1 0 1 0 0 2h4a1 1 0 1 0 0-2h-4Z" clip-rule="evenodd" />
           </svg>
         </button>,
-        <button class="cursor-pointer" data-modal-target="leavesModal" data-modal-toggle="leavesModal">
+        <button class="cursor-pointer" data-modal-target="leavesModal" data-modal-toggle="leavesModal" onClick$={async () => {
+          employeeLeavesTableProps.data = await getEmployeeLeaves(e.id);
+        }}>
           <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
             <path fill-rule="evenodd" d="M5 5a1 1 0 0 0 1-1 1 1 0 1 1 2 0 1 1 0 0 0 1 1h1a1 1 0 0 0 1-1 1 1 0 1 1 2 0 1 1 0 0 0 1 1h1a1 1 0 0 0 1-1 1 1 0 1 1 2 0 1 1 0 0 0 1 1 2 2 0 0 1 2 2v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a2 2 0 0 1 2-2ZM3 19v-7a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Zm6.01-6a1 1 0 1 0-2 0 1 1 0 0 0 2 0Zm2 0a1 1 0 1 1 2 0 1 1 0 0 1-2 0Zm6 0a1 1 0 1 0-2 0 1 1 0 0 0 2 0Zm-10 4a1 1 0 1 1 2 0 1 1 0 0 1-2 0Zm6 0a1 1 0 1 0-2 0 1 1 0 0 0 2 0Zm2 0a1 1 0 1 1 2 0 1 1 0 0 1-2 0Z" clip-rule="evenodd" />
           </svg>
@@ -164,7 +162,7 @@ export default component$(() => {
         <button class="cursor-pointer" data-modal-target="invoicesModal" data-modal-toggle="invoicesModal" onClick$={async () => {
           selectedEmployee.value = e.id;
           employeeInvoices.invoices.length = 0;
-          employeeInvoices.invoices = await getEmployeeInvoices({ employeeId: e.id });
+          employeeInvoices.invoices = await getEmployeeInvoices({ employeeId: e.id, fileName: "" });
           employeeInvoicesTableProps.data = employeeInvoices.invoices;
         }}>
           <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
