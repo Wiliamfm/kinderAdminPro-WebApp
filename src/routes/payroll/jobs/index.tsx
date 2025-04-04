@@ -1,13 +1,31 @@
-import { component$ } from '@builder.io/qwik';
+import { $, component$ } from '@builder.io/qwik';
+import { routeAction$, z, zod$ } from '@builder.io/qwik-city';
+import FormModal from '~/components/common/modal/formModal/formModal';
 import Table, { TableProps } from '~/components/common/table/table';
 import { useGetEmployeeJobs } from '~/loaders/payroll.loader';
-import { deleteEmployeeJob } from '~/services/payroll.service';
+import { createEmployeeJob, deleteEmployeeJob } from '~/services/payroll.service';
 import { BaseError } from '~/types/shared.types';
 
 export { useGetEmployeeJobs } from '~/loaders/payroll.loader';
 
+export const useCreateEmployeeJob = routeAction$(async (data, event) => {
+  const response = await createEmployeeJob({ name: data.name, salary: data.salary });
+  if (response instanceof BaseError) {
+    return event.fail(response.status, { message: response.message });
+  }
+  return {
+    success: true,
+    job: response
+  }
+}, zod$({
+  name: z.string().min(3),
+  salary: z.coerce.number().min(1000),
+}));
+
 export default component$(() => {
   const getEmployeesJobsLoader = useGetEmployeeJobs();
+
+  const createEmployeeJobAction = useCreateEmployeeJob();
 
   const jobsTable = getEmployeesJobsLoader.value.employeeJobs.map(j => {
     return {
@@ -47,6 +65,23 @@ export default component$(() => {
   return (
     <div class="flex flex-col place-items-center h-full space-y-10">
       <h1 class="mt-18 text-4xl">Gestion de Trabajos</h1>
+
+      <FormModal modalId="job-form-modal" modalTitle={"Agregar Cargo"} modalBtnName={"Agregar Cargo"} modalBtnClass="relative inline-flex items-center justify-center p-0.5 mb-2 me-2 overflow-hidden text-sm font-medium text-gray-900 rounded-lg group bg-gradient-to-br from-red-200 via-red-300 to-yellow-200 group-hover:from-red-200 group-hover:via-red-300 group-hover:to-yellow-200 dark:text-white dark:hover:text-gray-900 focus:ring-4 focus:outline-none focus:ring-red-100 dark:focus:ring-red-400" formBtnName="Crear Cargo" formBtnClass="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800" formAction={createEmployeeJobAction} formOnSubmitFn={$((_: any, element: HTMLFormElement) => {
+        if (createEmployeeJobAction.value?.failed) {
+          alert(createEmployeeJobAction.value.message);
+          return;
+        }
+        element.reset();
+      })}>
+        <div>
+          <label for="name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Cargo</label>
+          <input type="text" name="name" id="name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" placeholder="Profesor" required />
+        </div>
+        <div>
+          <label for="salary" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Salario</label>
+          <input type="number" name="salary" id="jobSalary" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" placeholder="1000" required />
+        </div>
+      </FormModal>
 
       <Table {...tableProps} />
     </div>
