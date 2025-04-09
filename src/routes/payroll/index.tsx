@@ -1,10 +1,10 @@
 import { component$ } from "@builder.io/qwik";
-import { Link, type DocumentHead } from "@builder.io/qwik-city";
+import { type DocumentHead } from "@builder.io/qwik-city";
 
 export default component$(() => {
   return (
     <div class="flex flex-col place-items-center h-full space-y-10">
-      <h1 class="mt-18 text-4xl">Gestion de Nómina</h1>
+      <h1 class="mt-18 text-4xl">Módulo de Nómina</h1>
 
       <div class="w-full max-w-sm p-4 bg-white border border-gray-200 rounded-lg shadow-sm sm:p-6 dark:bg-gray-800 dark:border-gray-700">
         <h5 class="mb-3 text-base font-semibold text-gray-900 md:text-xl dark:text-white">
