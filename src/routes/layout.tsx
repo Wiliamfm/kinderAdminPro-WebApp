@@ -2,12 +2,13 @@ import { component$, Slot } from "@builder.io/qwik";
 import { type RequestHandler } from "@builder.io/qwik-city";
 import Header from "~/components/layout/Header";
 import { useLoginStatus } from "~/loaders/loaders";
+import { getUserStatus } from "~/services/identity.service";
 
 export {useLoginStatus} from "../loaders/loaders"
 
 export const onRequest: RequestHandler = async (event) => {
-  const username = event.cookie.get("username");
-  if (!username && event.url.pathname !== "/auth/login/") {
+  const user = await getUserStatus();
+  if (!user && event.url.pathname !== "/auth/login/") {
     throw event.redirect(308, "/auth/login");
   }
 };
