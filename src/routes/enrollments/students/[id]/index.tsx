@@ -1,8 +1,8 @@
 import { component$, useSignal } from '@builder.io/qwik';
-import { Form, routeLoader$, useLocation, useNavigate } from '@builder.io/qwik-city';
-import { getGuardians, getStudent, useUpdateStudent } from '~/services/enrollment.service';
+import { Form, routeLoader$, useNavigate } from '@builder.io/qwik-city';
+import { getGuardians, getStudent, useGetGrades, useUpdateStudent } from '~/services/enrollment.service';
 
-export { useUpdateStudent };
+export { useUpdateStudent, useGetGrades };
 
 export const useGetStudent = routeLoader$(async (event) => {
   const response = await getStudent(event.params.id).catch(error => {
@@ -12,15 +12,17 @@ export const useGetStudent = routeLoader$(async (event) => {
   return response;
 });
 
-export const useGetGuardians = routeLoader$(async (event) => {
+export const useGetGuardians = routeLoader$(async () => {
   const response = await getGuardians();
   return response;
-})
+});
 
 export default component$(() => {
+  const navigation = useNavigate();
+
   const studentLoader = useGetStudent();
   const guardiansLoader = useGetGuardians();
-  const navigation = useNavigate();
+  const gradesLoader = useGetGrades();
 
   const updateStudentAction = useUpdateStudent();
 
@@ -36,11 +38,6 @@ export default component$(() => {
     { id: "O+", name: "O+" },
     { id: "O-", name: "O-" },
   ];
-
-  const grades = [
-    { id: "grade-kg1", name: "Kindergarten 1" },
-    { id: "grade-kg2", name: "Kindergarten 2" },
-  ]
 
   return (
     <div>
@@ -130,7 +127,7 @@ export default component$(() => {
             class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg block w-full p-2.5" onChange$={(_, element) => {
               studentLoader.value.gradeId = element.value;
             }}>
-            {grades.map((grade) => (
+            {gradesLoader.value.map((grade) => (
               <option key={grade.id} value={grade.id} selected={studentLoader.value.gradeId === grade.id}>{grade.name}</option>
             ))}
           </select>
@@ -139,7 +136,7 @@ export default component$(() => {
         <div>
           <input ref={guardianInputRef} type="hidden" value={studentLoader.value.guardians?.map(g => g.id).join(',')} name="guardianIds" />
           <label for="guardianIds" class="block mb-2 text-sm font-medium text-gray-900">Acudientes</label>
-          <select id="guardianIds" multiple class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg block w-full p-2.5" onChange$={(event, element) => {
+          <select id="guardianIds" multiple class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg block w-full p-2.5" onChange$={(_, element) => {
             const options = [...element.selectedOptions];
             if (!guardianInputRef.value) return;
             guardianInputRef.value.value = options.map((option) => option.value).join(',');

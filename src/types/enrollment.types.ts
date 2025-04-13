@@ -10,7 +10,7 @@ export type StudentResponse = {
   bloodType: string;
   socialSecurity: string;
   allergies: string[];
-  gradeId: string;
+  gradeId?: string;
   guardians: GuardianResponse[];
 };
 
@@ -62,4 +62,9 @@ export type GuardianTypeResponse = {
   id: string;
   name: string;
   description: string;
+}
+
+export type GradeResponse = {
+  id: string;
+  name: string;
 }

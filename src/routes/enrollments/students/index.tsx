@@ -1,13 +1,13 @@
 import { $, component$ } from '@builder.io/qwik';
-import { Link, routeLoader$ } from '@builder.io/qwik-city';
+import { routeLoader$ } from '@builder.io/qwik-city';
 import Table, { TableHeader } from '~/components/common/table/table';
 import Title from '~/components/common/title/title';
-import { useDeleteStudent, getStudents } from '~/services/enrollment.service';
+import { useDeleteStudent, getStudents, useGetGrades } from '~/services/enrollment.service';
 import { GuardianResponse } from '~/types/enrollment.types';
 
-export { useDeleteStudent as deleteStudent };
+export { useDeleteStudent, useGetGrades };
 
-export const useGetStudents = routeLoader$(async (event) => {
+export const useGetStudents = routeLoader$(async () => {
   const response = await getStudents();
 
   return response
@@ -15,6 +15,7 @@ export const useGetStudents = routeLoader$(async (event) => {
 
 export default component$(() => {
   const studentsLoader = useGetStudents();
+  const gradesLoader = useGetGrades();
 
   const createStudentAction = useDeleteStudent();
 
@@ -39,7 +40,11 @@ export default component$(() => {
 
       })
     },
-    { name: "Grado", key: "gradeId" },
+    {
+      name: "Grado", key: "gradeId", format: $((gradeId: string) => {
+        return gradesLoader.value.find((grade) => grade.id === gradeId)?.name ?? "N/A";
+      })
+    },
     {
       name: "Acudientes", key: "guardians", format: $((guardians: GuardianResponse[]) => {
         return <ul>
