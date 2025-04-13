@@ -23,7 +23,7 @@ export const students: StudentResponse[] = [
         company: "Bogotá Tech Ltd.",
         email: "michael.johnson@example.com",
         address: "Calle 123 #45-67, Bogotá",
-        type: GuardianTypeEnum.Father,
+        typeId: GuardianTypeEnum.Father,
       },
     ],
   },
@@ -50,7 +50,7 @@ export const students: StudentResponse[] = [
         company: "Creativa SAS",
         email: "sofia.garcia@example.com",
         address: "Carrera 10 #20-30, Bogotá",
-        type: GuardianTypeEnum.Mother,
+        typeId: GuardianTypeEnum.Mother,
       },
     ],
   },
@@ -77,7 +77,7 @@ export const students: StudentResponse[] = [
         company: "Hospital San José",
         email: "daniel.kim@example.com",
         address: "Avenida 68 #30-55, Bogotá",
-        type: GuardianTypeEnum.Father,
+        typeId: GuardianTypeEnum.Father,
       },
       {
         id: "gua-004",
@@ -88,7 +88,7 @@ export const students: StudentResponse[] = [
         company: "Legal Group Colombia",
         email: "grace.kim@example.com",
         address: "Avenida 68 #30-55, Bogotá",
-        type: GuardianTypeEnum.Mother,
+        typeId: GuardianTypeEnum.Mother,
       },
     ],
   },
@@ -104,7 +104,7 @@ export const guardians: GuardianResponse[] = [
     company: "Bogotá Tech Ltd.",
     email: "michael.johnson@example.com",
     address: "Calle 123 #45-67, Bogotá",
-    type: GuardianTypeEnum.Father,
+    typeId: "1",
   },
   {
     id: "gua-002",
@@ -115,7 +115,7 @@ export const guardians: GuardianResponse[] = [
     company: "Creativa SAS",
     email: "sofia.garcia@example.com",
     address: "Carrera 10 #20-30, Bogotá",
-    type: GuardianTypeEnum.Mother,
+    typeId: "2",
   },
   {
     id: "gua-003",
@@ -126,7 +126,7 @@ export const guardians: GuardianResponse[] = [
     company: "Hospital San José",
     email: "daniel.kim@example.com",
     address: "Avenida 68 #30-55, Bogotá",
-    type: GuardianTypeEnum.Father,
+    typeId: "1",
   },
   {
     id: "gua-004",
@@ -137,7 +137,7 @@ export const guardians: GuardianResponse[] = [
     company: "Legal Group Colombia",
     email: "grace.kim@example.com",
     address: "Avenida 68 #30-55, Bogotá",
-    type: GuardianTypeEnum.Mother,
+    typeId: "2",
   },
 ];
 
@@ -145,16 +145,19 @@ export const guardianTypes: GuardianTypeResponse[] = [
   {
     id: "1",
     name: "father",
+    displayName: "Padre",
     description: "Biological or legal male guardian of the student",
   },
   {
     id: "2",
     name: "mother",
+    displayName: "Madre",
     description: "Biological or legal female guardian of the student",
   },
   {
     id: "3",
     name: "tutor",
+    displayName: "Tutor Legal",
     description: "Appointed legal representative or caregiver for the student",
   },
 ];

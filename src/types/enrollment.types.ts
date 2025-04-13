@@ -23,7 +23,7 @@ export type GuardianResponse = {
   company: string;
   email: string;
   address: string;
-  type: GuardianTypeEnum;
+  typeId: string;
 }
 
 export enum GuardianTypeEnum {
@@ -61,6 +61,7 @@ export type CreateGuardianRequest = {
 export type GuardianTypeResponse = {
   id: string;
   name: string;
+  displayName: string;
   description: string;
 }
 

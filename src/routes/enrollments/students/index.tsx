@@ -17,7 +17,7 @@ export default component$(() => {
   const studentsLoader = useGetStudents();
   const gradesLoader = useGetGrades();
 
-  const createStudentAction = useDeleteStudent();
+  const deleteStudentAction = useDeleteStudent();
 
   const tableHeaders: TableHeader[] = [
     { name: "ID", key: "id" },
@@ -65,7 +65,7 @@ export default component$(() => {
           </svg>
         </a >,
         <button class="cursor-pointer" onClick$={async () => {
-          const response = await createStudentAction.submit({ id: student.id });
+          const response = await deleteStudentAction.submit({ id: student.id });
           if (response.value.failed) {
             alert("Error al Eliminar");
             console.error(response.value);

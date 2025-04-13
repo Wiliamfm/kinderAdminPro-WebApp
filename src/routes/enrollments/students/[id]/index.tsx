@@ -1,19 +1,14 @@
 import { component$, useSignal } from '@builder.io/qwik';
 import { Form, routeLoader$, useNavigate } from '@builder.io/qwik-city';
-import { getGuardians, getStudent, useGetGrades, useUpdateStudent } from '~/services/enrollment.service';
+import { useGetGuardians, getStudent, useGetGrades, useUpdateStudent } from '~/services/enrollment.service';
 
-export { useUpdateStudent, useGetGrades };
+export { useUpdateStudent, useGetGrades, useGetGuardians };
 
 export const useGetStudent = routeLoader$(async (event) => {
   const response = await getStudent(event.params.id).catch(error => {
     return event.fail(404, { message: error.message });
   });
 
-  return response;
-});
-
-export const useGetGuardians = routeLoader$(async () => {
-  const response = await getGuardians();
   return response;
 });
 
