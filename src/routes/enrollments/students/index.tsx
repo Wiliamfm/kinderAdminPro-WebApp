@@ -29,7 +29,16 @@ export default component$(() => {
     { name: "Altura", key: "height" },
     { name: "Tipo de Sangre", key: "bloodType" },
     { name: "Seguro Social", key: "socialSecurity" },
-    { name: "Alergias", key: "allergies" },
+    {
+      name: "Alergias", key: "allergies", format: $((allergies: string[]) => {
+        return <ul>
+          {allergies.map((allergie, index) => (
+            <li key={index}>{allergie}</li>
+          ))}
+        </ul>
+
+      })
+    },
     { name: "Grado", key: "gradeId" },
     {
       name: "Acudientes", key: "guardians", format: $((guardians: GuardianResponse[]) => {
