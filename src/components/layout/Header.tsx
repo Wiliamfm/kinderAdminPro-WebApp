@@ -1,7 +1,12 @@
 import { component$ } from '@builder.io/qwik';
 import Logo from '~/assets/images/logo.jpeg?jsx'
+import { IdentityUser } from '~/types/identity.types';
 
-export default component$(() => {
+type HeaderProps = {
+  user: IdentityUser
+};
+
+export default component$<HeaderProps>(({ user }) => {
   return (
     <nav class="bg-white border-gray-200 dark:bg-gray-900">
       <div class="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
@@ -20,8 +25,8 @@ export default component$(() => {
           {/* Dropdown menu */}
           <div class="z-50 hidden my-4 text-base list-none bg-white divide-y divide-gray-100 rounded-lg shadow-sm dark:bg-gray-700 dark:divide-gray-600" id="user-dropdown">
             <div class="px-4 py-3">
-              <span class="block text-sm text-gray-900 dark:text-white">Bonnie Green</span>
-              <span class="block text-sm  text-gray-500 truncate dark:text-gray-400">name@flowbite.com</span>
+              <span class="block text-sm text-gray-900 dark:text-white">{user.name}</span>
+              <span class="block text-sm  text-gray-500 truncate dark:text-gray-400">{user.email}</span>
             </div>
             <ul class="py-2" aria-labelledby="user-menu-button">
               <li>

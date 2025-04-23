@@ -1,5 +1,5 @@
 import { routeAction$, routeLoader$, server$, z, zod$ } from "@builder.io/qwik-city";
-import { students, guardians, grades, guardianTypes } from "~/data/enrollment.data";
+import { students, guardians, grades, guardianTypes, bloodTypes } from "~/data/enrollment.data";
 import { StudentResponse } from "~/types/enrollment.types";
 
 export const getStudents = server$(function() {
@@ -133,4 +133,8 @@ export const useUpdateGuardian = routeAction$(async (data, event) => {
 
 export const useGetGuardianTypes = routeLoader$(() => {
   return guardianTypes;
+});
+
+export const useGetBloodTypes = routeLoader$(() => {
+  return bloodTypes;
 });

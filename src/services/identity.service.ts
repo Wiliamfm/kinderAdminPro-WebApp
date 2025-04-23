@@ -9,6 +9,9 @@ export const getUserStatus = server$(async function() {
 });
 
 export const useLogin = routeAction$(async (data, event) => {
+  if (data.password !== "1234") {
+    return event.fail(401, { message: "Credenciales inválidas!" });
+  }
   user = {
     id: "1",
     email: data.username,

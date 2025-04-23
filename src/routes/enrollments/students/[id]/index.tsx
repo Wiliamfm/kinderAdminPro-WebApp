@@ -1,8 +1,8 @@
 import { component$, useSignal } from '@builder.io/qwik';
 import { Form, routeLoader$, useNavigate } from '@builder.io/qwik-city';
-import { useGetGuardians, getStudent, useGetGrades, useUpdateStudent } from '~/services/enrollment.service';
+import { useGetGuardians, getStudent, useGetGrades, useUpdateStudent, useGetBloodTypes } from '~/services/enrollment.service';
 
-export { useUpdateStudent, useGetGrades, useGetGuardians };
+export { useUpdateStudent, useGetGrades, useGetGuardians, useGetBloodTypes };
 
 export const useGetStudent = routeLoader$(async (event) => {
   const response = await getStudent(event.params.id).catch(error => {
@@ -18,21 +18,11 @@ export default component$(() => {
   const studentLoader = useGetStudent();
   const guardiansLoader = useGetGuardians();
   const gradesLoader = useGetGrades();
+  const bloodTypes = useGetBloodTypes();
 
   const updateStudentAction = useUpdateStudent();
 
   const guardianInputRef = useSignal<HTMLInputElement>();
-
-  const bloodTypes = [
-    { id: "A+", name: "A+" },
-    { id: "A-", name: "A-" },
-    { id: "B+", name: "B+" },
-    { id: "B-", name: "B-" },
-    { id: "AB+", name: "AB+" },
-    { id: "AB-", name: "AB-" },
-    { id: "O+", name: "O+" },
-    { id: "O-", name: "O-" },
-  ];
 
   return (
     <div>
@@ -97,7 +87,7 @@ export default component$(() => {
             class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg block w-full p-2.5" onChange$={(_, element) => {
               studentLoader.value.bloodType = element.value;
             }}>
-            {bloodTypes.map((bloodType) => (
+            {bloodTypes.value.map((bloodType) => (
               <option key={bloodType.id} value={bloodType.id} selected={studentLoader.value.bloodType === bloodType.id}>{bloodType.name}</option>
             ))}
           </select>

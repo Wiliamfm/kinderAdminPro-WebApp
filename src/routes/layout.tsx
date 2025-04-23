@@ -8,7 +8,7 @@ export { useLoginStatus } from "../loaders/loaders"
 
 export const onRequest: RequestHandler = async (event) => {
   const user = await getUserStatus();
-  if (!user && event.url.pathname !== "/auth/login/") {
+  if (!user && (event.url.pathname !== "/auth/login/" && event.url.pathname !== "/register/")) {
     throw event.redirect(308, "/auth/login");
   }
 };
@@ -29,7 +29,7 @@ export default component$(() => {
 
   return (
     <div class="h-dvh">
-      {loginStatusLoader.value && <Header />}
+      {loginStatusLoader.value && <Header user={loginStatusLoader.value} />}
       < Slot />
     </div>
   );
