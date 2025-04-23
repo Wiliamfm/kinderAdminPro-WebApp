@@ -10,6 +10,9 @@ export { useGetEmployeeJobs } from "~/loaders/payroll.loader";
 export const useGetEmployee = routeLoader$(async (event) => {
   const id = event.params.id;
   const employee = await getEmployee(id);
+  if (employee instanceof BaseError) {
+    throw event.redirect(302, "/payroll/employees");
+  }
   if (!employee) {
     throw event.redirect(302, "/payroll/employees");
   }
