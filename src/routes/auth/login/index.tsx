@@ -1,23 +1,11 @@
 import { component$ } from "@builder.io/qwik";
-import { Form, routeAction$, z, zod$, type DocumentHead } from "@builder.io/qwik-city";
+import { Form, routeAction$, useNavigate, z, zod$, type DocumentHead } from "@builder.io/qwik-city";
+import { useLogin } from "~/services/identity.service";
 
-export const useLogin = routeAction$(async (data, event) => {
-  //TODO: Call real login api
-  if (data.username === "admin@test.com" && data.password === "1234") {
-    event.cookie.set("username", data.username, { httpOnly: true, path: "/", secure: true, maxAge: 60 * 60 });
-    return {
-      success: true
-    };
-  }
-  return event.fail(401, {
-    message: "Unauthorized",
-  })
-}, zod$({
-  username: z.string().email(),
-  password: z.string(),
-}));
+export { useLogin }
 
 export default component$(() => {
+  const navigation = useNavigate();
   const loginAction = useLogin();
 
   return (
@@ -34,9 +22,9 @@ export default component$(() => {
       </div>
       }
 
-      <Form class="max-w-sm mx-auto" action={loginAction} onSubmitCompleted$={() => {
+      <Form class="max-w-sm mx-auto" action={loginAction} onSubmitCompleted$={async () => {
         if (loginAction.value?.success) {
-          window.location.href = "/";
+          await navigation("/");
         }
       }}>
         <div class="mb-5">

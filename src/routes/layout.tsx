@@ -4,7 +4,7 @@ import Header from "~/components/layout/Header";
 import { useLoginStatus } from "~/loaders/loaders";
 import { getUserStatus } from "~/services/identity.service";
 
-export {useLoginStatus} from "../loaders/loaders"
+export { useLoginStatus } from "../loaders/loaders"
 
 export const onRequest: RequestHandler = async (event) => {
   const user = await getUserStatus();
@@ -29,7 +29,7 @@ export default component$(() => {
 
   return (
     <div class="h-dvh">
-      {loginStatusLoader.value.isLoggedIn && <Header />}
+      {loginStatusLoader.value && <Header />}
       < Slot />
     </div>
   );
