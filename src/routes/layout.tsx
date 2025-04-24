@@ -7,7 +7,8 @@ import { getUserStatus } from "~/services/identity.service";
 export { useLoginStatus } from "../loaders/loaders"
 
 export const onRequest: RequestHandler = async (event) => {
-  const user = await getUserStatus();
+  const username = event.cookie.get("username")?.value;
+  const user = await getUserStatus(username);
   if (!user && (event.url.pathname !== "/auth/login/" && event.url.pathname !== "/register/")) {
     throw event.redirect(308, "/auth/login");
   }

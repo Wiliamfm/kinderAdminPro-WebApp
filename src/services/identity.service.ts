@@ -4,7 +4,10 @@ import { BaseError } from "~/types/shared.types";
 
 let user: IdentityUser | null = null;
 
-export const getUserStatus = server$(async function() {
+export const getUserStatus = server$(async function(username: string | null = null) {
+  if (username) {
+    return user;
+  }
   return user;
 });
 
@@ -21,7 +24,7 @@ export const useLogin = routeAction$(async (data, event) => {
   if (user instanceof BaseError) {
     return event.fail(user.status, { message: user.message });
   }
-  event.cookie.set("username", data.username, { httpOnly: true, secure: true, maxAge: 60 * 15 });
+  event.cookie.set("username", data.username, { httpOnly: true, secure: true, sameSite: "strict", path: "/", maxAge: 60 * 15 });
   return {
     success: true
   }
