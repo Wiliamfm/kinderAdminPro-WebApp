@@ -1,5 +1,17 @@
 import { component$, Slot } from "@builder.io/qwik";
-import type { RequestHandler } from "@builder.io/qwik-city";
+import { type RequestHandler } from "@builder.io/qwik-city";
+import Header from "~/components/layout/Header";
+import { useLoginStatus } from "~/loaders/loaders";
+import { getUserStatus } from "~/services/identity.service";
+
+export { useLoginStatus } from "../loaders/loaders"
+
+export const onRequest: RequestHandler = async (event) => {
+  const user = await getUserStatus();
+  if (!user && (event.url.pathname !== "/auth/login/" && event.url.pathname !== "/register/")) {
+    throw event.redirect(308, "/auth/login");
+  }
+};
 
 export const onGet: RequestHandler = async ({ cacheControl }) => {
   // Control caching for this request for best performance and to reduce hosting costs:
@@ -13,5 +25,12 @@ export const onGet: RequestHandler = async ({ cacheControl }) => {
 };
 
 export default component$(() => {
-  return <Slot />;
+  const loginStatusLoader = useLoginStatus();
+
+  return (
+    <div class="h-dvh">
+      {loginStatusLoader.value && <Header user={loginStatusLoader.value} />}
+      < Slot />
+    </div>
+  );
 });
