@@ -1,12 +1,8 @@
 import { component$ } from '@builder.io/qwik';
-import { Form, routeAction$ } from '@builder.io/qwik-city';
-import { useGetBloodTypes, useGetGrades, useGetGuardianTypes } from '~/services/enrollment.service';
+import { Form, routeAction$, z, zod$ } from '@builder.io/qwik-city';
+import { useCreateStudentRequest, useGetBloodTypes, useGetGrades, useGetGuardianTypes } from '~/services/enrollment.service';
 
-export { useGetGrades, useGetBloodTypes, useGetGuardianTypes }
-
-export const useCreateStudentRequest = routeAction$(async (data, event) => {
-  return event.fail(400, { message: "Error al actualizar el estudiante" });
-});
+export { useGetGrades, useGetBloodTypes, useGetGuardianTypes, useCreateStudentRequest }
 
 export default component$(() => {
   const gradesLoader = useGetGrades();
@@ -114,8 +110,8 @@ export default component$(() => {
           </div>
 
           <div>
-            <label for="documentNumber" class="block mb-2 text-sm font-medium text-gray-900">Número de documento</label>
-            <input type="text" id="documentNumber" name="documentNumber" required
+            <label for="guardianDocumentNumber" class="block mb-2 text-sm font-medium text-gray-900">Número de documento</label>
+            <input type="text" id="guardianDocumentNumber" name="guardianDocumentNumber" required
               class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg block w-full p-2.5" />
           </div>
 
@@ -153,7 +149,7 @@ export default component$(() => {
 
           <div>
             <label for="typeId" class="block mb-2 text-sm font-medium text-gray-900">Parentesco</label>
-            <select id="typeId" class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg block w-full p-2.5">
+            <select id="typeId" name="typeId" class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg block w-full p-2.5">
               {guardianTypesLoader.value.map((type) => (
                 <option key={type.id} value={type.id}>{type.displayName}</option>
               ))}

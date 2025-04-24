@@ -1,6 +1,6 @@
 import { routeAction$, routeLoader$, server$, z, zod$ } from "@builder.io/qwik-city";
-import { students, guardians, grades, guardianTypes, bloodTypes } from "~/data/enrollment.data";
-import { StudentResponse } from "~/types/enrollment.types";
+import { students, guardians, grades, guardianTypes, bloodTypes, studentApplications, studentApplicationStatuses, studentApplicationStatusTypes } from "~/data/enrollment.data";
+import { StudentApplicationRequest, StudentApplicationResponse, StudentApplicationStatusResponse, StudentApplicationStatusTypeResponse, StudentResponse } from "~/types/enrollment.types";
 
 export const getStudents = server$(function() {
   return students;
@@ -138,3 +138,57 @@ export const useGetGuardianTypes = routeLoader$(() => {
 export const useGetBloodTypes = routeLoader$(() => {
   return bloodTypes;
 });
+
+export const useCreateStudentRequest = routeAction$(async (data, event) => {
+  if (data.fullName === "test") {
+    return event.fail(400, { message: "Error al actualizar el estudiante" });
+  }
+  //Create student application
+  let lastId = studentApplications.length + 1;
+  const response = { ...data, id: `${lastId}` } as StudentApplicationResponse;
+  studentApplications.push(response);
+
+  lastId = studentApplicationStatusTypes.length + 1;
+  const applicationStatusType: StudentApplicationStatusTypeResponse = {
+    id: `${lastId}`,
+    name: "pending",
+    description: "pending status type"
+  };
+
+  lastId = studentApplicationStatuses.length + 1;
+  const applicationStatus: StudentApplicationStatusResponse = {
+    id: `${lastId}`,
+    studentApplicationId: "",
+    createdAt: new Date(),
+    status: applicationStatusType
+  };
+  studentApplicationStatuses.push(applicationStatus);
+  return response;
+}, zod$({
+  fullName: z.string().min(1, "Nombre completo requerido"),
+  birthDate: z.coerce.date({ required_error: "Fecha de nacimiento requerida" }),
+  birthPlace: z.string().min(1, "Lugar de nacimiento requerido"),
+  department: z.string().min(1, "Departamento requerido"),
+  documentNumber: z.string().min(1, "Número de documento requerido"),
+  weight: z.coerce.number().positive("El peso debe ser un número positivo"),
+  height: z.coerce.number().positive("La altura debe ser un número positivo"),
+  bloodType: z.string().min(1, "Tipo de sangre requerido"),
+  socialSecurity: z.string().min(1, "EPS requerida"),
+  allergies: z
+    .string()
+    .transform((val) =>
+      val
+        .split(",")
+        .map((a) => a.trim())
+        .filter((a) => a.length > 0)
+    ),
+  gradeId: z.string().min(1, "Grado requerido"),
+  name: z.string().min(1, "Nombre del acudiente requerido"),
+  phone: z.string().min(1, "Teléfono requerido"),
+  profession: z.string().optional(),
+  company: z.string().optional(),
+  email: z.string().email("Correo inválido"),
+  address: z.string().min(1, "Dirección requerida"),
+  typeId: z.string().min(1, "Tipo de acudiente requerido"),
+  guardianDocumentNumber: z.string().min(1, "Número de documento del acudiente requerido")
+}));
