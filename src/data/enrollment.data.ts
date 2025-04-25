@@ -1,4 +1,4 @@
-import { GradeResponse, GuardianResponse, GuardianTypeEnum, GuardianTypeResponse, StudentApplicationRequest, StudentApplicationResponse, StudentApplicationStatusResponse, StudentApplicationStatusTypeResponse, StudentResponse } from "~/types/enrollment.types";
+import { GradeResponse, GuardianResponse, GuardianTypeEnum, GuardianTypeResponse, StudentApplicationResponse, StudentApplicationStatusResponse, StudentApplicationStatusTypeResponse, StudentResponse } from "~/types/enrollment.types";
 
 export const bloodTypes = [
   { id: "A+", name: "A+" },

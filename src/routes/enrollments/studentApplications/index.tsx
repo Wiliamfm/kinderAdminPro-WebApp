@@ -3,7 +3,6 @@ import { DocumentHead } from '@builder.io/qwik-city';
 import Table, { TableHeader } from '~/components/common/table/table';
 import Title from '~/components/common/title/title';
 import { useAcceptStudentApplication, useDeleteStudentApplication, useGetGrades, useGetGuardianTypes, useGetStudentApplications } from '~/services/enrollment.service';
-import { StudentApplicationResponse } from '~/types/enrollment.types';
 
 export { useGetGrades, useGetGuardianTypes, useGetStudentApplications, useDeleteStudentApplication, useAcceptStudentApplication };
 

@@ -1,6 +1,6 @@
 import { routeAction$, routeLoader$, server$, z, zod$ } from "@builder.io/qwik-city";
 import { students, guardians, grades, guardianTypes, bloodTypes, studentApplications, studentApplicationStatuses, studentApplicationStatusTypes } from "~/data/enrollment.data";
-import { GuardianResponse, StudentApplicationRequest, StudentApplicationResponse, StudentApplicationStatusResponse, StudentApplicationStatusTypeResponse, StudentResponse } from "~/types/enrollment.types";
+import { GuardianResponse, StudentApplicationResponse, StudentApplicationStatusResponse, StudentApplicationStatusTypeResponse, StudentResponse } from "~/types/enrollment.types";
 
 export const getStudents = server$(function() {
   return students;
@@ -215,7 +215,7 @@ export const useAcceptStudentApplication = routeAction$(async (data, event) => {
     return event.fail(404, { message: "Application not found" });
   }
 
-  let lastId = students.length + 1;
+  let lastId = guardians.length + 1;
   const guardian: GuardianResponse = {
     id: `${lastId}`,
     name: application.guardianName,
@@ -229,6 +229,7 @@ export const useAcceptStudentApplication = routeAction$(async (data, event) => {
   };
   guardians.push(guardian);
 
+  lastId = students.length + 1;
   const student: StudentResponse = {
     id: `${lastId}`,
     fullName: application.studentName,
