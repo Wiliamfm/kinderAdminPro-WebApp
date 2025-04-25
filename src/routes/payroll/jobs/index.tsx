@@ -37,7 +37,7 @@ export default component$(() => {
           </svg>
         </a>,
         <button class="cursor-pointer" onClick$={async () => {
-          var deletedEmployeeJob = await deleteEmployeeJob(j.id);
+          const deletedEmployeeJob = await deleteEmployeeJob(j.id);
           if (deletedEmployeeJob instanceof BaseError) {
             alert(deletedEmployeeJob.message);
             return;
@@ -66,7 +66,7 @@ export default component$(() => {
     <div class="flex flex-col place-items-center h-full space-y-10">
       <h1 class="mt-18 text-4xl">Gestion de Trabajos</h1>
 
-      <FormModal modalId="job-form-modal" modalTitle={"Agregar Cargo"} modalBtnName={"Agregar Cargo"} modalBtnClass="relative inline-flex items-center justify-center p-0.5 mb-2 me-2 overflow-hidden text-sm font-medium text-gray-900 rounded-lg group bg-gradient-to-br from-red-200 via-red-300 to-yellow-200 group-hover:from-red-200 group-hover:via-red-300 group-hover:to-yellow-200 dark:text-white dark:hover:text-gray-900 focus:ring-4 focus:outline-none focus:ring-red-100 dark:focus:ring-red-400" formBtnName="Crear Cargo" formBtnClass="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800" formAction={createEmployeeJobAction} formOnSubmitFn={$((_: any, element: HTMLFormElement) => {
+      <FormModal modalId="job-form-modal" modalTitle={"Agregar Cargo"} modalBtnName={"Agregar Cargo"} modalBtnClass="relative inline-flex items-center justify-center p-0.5 mb-2 me-2 overflow-hidden text-sm font-medium text-gray-900 rounded-lg group bg-gradient-to-br from-red-200 via-red-300 to-yellow-200 group-hover:from-red-200 group-hover:via-red-300 group-hover:to-yellow-200 dark:text-white dark:hover:text-gray-900 focus:ring-4 focus:outline-none focus:ring-red-100 dark:focus:ring-red-400" formBtnName="Crear Cargo" formBtnClass="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800" formAction={createEmployeeJobAction} formOnSubmitFn={$((_: unknown, element: HTMLFormElement) => {
         if (createEmployeeJobAction.value?.failed) {
           alert(createEmployeeJobAction.value.message);
           return;

@@ -52,9 +52,9 @@ export const useCreateEvent = routeAction$(async (data, event) => {
   isAllDay: z.coerce.boolean().optional(),
 }));
 
-const createEventFormHandler = $((data: CustomEvent<FormSubmitSuccessDetail<any>>, element: HTMLFormElement) => {
+const createEventFormHandler = $((data: CustomEvent<FormSubmitSuccessDetail<unknown>>, element: HTMLFormElement) => {
   console.log("data: ", data.detail);
-  //element.reset();
+  element.reset();
 });
 
 export default component$(() => {
