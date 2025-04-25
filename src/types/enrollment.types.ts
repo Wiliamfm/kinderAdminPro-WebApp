@@ -85,11 +85,11 @@ export type StudentApplicationStatusTypeResponse = {
 
 export type StudentApplicationResponse = {
   id: string;
-  fullName: string;
+  studentName: string;
   birthDate: Date;
   birthPlace: string;
   department: string;
-  documentNumber: string;
+  studentDocument: string;
   weight: number;
   height: number;
   bloodType: string;
@@ -97,22 +97,22 @@ export type StudentApplicationResponse = {
   allergies: string[];
   gradeId: string;
 
-  name: string;
+  guardianName: string;
   phone: string;
-  profession?: string;
-  company?: string;
+  profession: string;
+  company: string;
   email: string;
   address: string;
   typeId: string;
-  guardianDocumentNumber: string;
+  guardianDocument: string;
 };
 
 export type StudentApplicationRequest = {
-  fullName: string;
+  studentName: string;
   birthDate: Date;
   birthPlace: string;
   department: string;
-  documentNumber: string;
+  studentDocument: string;
   weight: number;
   height: number;
   bloodType: string;
@@ -120,12 +120,12 @@ export type StudentApplicationRequest = {
   allergies: string[];
   gradeId: string;
 
-  name: string;
+  guardianName: string;
   phone: string;
-  profession?: string;
-  company?: string;
+  profession: string;
+  company: string;
   email: string;
   address: string;
   typeId: string;
-  guardianDocumentNumber: string;
+  guardianDocument: string;
 };

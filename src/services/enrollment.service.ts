@@ -1,6 +1,6 @@
 import { routeAction$, routeLoader$, server$, z, zod$ } from "@builder.io/qwik-city";
 import { students, guardians, grades, guardianTypes, bloodTypes, studentApplications, studentApplicationStatuses, studentApplicationStatusTypes } from "~/data/enrollment.data";
-import { StudentApplicationRequest, StudentApplicationResponse, StudentApplicationStatusResponse, StudentApplicationStatusTypeResponse, StudentResponse } from "~/types/enrollment.types";
+import { GuardianResponse, StudentApplicationRequest, StudentApplicationResponse, StudentApplicationStatusResponse, StudentApplicationStatusTypeResponse, StudentResponse } from "~/types/enrollment.types";
 
 export const getStudents = server$(function() {
   return students;
@@ -140,7 +140,7 @@ export const useGetBloodTypes = routeLoader$(() => {
 });
 
 export const useCreateStudentRequest = routeAction$(async (data, event) => {
-  if (data.fullName === "test") {
+  if (data.studentName === "test") {
     return event.fail(400, { message: "Error al actualizar el estudiante" });
   }
   //Create student application
@@ -165,11 +165,11 @@ export const useCreateStudentRequest = routeAction$(async (data, event) => {
   studentApplicationStatuses.push(applicationStatus);
   return response;
 }, zod$({
-  fullName: z.string().min(1, "Nombre completo requerido"),
+  studentName: z.string().min(1, "Nombre completo requerido"),
   birthDate: z.coerce.date({ required_error: "Fecha de nacimiento requerida" }),
   birthPlace: z.string().min(1, "Lugar de nacimiento requerido"),
   department: z.string().min(1, "Departamento requerido"),
-  documentNumber: z.string().min(1, "Número de documento requerido"),
+  studentDocument: z.string().min(1, "Número de documento requerido"),
   weight: z.coerce.number().positive("El peso debe ser un número positivo"),
   height: z.coerce.number().positive("La altura debe ser un número positivo"),
   bloodType: z.string().min(1, "Tipo de sangre requerido"),
@@ -183,12 +183,74 @@ export const useCreateStudentRequest = routeAction$(async (data, event) => {
         .filter((a) => a.length > 0)
     ),
   gradeId: z.string().min(1, "Grado requerido"),
-  name: z.string().min(1, "Nombre del acudiente requerido"),
+  guardianName: z.string().min(1, "Nombre del acudiente requerido"),
   phone: z.string().min(1, "Teléfono requerido"),
-  profession: z.string().optional(),
-  company: z.string().optional(),
+  profession: z.string(),
+  company: z.string(),
   email: z.string().email("Correo inválido"),
   address: z.string().min(1, "Dirección requerida"),
   typeId: z.string().min(1, "Tipo de acudiente requerido"),
-  guardianDocumentNumber: z.string().min(1, "Número de documento del acudiente requerido")
+  guardianDocument: z.string().min(1, "Número de documento del acudiente requerido")
+}));
+
+export const useGetStudentApplications = routeLoader$(async () => {
+  return studentApplications;
+});
+
+export const useDeleteStudentApplication = routeAction$(async (data, event) => {
+  const application = studentApplications.find((application) => application.id === data.id);
+  if (!application) {
+    return event.fail(404, { message: "Application not found" });
+  }
+
+  studentApplications.splice(studentApplications.indexOf(application), 1);
+  return application;
+}, zod$({
+  id: z.string().min(1),
+}));
+
+export const useAcceptStudentApplication = routeAction$(async (data, event) => {
+  const application = studentApplications.find((application) => application.id === data.id);
+  if (!application) {
+    return event.fail(404, { message: "Application not found" });
+  }
+
+  let lastId = students.length + 1;
+  const guardian: GuardianResponse = {
+    id: `${lastId}`,
+    name: application.guardianName,
+    documentNumber: application.guardianDocument,
+    phone: application.phone,
+    profession: application.profession,
+    company: application.company,
+    email: application.email,
+    address: application.address,
+    typeId: application.typeId
+  };
+  guardians.push(guardian);
+
+  const student: StudentResponse = {
+    id: `${lastId}`,
+    fullName: application.studentName,
+    birthDate: application.birthDate,
+    birthPlace: application.birthPlace,
+    department: application.department,
+    documentNumber: application.studentDocument,
+    weight: application.weight,
+    height: application.height,
+    bloodType: application.bloodType,
+    socialSecurity: application.socialSecurity,
+    allergies: application.allergies,
+    gradeId: application.gradeId,
+    guardians: [
+      guardian
+    ]
+  };
+
+  students.push(student);
+  studentApplications.splice(studentApplications.indexOf(application), 1);
+  return student;
+
+}, zod$({
+  id: z.string().min(1),
 }));

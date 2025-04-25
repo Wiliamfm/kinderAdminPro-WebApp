@@ -25,8 +25,8 @@ export default component$(() => {
         <input type="hidden" name="id" />
 
         <div>
-          <label for="fullName" class="block mb-2 text-sm font-medium text-gray-900">Nombre Completo</label>
-          <input type="text" id="fullName" name="fullName" required
+          <label for="studentName" class="block mb-2 text-sm font-medium text-gray-900">Nombre Completo</label>
+          <input type="text" id="studentName" name="studentName" required
             class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg block w-full p-2.5" />
         </div>
 
@@ -49,8 +49,8 @@ export default component$(() => {
         </div>
 
         <div>
-          <label for="documentNumber" class="block mb-2 text-sm font-medium text-gray-900">Número de Documento</label>
-          <input type="text" id="documentNumber" name="documentNumber" required
+          <label for="studentDocument" class="block mb-2 text-sm font-medium text-gray-900">Número de Documento</label>
+          <input type="text" id="studentDocument" name="studentDocument" required
             class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg block w-full p-2.5" />
         </div>
 
@@ -104,14 +104,14 @@ export default component$(() => {
 
         <div>
           <div>
-            <label for="name" class="block mb-2 text-sm font-medium text-gray-900">Nombre Completo</label>
-            <input type="text" id="name" name="name" required
+            <label for="guardianName" class="block mb-2 text-sm font-medium text-gray-900">Nombre Completo</label>
+            <input type="text" id="guardianName" name="guardianName" required
               class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg block w-full p-2.5" />
           </div>
 
           <div>
-            <label for="guardianDocumentNumber" class="block mb-2 text-sm font-medium text-gray-900">Número de documento</label>
-            <input type="text" id="guardianDocumentNumber" name="guardianDocumentNumber" required
+            <label for="guardianDocument" class="block mb-2 text-sm font-medium text-gray-900">Número de documento</label>
+            <input type="text" id="guardianDocument" name="guardianDocument" required
               class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg block w-full p-2.5" />
           </div>
 
@@ -124,13 +124,13 @@ export default component$(() => {
 
           <div>
             <label for="profession" class="block mb-2 text-sm font-medium text-gray-900">Profesión</label>
-            <input type="text" id="profession" name="profession"
+            <input type="text" id="profession" name="profession" required
               class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg block w-full p-2.5" />
           </div>
 
           <div>
             <label for="company" class="block mb-2 text-sm font-medium text-gray-900">Empresa</label>
-            <input type="text" id="company" name="company"
+            <input type="text" id="company" name="company" required
               class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg block w-full p-2.5" />
           </div>
 
