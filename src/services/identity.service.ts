@@ -6,6 +6,13 @@ let user: IdentityUser | null = null;
 
 export const getUserStatus = server$(async function(username: string | null = null) {
   if (username) {
+    const info = getUserInfo(username);
+    user = {
+      id: "1",
+      email: username,
+      role: info.role,
+      name: info.name,
+    } as IdentityUser;
     return user;
   }
   return user;
@@ -15,11 +22,12 @@ export const useLogin = routeAction$(async (data, event) => {
   if (data.password !== "1234") {
     return event.fail(401, { message: "Credenciales inválidas!" });
   }
+  const info = getUserInfo(data.username);
   user = {
     id: "1",
     email: data.username,
-    role: getUserRole(data.username),
-    name: "admin",
+    role: info.role,
+    name: info.name,
   } as IdentityUser;
   if (user instanceof BaseError) {
     return event.fail(user.status, { message: user.message });
@@ -33,15 +41,15 @@ export const useLogin = routeAction$(async (data, event) => {
   password: z.string(),
 }));
 
-function getUserRole(email: string) {
+function getUserInfo(email: string) {
   switch (email) {
     case "admin@test.com":
-      return IdentityRolesEnum.Admin;
+      return { name: "admin", role: IdentityRolesEnum.Admin };
     case "professor@test.com":
-      return IdentityRolesEnum.Professor;
+      return { name: "professor", role: IdentityRolesEnum.Professor };
     case "tutor@test.com":
-      return IdentityRolesEnum.Parent;
+      return { name: "parent", role: IdentityRolesEnum.Parent };
     default:
-      return IdentityRolesEnum.Parent;
+      return { name: "parent", role: IdentityRolesEnum.Parent };
   }
 }
