@@ -11,9 +11,9 @@ export type TableActions = {
 
 export class BaseError extends Error {
   status: number;
-  context: {};
+  context: object;
 
-  constructor(message: string, status: number, context: {}) {
+  constructor(message: string, status: number, context: object) {
     super(message);
     this.name = this.constructor.name;
     this.status = status;

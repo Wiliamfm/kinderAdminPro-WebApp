@@ -61,7 +61,7 @@ export const updateEmployee = server$(function(request: UpdateEmployeeRequest) {
 });
 
 export const deleteEmployee = server$(function(id: string) {
-  var employee = employees.find(e => e.id === id);
+  const employee = employees.find(e => e.id === id);
   if (!employee) {
     return new BaseError("Invalid employee id!", 400, { id: id });
   }
@@ -102,7 +102,7 @@ export const updateEmployeeJob = server$(function(request: UpdateEmployeeJobRequ
 });
 
 export const deleteEmployeeJob = server$(function(id: string) {
-  var job = employeeJobs.find(e => e.id === id);
+  const job = employeeJobs.find(e => e.id === id);
   if (!job) {
     return new BaseError("Invalid job id!", 400, { id: id });
   }

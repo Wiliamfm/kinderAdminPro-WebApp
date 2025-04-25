@@ -109,7 +109,7 @@ export default component$(() => {
   const createEmployeeLeaveAction = useCreateEmployeeLeave();
   const createEmployeeInvoiceAction = useCreateEmployeeInvoice();
 
-  const employeeFormFn = $((_: any, element: HTMLFormElement) => {
+  const employeeFormFn = $((_: unknown, element: HTMLFormElement) => {
     if (createEmployeeAction.value?.failed) {
       console.error(createEmployeeAction.value.message);
       return;
@@ -117,7 +117,7 @@ export default component$(() => {
     element.reset();
   });
 
-  const employeeLeaveFormFn = $((_: any, element: HTMLFormElement) => {
+  const employeeLeaveFormFn = $((_: unknown, element: HTMLFormElement) => {
     if (createEmployeeLeaveAction.value?.failed) {
       alert(createEmployeeLeaveAction.value.message);
       return;
@@ -140,7 +140,7 @@ export default component$(() => {
           </svg>
         </Link >,
         <button class="cursor-pointer" onClick$={async () => {
-          var employee = await deleteEmployee(e.id).catch((error) => {
+          const employee = await deleteEmployee(e.id).catch((error) => {
             console.error(error);
           });
           if (employee) {

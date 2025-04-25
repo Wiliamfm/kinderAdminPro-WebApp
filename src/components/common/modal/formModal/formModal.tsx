@@ -8,6 +8,7 @@ export type modalFormProps = {
   modalBtnName: string;
   formBtnName?: string;
   formBtnClass: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   formAction: ActionStore<any, any, any>;
   formOnSubmitFn: QRL;
   btnModalRef?: Signal<HTMLButtonElement | undefined>;
