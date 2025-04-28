@@ -18,6 +18,7 @@ FROM docker.io/oven/bun as release
 USER bun
 WORKDIR /home/bun/
 ENV NODE_ENV production
+ENV ORIGIN https://kinderadminpro-webapp.onrender.com
 COPY --from=build /usr/src/app/package.json package.json
 COPY --from=build /usr/src/app/dist dist 
 COPY --from=build /usr/src/app/server server
