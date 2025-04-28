@@ -18,6 +18,7 @@ const { router, notFound, staticFile } = createQwikCity({
   render,
   qwikCityPlan,
   manifest,
+  checkOrigin: false
 });
 
 // Allow for dynamic port
