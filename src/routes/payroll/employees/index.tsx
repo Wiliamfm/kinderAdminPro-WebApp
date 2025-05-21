@@ -57,7 +57,7 @@ export const useCreateEmployeeLeave = routeAction$(async (data, event) => {
   const employeeLeave = createEmployeeLeave(request);
   return employeeLeave;
 }, zod$({
-  employeeId: z.string().min(1),
+  employeeId: z.coerce.number().min(1),
   startDate: z.coerce.date(),
   startTime: z.string(),
   endDate: z.coerce.date(),
@@ -68,13 +68,13 @@ export default component$(() => {
   const leavesHeader: TableHeader[] = [
     { name: "Id del empleado", key: "employeeId" },
     {
-      name: "Fecha de Inicio", key: "startDate", format: $((date: Date) => {
-        return date.toLocaleDateString();
+      name: "Fecha de Inicio", key: "startDate", format: $((date: string) => {
+        return new Date(date).toLocaleDateString();
       })
     },
     {
-      name: "Fecha de Finalización", key: "endDate", format: $((date: Date) => {
-        return date.toLocaleDateString();
+      name: "Fecha de Finalización", key: "endDate", format: $((date: string) => {
+        return new Date(date).toLocaleDateString();
       })
     },
   ];

@@ -33,14 +33,14 @@ export type UpdateEmployeeJobRequest = {
 }
 
 export type EmployeeLeaveResponse = {
-  id: string;
-  employeeId: string;
+  id: number;
+  employeeId: number;
   startDate: Date;
   endDate: Date;
 }
 
 export type CreateEmployeeLeaveRequest = {
-  employeeId: string;
+  employeeId: number;
   startDate: Date;
   endDate: Date;
 }
@@ -55,11 +55,6 @@ export type EmployeeInvoiceResponse = {
 
 export type EmployeeInvoiceRequest = {
   employeeId: number;
-}
-
-export type CreateEmployeeInvoiceRequest = {
-  employeeId: string;
-  fileName: string;
 }
 
 export type CalendarEvent = {

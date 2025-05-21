@@ -1,31 +1,7 @@
 import { routeAction$, server$, z, zod$ } from "@builder.io/qwik-city";
 import { CalendarEvent, CreateEmployeeJobRequest, CreateEmployeeLeaveRequest, CreateEmployeeRequest, EmployeeInvoiceRequest, EmployeeInvoiceResponse, EmployeeJobResponse, EmployeeLeaveResponse, EmployeeResponse, UpdateEmployeeJobRequest, UpdateEmployeeRequest } from "~/types/payroll.types";
-import * as fs from 'node:fs/promises';
 import { BaseError } from "~/types/shared.types";
 import { getSupabase } from "./supabase.service";
-
-const employeeJobs: EmployeeJobResponse[] = [
-  { id: "1", name: "test job", salary: 1000 },
-  { id: "2", name: "test job 2", salary: 2000 },
-];
-
-const employees: EmployeeResponse[] = [
-  {
-    id: "1", name: "test employee", job: employeeJobs.find(e => e.id === "1")!
-  },
-  {
-    id: "2", name: "test 2 employee", job: employeeJobs.find(e => e.id === "2")!
-  },
-];
-
-const employeeLeaves: EmployeeLeaveResponse[] = [
-  { id: "1", startDate: new Date("2025-04-05"), endDate: new Date("2025-04-05"), employeeId: "1" },
-  { id: "2", startDate: new Date("2025-05-06"), endDate: new Date("2025-05-06"), employeeId: "1" },
-];
-
-const employeeInvoices: EmployeeInvoiceResponse[] = [
-  { id: "1", employeeId: "1", invoiceDate: new Date(), invoicePath: "data/invoices/2/59d957ca-6278-443a-810e-b84727bd6c01.pdf", fileName: "test.pdf", }
-];
 
 const calendarEvents: CalendarEvent[] = [];
 
@@ -235,17 +211,44 @@ export const deleteEmployeeJob = server$(async function(id: number) {
   };
 });
 
-export const getEmployeeLeaves = server$(function(employeeId: string) {
-  return employeeLeaves.filter(x => x.employeeId === employeeId);
+export const getEmployeeLeaves = server$(async function(employeeId: number) {
+  const { data, error } = await getSupabase().from("employee_leaves").select().eq("employee_id", employeeId);
+  if (error) {
+    console.error("Unable to fetch employee leaves:\n", error);
+    return [];
+  }
+
+  return data.map((e: any) => {
+    return {
+      id: e.id,
+      employeeId: e.employee_id,
+      startDate: e.start_date,
+      endDate: e.end_date
+    } as EmployeeLeaveResponse
+  });
 });
 
-export const createEmployeeLeave = server$(function(request: CreateEmployeeLeaveRequest) {
-  const lastId = employeeLeaves.length + 1;
-  const employeeLeave = {
-    id: lastId.toString(), startDate: request.startDate, endDate: request.endDate, employeeId: request.employeeId
-  };
-  employeeLeaves.push(employeeLeave);
-  return employeeLeave;
+export const createEmployeeLeave = server$(async function(request: CreateEmployeeLeaveRequest) {
+  const employee = await getEmployee(request.employeeId);
+  if (!employee) {
+    return new BaseError("Invalid employee id!", 400, { id: request.employeeId });
+  }
+
+  const { data, error } = await getSupabase().from("employee_leaves").insert({
+    employee_id: request.employeeId,
+    start_date: request.startDate,
+    end_date: request.endDate
+  }).select();
+  if (error) {
+    console.error("Unable to create employee leave:\n", error);
+    return new BaseError("No se pudo crear la incapacidad del empleado", 500, { message: error.message });
+  }
+  return {
+    id: data[0].id,
+    employeeId: data[0].employee_id,
+    startDate: data[0].start_date,
+    endDate: data[0].end_date
+  } as EmployeeLeaveResponse
 });
 
 export const getEmployeeInvoices = server$(async function(request: EmployeeInvoiceRequest) {
@@ -270,6 +273,7 @@ export const useCreateEmployeeInvoice = routeAction$(async (req, event) => {
   const dirPath = `${req.employeeId}`;
   const filePath = `${dirPath}/${fileName}.pdf`;
 
+  //TODO: Use invoices bucket
   const { data, error } = await getSupabase().storage.from("test")
     .upload(filePath, req.invoice, {
       upsert: true
