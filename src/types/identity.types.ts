@@ -5,8 +5,9 @@ export enum IdentityRolesEnum {
 }
 
 export type IdentityUser = {
-  id: string;
+  id: number;
   name: string;
   email: string;
   role: IdentityRolesEnum;
+  userId: string;
 };
