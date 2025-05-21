@@ -139,8 +139,19 @@ export const deleteEmployee = server$(async function(id: number) {
   return employee;
 });
 
-export const getEmployeesJobs = server$(function() {
-  return employeeJobs;
+export const getEmployeesJobs = server$(async function() {
+  const { data, error } = await getSupabase().from("employee_jobs").select();
+  if (error) {
+    console.error("Unable to fetch employee jobs:\n", error);
+    return [];
+  }
+  return data.map((e: any) => {
+    return {
+      id: e.id,
+      name: e.name,
+      salary: e.salary
+    } as EmployeeJobResponse;
+  });
 });
 
 export const getEmployeeJob = server$(async function(id: number) {
@@ -156,37 +167,72 @@ export const getEmployeeJob = server$(async function(id: number) {
   } as EmployeeJobResponse;
 });
 
-export const createEmployeeJob = server$(function(request: CreateEmployeeJobRequest) {
+export const createEmployeeJob = server$(async function(request: CreateEmployeeJobRequest) {
   if (request.salary < 1000) {
     return new BaseError("Salario no puede ser menor a 1000", 400, { salary: request.salary });
   }
   if (request.name.length === 0) {
     return new BaseError("El nombre no puede estar vacio", 400, { name: request.name });
   }
-  const lastId = employeeJobs.length + 1;
-  const newJob = { id: `${lastId}`, ...request };
-  employeeJobs.push(newJob);
-  return newJob
+  const { data, error } = await getSupabase().from("employee_jobs").insert({
+    name: request.name,
+    salary: request.salary
+  })
+    .select();
+  if (error) {
+    console.error(`Unable to create employee job:\n`, error);
+    return new BaseError("No se pudo crear el cargo", 500, { message: error.message });
+  }
+  return {
+    id: data[0].id,
+    name: data[0].name,
+    salary: data[0].salary
+  } as EmployeeJobResponse;
 });
 
-export const updateEmployeeJob = server$(function(request: UpdateEmployeeJobRequest) {
-  const job = employeeJobs.find(e => e.id === request.id);
+export const updateEmployeeJob = server$(async function(request: UpdateEmployeeJobRequest) {
+  const job = await getEmployeeJob(request.id);
   if (!job) {
     return new BaseError("Invalid job id!", 400, { id: request.id });
   }
-  job.name = request.name;
-  job.salary = request.salary;
-  //employeeJobs[employeeJobs.indexOf(job)] = job;
-  return job;
+  const { data, error } = await getSupabase().from("employee_jobs").update({
+    name: request.name,
+    salary: request.salary
+  })
+    .eq("id", request.id)
+    .select();
+  if (error) {
+    console.error(`Unable to update employee job ${request.id}:\n`, error);
+    return new BaseError("No se pudo actualizar el cargo", 500, { message: error.message });
+  }
+  const updatedJob = data[0];
+  return {
+    id: updatedJob.id,
+    name: updatedJob.name,
+    salary: updatedJob.salary
+  } as EmployeeJobResponse;
 });
 
-export const deleteEmployeeJob = server$(function(id: string) {
-  const job = employeeJobs.find(e => e.id === id);
+export const deleteEmployeeJob = server$(async function(id: number) {
+  const job = await getEmployeeJob(id);
   if (!job) {
-    return new BaseError("Invalid job id!", 400, { id: id });
+    return {
+      data: null,
+      error: new BaseError("Invalid job id!", 400, { id: id })
+    };
   }
-  employeeJobs.splice(employeeJobs.indexOf(job), 1);
-  return job;
+  const { error } = await getSupabase().from("employee_jobs").delete().eq("id", id);
+  if (error) {
+    console.error(`Unable to delete employee job ${id}:\n`, error);
+    return {
+      data: null,
+      error: new BaseError("No se pudo eliminar el cargo", 500, { message: error.message })
+    };
+  }
+  return {
+    data: job,
+    error: null
+  };
 });
 
 export const getEmployeeLeaves = server$(function(employeeId: string) {

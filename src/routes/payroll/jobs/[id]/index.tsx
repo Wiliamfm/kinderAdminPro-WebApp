@@ -14,7 +14,7 @@ export const useGetEmployeeJob = routeLoader$(async (event) => {
 });
 
 export const useUpdateEmployeeJob = routeAction$(async (data, event) => {
-  const response = await updateEmployeeJob({ id: event.params.id, name: data.name, salary: data.salary });
+  const response = await updateEmployeeJob({ id: Number(event.params.id), name: data.name, salary: data.salary });
   if (response instanceof BaseError) {
     return event.fail(response.status, { message: response.message });
   }

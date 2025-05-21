@@ -27,7 +27,7 @@ export type CreateEmployeeJobRequest = {
 }
 
 export type UpdateEmployeeJobRequest = {
-  id: string;
+  id: number;
   name: string;
   salary: number;
 }
