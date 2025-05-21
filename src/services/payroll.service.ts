@@ -249,62 +249,62 @@ export const createEmployeeLeave = server$(function(request: CreateEmployeeLeave
 });
 
 export const getEmployeeInvoices = server$(async function(request: EmployeeInvoiceRequest) {
-  const dirPath = "data/invoices/" + request.employeeId;
-  await fs.mkdir(dirPath, { recursive: true });
-  const files = await fs.readdir(dirPath);
-  const invoices = employeeInvoices.filter(e => e.employeeId === request.employeeId);
-  for (const file of files) {
-    const invoice = invoices.find(f => {
-      const originalName = f.invoicePath.split("/").pop();
-      return originalName === file;
-    });
-    if (invoice) continue;
-    invoices.push({
-      id: String(employeeInvoices.length + 1),
-      employeeId: request.employeeId,
-      invoiceDate: new Date(),
-      invoicePath: file,
-      fileName: file,
-    })
+  const { data, error } = await getSupabase().from("employee_invoices").select().eq("employee_id", request.employeeId);
+  if (error) {
+    console.error(`Unable to fetch employee invoices ${request.employeeId}:\n`, error);
+    return [];
   }
-  return invoices;
+  return data.map((i) => {
+    return {
+      id: i.id,
+      employeeId: i.employee_id,
+      invoiceDate: i.created_at,
+      invoicePath: i.path,
+      fileName: i.file_name
+    } as EmployeeInvoiceResponse
+  })
 });
 
-export const useCreateEmployeeInvoice = routeAction$(async (data, event) => {
-  //TODO: Use real users.
+export const useCreateEmployeeInvoice = routeAction$(async (req, event) => {
   const fileName = crypto.randomUUID();
-  const dirPath = `data/invoices/${data.employeeId}`;
+  const dirPath = `${req.employeeId}`;
   const filePath = `${dirPath}/${fileName}.pdf`;
 
-  const fileResponse = await fs.writeFile(filePath, new Uint8Array(await data.invoice.arrayBuffer())).catch((error) => {
-    console.error("ERROR: Unable to save file:\n", error);
-    return new BaseError("Unable to save file!", 500, { message: error.message });
-  });
-  if (fileResponse instanceof Error) {
-    return event.fail(500, { message: fileResponse.message });
+  const { data, error } = await getSupabase().storage.from("test")
+    .upload(filePath, req.invoice, {
+      upsert: true
+    });
+  if (error) {
+    console.error("ERROR: Unable to upload file:\n", error);
+    return event.fail(500, { message: error.message });
   }
 
-  const lastId = employeeInvoices.length + 1;
+  const response = await getSupabase().from("employee_invoices").insert({
+    employee_id: req.employeeId,
+    path: data?.path,
+    file_name: req.invoice.name
+  }).select();
+  if (response.error) {
+    console.error("ERROR: Unable to create invoice:\n", error);
+    return event.fail(500, { message: response.error.message });
+  }
+
   const employeeInvoice: EmployeeInvoiceResponse = {
-    id: lastId.toString(),
-    employeeId: data.employeeId,
+    id: response.data[0].id,
+    employeeId: req.employeeId,
     invoiceDate: new Date(),
-    invoicePath: filePath,
-    fileName: data.invoice.name,
+    invoicePath: response.data[0].created_at,
+    fileName: response.data[0].file_name
   }
-  employeeInvoices.push(employeeInvoice);
-  console.log(employeeInvoices);
-
   return {
     success: true,
     employeeInvoice: employeeInvoice
   };
-  //await Bun.write(`/data/invoices/${userId}/${fileName}.pdf`, data.invoice);
 }, zod$({
   invoice: z.instanceof(File).refine((file) => {
     return file.size > 0 && file.type.startsWith("application/") && file.type.endsWith("pdf") && file.name.endsWith(".pdf");
   }),
-  employeeId: z.string()
+  employeeId: z.coerce.number()
 }));
 
 export const createCalendarEvent = server$(function(event: CalendarEvent) {

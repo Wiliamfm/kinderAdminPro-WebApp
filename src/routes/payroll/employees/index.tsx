@@ -81,8 +81,8 @@ export default component$(() => {
   const invoicesHeader: TableHeader[] = [
     { name: "Id del empleado", key: "employeeId" },
     {
-      name: "Fecha de pago", key: "invoiceDate", format: $((date: Date) => {
-        return date.toLocaleDateString();
+      name: "Fecha de pago", key: "invoiceDate", format: $((date: string) => {
+        return new Date(date).toLocaleDateString();
       })
     },
     { name: "Factura", key: "fileName" }
@@ -91,7 +91,7 @@ export default component$(() => {
   const employeesLoader = useGetEmployees();
   const getEmployeeJobsLoader = useGetEmployeeJobs();
 
-  const selectedEmployee = useSignal("");
+  const selectedEmployee = useSignal(0);
   const employeeInvoices = useStore({
     invoices: [] as EmployeeInvoiceResponse[],
   });

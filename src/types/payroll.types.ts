@@ -46,15 +46,15 @@ export type CreateEmployeeLeaveRequest = {
 }
 
 export type EmployeeInvoiceResponse = {
-  id: string;
-  employeeId: string;
+  id: number;
+  employeeId: number;
   invoiceDate: Date;
   invoicePath: string;
   fileName: string;
 }
 
 export type EmployeeInvoiceRequest = {
-  employeeId: string;
+  employeeId: number;
 }
 
 export type CreateEmployeeInvoiceRequest = {
