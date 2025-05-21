@@ -35,7 +35,7 @@ export const useCreateEmployee = routeAction$(async (data, event) => {
   return response;
 }, zod$({
   name: z.string().min(3),
-  job: z.string().min(1),
+  job: z.coerce.number().min(1),
 }));
 
 export const useCreateEmployeeLeave = routeAction$(async (data, event) => {

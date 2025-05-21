@@ -9,7 +9,7 @@ export { useGetEmployeeJobs } from "~/loaders/payroll.loader";
 
 export const useGetEmployee = routeLoader$(async (event) => {
   const id = event.params.id;
-  const employee = await getEmployee(id);
+  const employee = await getEmployee(Number(id));
   if (employee instanceof BaseError) {
     throw event.redirect(302, "/payroll/employees");
   }
@@ -21,7 +21,7 @@ export const useGetEmployee = routeLoader$(async (event) => {
 
 export const useUpdateEmployee = routeAction$(async (data, event) => {
   const request: UpdateEmployeeRequest = {
-    id: event.params.id,
+    id: Number(event.params.id),
     name: data.name,
     jobId: data.job,
   }

@@ -1,22 +1,22 @@
 export type EmployeeResponse = {
-  id: string;
+  id: number;
   name: string;
   job: EmployeeJobResponse;
 }
 
 export type CreateEmployeeRequest = {
   name: string;
-  jobId: string;
+  jobId: number;
 }
 
 export type UpdateEmployeeRequest = {
-  id: string;
+  id: number;
   name: string;
-  jobId: string;
+  jobId: number;
 }
 
 export type EmployeeJobResponse = {
-  id: string;
+  id: number;
   name: string;
   salary: number;
 }

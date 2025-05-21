@@ -4,7 +4,7 @@ import { getEmployeeJob, updateEmployeeJob } from "~/services/payroll.service";
 import { BaseError } from "~/types/shared.types";
 
 export const useGetEmployeeJob = routeLoader$(async (event) => {
-  const response = await getEmployeeJob(event.params.id);
+  const response = await getEmployeeJob(Number(event.params.id));
   if (!response) {
     throw event.redirect(308, "/payroll/jobs");
   }
