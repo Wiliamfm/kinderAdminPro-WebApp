@@ -5,7 +5,7 @@ import { useGetGuardians, getStudent, useGetGrades, useUpdateStudent, useGetBloo
 export { useUpdateStudent, useGetGrades, useGetGuardians, useGetBloodTypes };
 
 export const useGetStudent = routeLoader$(async (event) => {
-  const response = await getStudent(event.params.id).catch(error => {
+  const response = await getStudent(Number(event.params.id)).catch(error => {
     return event.fail(404, { message: error.message });
   });
 
@@ -46,7 +46,7 @@ export default component$(() => {
 
         <div>
           <label for="birthDate" class="block mb-2 text-sm font-medium text-gray-900">Fecha de Nacimiento</label>
-          <input value={studentLoader.value.birthDate?.toISOString().split('T')[0]} type="date" id="birthDate" name="birthDate" required
+          <input value={new Date(studentLoader.value.birthDate ?? new Date()).toISOString().split('T')[0]} type="date" id="birthDate" name="birthDate" required
             class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg block w-full p-2.5" />
         </div>
 
@@ -110,10 +110,10 @@ export default component$(() => {
           <label for="gradeId" class="block mb-2 text-sm font-medium text-gray-900">Grado</label>
           <select id="gradeId" name="gradeId" required
             class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg block w-full p-2.5" onChange$={(_, element) => {
-              studentLoader.value.gradeId = element.value;
+              studentLoader.value.gradeId = Number(element.value);
             }}>
             {gradesLoader.value.map((grade) => (
-              <option key={grade.id} value={grade.id} selected={studentLoader.value.gradeId === grade.id}>{grade.name}</option>
+              <option key={grade.id} value={grade.id} selected={studentLoader.value.gradeId === grade.id}>{grade.displayName}</option>
             ))}
           </select>
         </div>

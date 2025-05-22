@@ -5,7 +5,7 @@ import { getGuardian, useGetGuardianTypes, useUpdateGuardian } from '~/services/
 export { useUpdateGuardian, useGetGuardianTypes };
 
 export const useGetGuardian = routeLoader$(async (event) => {
-  return getGuardian(event.params.id).catch(error => {
+  return getGuardian(Number(event.params.id)).catch(error => {
     return event.fail(404, { message: error.message });
   });
 });

@@ -22,7 +22,7 @@ export default component$(() => {
   const tableHeaders: TableHeader[] = [
     { name: "ID", key: "id" },
     { name: "Nombre", key: "fullName" },
-    { name: "Fecha de Nacimiento", key: "birthDate", format: $((date: Date) => date.toLocaleDateString()) },
+    { name: "Fecha de Nacimiento", key: "birthDate", format: $((date: string) => new Date(date).toLocaleDateString()) },
     { name: "Lugar de Nacimiento", key: "birthPlace" },
     { name: "Departamento", key: "department" },
     { name: "Documento", key: "documentNumber" },
@@ -41,8 +41,8 @@ export default component$(() => {
       })
     },
     {
-      name: "Grado", key: "gradeId", format: $((gradeId: string) => {
-        return gradesLoader.value.find((grade) => grade.id === gradeId)?.name ?? "N/A";
+      name: "Grado", key: "gradeId", format: $((gradeId: number) => {
+        return gradesLoader.value.find((grade) => grade.id === gradeId)?.displayName ?? "N/A";
       })
     },
     {

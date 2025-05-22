@@ -16,7 +16,7 @@ export default component$(() => {
         if (!registerStudentAction.value) return;
         if (registerStudentAction.value.failed) {
           console.error(registerStudentAction.value.message);
-          alert("Error al actualizar el estudiante");
+          alert("Error al crear el estudiante");
           return;
         }
         alert("Solicitud creada exitosamente");
@@ -95,7 +95,7 @@ export default component$(() => {
           <select id="gradeId" name="gradeId" required
             class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg block w-full p-2.5">
             {gradesLoader.value.map((grade) => (
-              <option key={grade.id} value={grade.id}>{grade.name}</option>
+              <option key={grade.id} value={grade.id}>{grade.displayName}</option>
             ))}
           </select>
         </div>

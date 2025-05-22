@@ -1,5 +1,5 @@
 export type StudentResponse = {
-  id: string;
+  id: number;
   fullName: string;
   birthDate: Date;
   birthPlace: string;
@@ -10,12 +10,12 @@ export type StudentResponse = {
   bloodType: string;
   socialSecurity: string;
   allergies: string[];
-  gradeId?: string;
+  gradeId?: number;
   guardians: GuardianResponse[];
 };
 
 export type GuardianResponse = {
-  id: string;
+  id: number;
   name: string;
   documentNumber: string;
   phone: string;
@@ -43,8 +43,8 @@ export type CreateStudentRequest = {
   bloodType: string;
   socialSecurity: string;
   allergies: string[];
-  gradeId: string;
-  guardianIds: string[];
+  gradeId: number;
+  guardianIds: number[];
 };
 
 export type CreateGuardianRequest = {
@@ -55,36 +55,37 @@ export type CreateGuardianRequest = {
   company: string;
   email: string;
   address: string;
-  typeId: string;
+  typeId: number;
 };
 
 export type GuardianTypeResponse = {
-  id: string;
+  id: number;
   name: string;
   displayName: string;
   description: string;
 }
 
 export type GradeResponse = {
-  id: string;
+  id: number;
   name: string;
+  displayName: string;
 }
 
 export type StudentApplicationStatusResponse = {
-  id: string;
-  studentApplicationId: string;
+  id: number;
+  studentApplicationId: number;
   createdAt: Date;
   status: StudentApplicationStatusTypeResponse;
 };
 
 export type StudentApplicationStatusTypeResponse = {
-  id: string;
+  id: number;
   name: string;
-  description: string;
+  displayName: string;
 }
 
 export type StudentApplicationResponse = {
-  id: string;
+  id: number;
   studentName: string;
   birthDate: Date;
   birthPlace: string;
@@ -95,7 +96,7 @@ export type StudentApplicationResponse = {
   bloodType: string;
   socialSecurity: string;
   allergies: string[];
-  gradeId: string;
+  gradeId: number;
 
   guardianName: string;
   phone: string;
@@ -103,7 +104,7 @@ export type StudentApplicationResponse = {
   company: string;
   email: string;
   address: string;
-  typeId: string;
+  typeId: number;
   guardianDocument: string;
 };
 

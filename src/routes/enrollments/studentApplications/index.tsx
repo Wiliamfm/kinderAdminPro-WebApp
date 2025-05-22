@@ -17,10 +17,10 @@ export default component$(() => {
   const tableHeaders: TableHeader[] = [
     { name: "ID", key: "id" },
     { name: "Nombre del Estudiante", key: "studentName" },
-    { name: "Fecha de Nacimiento", key: "birthDate", format: $((date: Date) => date.toLocaleDateString()) },
+    { name: "Fecha de Nacimiento", key: "birthDate", format: $((date: string) => new Date(date).toLocaleDateString()) },
     {
-      name: "Grado", key: "gradeId", format: $((gradeId: string) => {
-        return gradesLoader.value.find((grade) => grade.id === gradeId)?.name ?? "N/A";
+      name: "Grado", key: "gradeId", format: $((gradeId: number) => {
+        return gradesLoader.value.find((grade) => grade.id === gradeId)?.displayName ?? "N/A";
       })
     },
     { name: "Documento del Estudiante", key: "studentDocument" },
@@ -39,7 +39,7 @@ export default component$(() => {
     { name: "Nombre del Acudiente", key: "guardianName" },
     { name: "Documento del Acudiente", key: "guardianDocument" },
     {
-      name: "Parentezco", key: "typeId", format: $((typeId: string) => {
+      name: "Parentezco", key: "typeId", format: $((typeId: number) => {
         return guardianTypesLoader.value.find((type) => type.id === typeId)?.displayName ?? "N/A";
       })
     },
