@@ -6,6 +6,8 @@ export type EmployeeResponse = {
 
 export type CreateEmployeeRequest = {
   name: string;
+  email: string;
+  password: string;
   jobId: number;
 }
 

@@ -26,7 +26,9 @@ export const useCreateEmployee = routeAction$(async (data, event) => {
   }
   const request: CreateEmployeeRequest = {
     name: data.name,
-    jobId: job.id
+    jobId: job.id,
+    email: data.email,
+    password: data.password
   }
   const response = await createEmployee(request);
   if (response instanceof BaseError) {
@@ -35,6 +37,8 @@ export const useCreateEmployee = routeAction$(async (data, event) => {
   return response;
 }, zod$({
   name: z.string().min(3),
+  email: z.string().min(3),
+  password: z.string().min(3),
   job: z.coerce.number().min(1),
 }));
 
@@ -143,6 +147,10 @@ export default component$(() => {
           const employee = await deleteEmployee(e.id).catch((error) => {
             console.error(error);
           });
+          if (!employee || employee.error) {
+            alert(employee?.error.message ?? "Error al eliminar empleado");
+            return;
+          }
           if (employee) {
             alert("Empleado Eliminado!");
             window.location.reload();
@@ -186,6 +194,14 @@ export default component$(() => {
           <div>
             <label for="name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Nombre</label>
             <input type="text" name="name" id="name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" placeholder="Juan Perez" required />
+          </div>
+          <div>
+            <label for="email" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Email</label>
+            <input type="text" name="email" id="email" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" placeholder="Juan Perez" required />
+          </div>
+          <div>
+            <label for="password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Password</label>
+            <input type="password" name="password" id="password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" placeholder="Juan Perez" required />
           </div>
           <div>
             <label for="jobs" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Seleccione un cargo</label>

@@ -2,27 +2,27 @@ import { routeAction$, server$, z, zod$ } from "@builder.io/qwik-city";
 import { IdentityUser } from "~/types/identity.types";
 import { getSupabase } from "./supabase.service";
 
-export const getUserStatus = server$(async function(userId: string | null = null) {
-  if (!userId) {
+export const getUserStatus = server$(async function(email: string | null = null) {
+  if (!email) {
     return null;
   }
-  return getAppUser(userId);
+  return getAppUser(email);
 });
 
 export const useLogin = routeAction$(async (data, event) => {
-  const res = await getSupabase().auth.signInWithPassword({
-    email: data.username,
-    password: data.password
-  });
-  if (res.error) {
-    console.error("Unable to login:\n", res.error);
+  // const res = await getSupabase().auth.signInWithPassword({
+  //   email: data.username,
+  //   password: data.password
+  // });
+  // if (res.error) {
+  //   console.error("Unable to login:\n", res.error);
+  //   return event.fail(401, { message: "Credenciales inválidas!" });
+  // }
+  const user = await getAppUser(data.username);
+  if (!user || user.password !== data.password) {
     return event.fail(401, { message: "Credenciales inválidas!" });
   }
-  const user = await getAppUser(res.data.user.id);
-  if (!user) {
-    return event.fail(401, { message: "Credenciales inválidas!" });
-  }
-  event.cookie.set("username", user.userId, { httpOnly: true, secure: true, sameSite: "strict", path: "/", maxAge: 60 * 15 });
+  event.cookie.set("username", user.email, { httpOnly: true, secure: true, sameSite: "strict", path: "/", maxAge: 60 * 15 });
   return {
     success: true
   }
@@ -31,20 +31,21 @@ export const useLogin = routeAction$(async (data, event) => {
   password: z.string(),
 }));
 
-async function getAppUser(userId: string): Promise<IdentityUser | null> {
+async function getAppUser(email: string): Promise<IdentityUser | null> {
   const { data, error } = await getSupabase().from("Users").select(`
     id,
     user_id,
     email,
     name,
+    password,
     role_id(*)
-    `).eq("user_id", userId).single();
+    `).eq("email", email).single();
   if (error) {
-    console.error(`Unable to fetch user ${userId}:\n`, error);
+    console.error(`Unable to fetch user ${email}:\n`, error);
     return null;
   }
   if (data.role_id.length === 0) {
-    console.error(`User ${userId} has no role`);
+    console.error(`User ${email} has no role`);
     return null;
   }
   const role = data.role_id.name;
@@ -53,6 +54,7 @@ async function getAppUser(userId: string): Promise<IdentityUser | null> {
     email: data.email,
     name: data.name,
     role: role,
+    password: data.password,
     userId: data.user_id
   } as IdentityUser;
 }

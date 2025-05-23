@@ -10,9 +10,26 @@ export const createEmployee = server$(async function(request: CreateEmployeeRequ
   if (!job) {
     return new BaseError("Invalid job id!", 400, { id: request.jobId });
   }
+  // const userResponse = await getSupabase().auth.signUp({ email: request.email, password: request.password });
+  // if (userResponse.error) {
+  //   console.error("Unable to create user:\n", userResponse.error);
+  //   return new BaseError(userResponse.error.message, 500, { message: "No se pudo crear el usuario" });
+  // }
+  const userAppResponse = await getSupabase().from("Users").insert({
+    name: request.name,
+    email: request.email,
+    password: request.password,
+    role_id: 2
+  }).select("id").single();
+  if (userAppResponse.error) {
+    console.error("Unable to create user app:\n", userAppResponse.error);
+    return new BaseError(userAppResponse.error.message, 500, { message: "No se pudo crear el usuario" });
+  }
+
   const { data, error } = await getSupabase().from("employees").insert({
     name: request.name,
-    job_id: request.jobId
+    job_id: request.jobId,
+    user_app_id: userAppResponse.data.id
   })
     .select(`
 *,
@@ -105,14 +122,15 @@ job_id(*)
 export const deleteEmployee = server$(async function(id: number) {
   const employee = await getEmployee(id);
   if (!employee) {
-    return new BaseError("Invalid employee id!", 400, { id: id });
+    return { data: null, error: new BaseError("Invalid employee id!", 400, { id: id }) };
   }
   const { error } = await getSupabase().from("employees").delete().eq("id", id);
   if (error) {
     console.error(`Unable to delete employee ${id}:\n`, error);
-    return new BaseError("Unable to delete employee", 400, { id: id });;
+    return { data: null, error: new BaseError("No se pudo eliminar el empleado", 500, { id: id }) };
   }
-  return employee;
+
+  return { data: employee, error: null };
 });
 
 export const getEmployeesJobs = server$(async function() {
