@@ -1,5 +1,5 @@
 import { routeAction$, routeLoader$, server$, z, zod$ } from "@builder.io/qwik-city";
-import { students, guardians, bloodTypes } from "~/data/enrollment.data";
+import { bloodTypes } from "~/data/enrollment.data";
 import { CreateGuardianRequest, CreateStudentRequest, GradeResponse, GuardianResponse, GuardianTypeResponse, StudentApplicationResponse, StudentResponse } from "~/types/enrollment.types";
 import { getSupabase } from "./supabase.service";
 
@@ -226,15 +226,24 @@ export const useUpdateStudent = routeAction$(async (req, event) => {
 }));
 
 export const useDeleteStudent = routeAction$(async (data, event) => {
-  const student = students.find((student) => student.id === data.id);
+  const student = await getStudent(data.id);
   if (!student) {
     return event.fail(404, { message: "Student not found!" });
   }
-  const index = students.indexOf(student);
-  students.splice(index, 1);
+  let { error } = await getSupabase().from("students").delete().eq("id", data.id);
+  if (error) {
+    console.error(`Unable to delete student:\n`, error);
+    return event.fail(500, { message: "Error al eliminar el estudiante" });
+  }
+  const response = await getSupabase().from("guardians_student").delete().eq("student_id", data.id)
+  if (response.error) {
+    console.error(`Unable to delete student:\n`, error);
+    return event.fail(500, { message: "Error al eliminar el estudiante" });
+  }
+
   return student;
 }, zod$({
-  id: z.string().min(1),
+  id: z.coerce.number().min(1),
 }));
 
 export const useGetGuardians = routeLoader$(async () => {
@@ -274,16 +283,24 @@ export const useGetGrades = routeLoader$(async () => {
   });
 });
 
-export const useDeleteGuardian = routeAction$((data, event) => {
-  const guardian = guardians.find((guardian) => guardian.id === data.id);
+export const useDeleteGuardian = routeAction$(async (data, event) => {
+  const guardian = await getGuardian(data.id);
   if (!guardian) {
     return event.fail(404, { message: "Guardian not found!" });
   }
-  const index = guardians.indexOf(guardian);
-  guardians.splice(index, 1);
+  const studentsWithGuardians = await getSupabase().from("guardians_students").select().eq("guardian_id", data.id);
+  if (studentsWithGuardians.data?.length ?? 0 > 0) {
+    return event.fail(400, { message: "No es posible eliminar el tutor ya que hay niños asociados a él." });
+  }
+  const { error } = await getSupabase().from("guardians").delete().eq("id", data.id);
+  if (error) {
+    console.error("Unable to delete guardian:\n", error);
+    return event.fail(500, { message: "Error al eliminar el tutor." });
+  }
+
   return guardian;
 }, zod$({
-  id: z.string().min(1),
+  id: z.coerce.number().min(1),
 }));
 
 export const getGuardian = server$(async function(id: number) {
@@ -406,19 +423,6 @@ type_id(*)
     return event.fail(500, { message: "Error al crear la solicitud del estudiante" });
   }
 
-  // const applicationStatusType: StudentApplicationStatusTypeResponse = {
-  //   id: `${lastId}`,
-  //   name: "pending",
-  //   description: "pending status type"
-  // };
-
-  // const applicationStatus: StudentApplicationStatusResponse = {
-  //   id: `${lastId}`,
-  //   studentApplicationId: "",
-  //   createdAt: new Date(),
-  //   status: applicationStatusType
-  // };
-  // studentApplicationStatuses.push(applicationStatus);
   return data[0] as StudentApplicationResponse;
 }, zod$({
   studentName: z.string().min(1, "Nombre completo requerido"),
@@ -567,7 +571,6 @@ export const useAcceptStudentApplication = routeAction$(async (req, event) => {
     return event.fail(404, { message: "Application not found" });
   }
 
-  console.log("Application: ", application);
   const guardian = await createGuardian({
     name: application.guardianName,
     documentNumber: application.guardianDocument,
