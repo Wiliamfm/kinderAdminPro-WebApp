@@ -143,7 +143,8 @@ export const getEmployeesJobs = server$(async function() {
     return {
       id: e.id,
       name: e.name,
-      salary: e.salary
+      salary: e.salary,
+      gradeId: e.grade_id
     } as EmployeeJobResponse;
   });
 });
@@ -157,7 +158,8 @@ export const getEmployeeJob = server$(async function(id: number) {
   return {
     id: data.id,
     name: data.name,
-    salary: data.salary
+    salary: data.salary,
+    gradeId: data.grade_id
   } as EmployeeJobResponse;
 });
 
@@ -170,7 +172,8 @@ export const createEmployeeJob = server$(async function(request: CreateEmployeeJ
   }
   const { data, error } = await getSupabase().from("employee_jobs").insert({
     name: request.name,
-    salary: request.salary
+    salary: request.salary,
+    grade_id: request.gradeId
   })
     .select();
   if (error) {
@@ -180,7 +183,8 @@ export const createEmployeeJob = server$(async function(request: CreateEmployeeJ
   return {
     id: data[0].id,
     name: data[0].name,
-    salary: data[0].salary
+    salary: data[0].salary,
+    gradeId: data[0].grade_id
   } as EmployeeJobResponse;
 });
 
@@ -203,7 +207,8 @@ export const updateEmployeeJob = server$(async function(request: UpdateEmployeeJ
   return {
     id: updatedJob.id,
     name: updatedJob.name,
-    salary: updatedJob.salary
+    salary: updatedJob.salary,
+    gradeId: updatedJob.grade_id
   } as EmployeeJobResponse;
 });
 

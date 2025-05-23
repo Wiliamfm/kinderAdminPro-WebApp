@@ -3,13 +3,15 @@ import { routeAction$, z, zod$ } from '@builder.io/qwik-city';
 import FormModal from '~/components/common/modal/formModal/formModal';
 import Table, { TableProps } from '~/components/common/table/table';
 import { useGetEmployeeJobs } from '~/loaders/payroll.loader';
+import { useGetGrades } from '~/services/enrollment.service';
 import { createEmployeeJob, deleteEmployeeJob } from '~/services/payroll.service';
 import { BaseError } from '~/types/shared.types';
 
 export { useGetEmployeeJobs } from '~/loaders/payroll.loader';
+export { useGetGrades } from '~/services/enrollment.service';
 
 export const useCreateEmployeeJob = routeAction$(async (data, event) => {
-  const response = await createEmployeeJob({ name: data.name, salary: data.salary });
+  const response = await createEmployeeJob({ name: data.name, salary: data.salary, gradeId: data.gradeId });
   if (response instanceof BaseError) {
     return event.fail(response.status, { message: response.message });
   }
@@ -20,9 +22,11 @@ export const useCreateEmployeeJob = routeAction$(async (data, event) => {
 }, zod$({
   name: z.string().min(3),
   salary: z.coerce.number().min(1000),
+  gradeId: z.coerce.number().min(1),
 }));
 
 export default component$(() => {
+  const gradesLoader = useGetGrades();
   const getEmployeesJobsLoader = useGetEmployeeJobs();
 
   const createEmployeeJobAction = useCreateEmployeeJob();
@@ -76,6 +80,17 @@ export default component$(() => {
         <div>
           <label for="name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Cargo</label>
           <input type="text" name="name" id="name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" placeholder="Profesor" required />
+        </div>
+        <div>
+          <label for="gradeId" class="block mb-2 text-sm font-medium text-gray-900">Grado</label>
+          <select id="gradeId" name="gradeId" required
+            class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg block w-full p-2.5" onChange$={(_, element) => {
+              // studentLoader.value.gradeId = Number(element.value);
+            }}>
+            {gradesLoader.value.map((grade) => (
+              <option key={grade.id} value={grade.id}>{grade.displayName}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label for="salary" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Salario</label>

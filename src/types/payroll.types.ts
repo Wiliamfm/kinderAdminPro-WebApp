@@ -21,11 +21,13 @@ export type EmployeeJobResponse = {
   id: number;
   name: string;
   salary: number;
+  gradeId: number;
 }
 
 export type CreateEmployeeJobRequest = {
   name: string;
   salary: number;
+  gradeId: number;
 }
 
 export type UpdateEmployeeJobRequest = {
