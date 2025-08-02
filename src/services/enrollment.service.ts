@@ -641,7 +641,7 @@ export const useAcceptStudentApplication = routeAction$(async (req, event) => {
 export const getGrade = server$(async function(id: number) {
   const { data, error } = await getSupabase().from("grades").select().eq("id", id).single();
   if (error) {
-    console.error(`Unable to get guardians:\n`, error);
+    console.error(`Unable to get grades:\n`, error);
     return null;
   }
 
