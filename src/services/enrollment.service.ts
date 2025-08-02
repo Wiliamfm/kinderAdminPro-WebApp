@@ -283,6 +283,31 @@ export const useGetGrades = routeLoader$(async () => {
   });
 });
 
+export const useCreateGrade = routeAction$(async (grade, event) => {
+  const { data, error } = await getSupabase().from("grades").insert({
+    name: grade.name,
+    display_name: grade.name
+  }).select();
+  if (error || !data || data.length === 0) {
+    console.error("ERROR: Unable to create grade:\n", error);
+    return event.fail(500, { message: "Error al crear la solicitud del estudiante" });
+  }
+
+  return data[0] as GradeResponse;
+}, zod$({
+  name: z.string().min(1, "Name is required"),
+}));
+
+export const useDeleteGrade = routeAction$(async (data, event) => {
+  const { error } = await getSupabase().from("grades").delete().eq("id", data.id);
+  if (error) {
+    console.error("Unable to delete grade:\n", error);
+    return event.fail(500, { message: "Error al eliminar el curso." });
+  }
+}, zod$({
+  id: z.coerce.number().min(1),
+}));
+
 export const useDeleteGuardian = routeAction$(async (data, event) => {
   const guardian = await getGuardian(data.id);
   if (!guardian) {
