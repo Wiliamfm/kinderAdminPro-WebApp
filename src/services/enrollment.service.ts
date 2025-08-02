@@ -637,3 +637,44 @@ export const useAcceptStudentApplication = routeAction$(async (req, event) => {
 }, zod$({
   id: z.coerce.number().min(1),
 }));
+
+export const getGrade = server$(async function(id: number) {
+  const { data, error } = await getSupabase().from("grades").select().eq("id", id).single();
+  if (error) {
+    console.error(`Unable to get guardians:\n`, error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    name: data.name,
+    displayName: data.display_name
+  } as GradeResponse;
+});
+
+export const useUpdateGrade = routeAction$(async (req, event) => {
+  let grade = await getGrade(req.id);
+  if (!grade) {
+    return event.fail(404, { message: "Grade not found" });
+  }
+
+  const { data, error } = await getSupabase().from("grades").update({
+    display_name: req.name
+  })
+    .eq("id", req.id)
+    .select()
+    .single();
+  if (error) {
+    console.error(`Unable to update grade:\n`, error);
+    return event.fail(500, { message: "Error al actualizar el grado" });
+  }
+
+  return {
+    id: data.id,
+    name: data.name,
+    displayName: data.display_name
+  } as GradeResponse;
+}, zod$({
+  id: z.coerce.number().min(1),
+  name: z.string().min(1, "Name is required"),
+}));
