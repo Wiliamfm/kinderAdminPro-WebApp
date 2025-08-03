@@ -69,6 +69,7 @@ export type GradeResponse = {
   id: number;
   name: string;
   displayName: string;
+  professorId: number;
 }
 
 export type StudentApplicationStatusResponse = {

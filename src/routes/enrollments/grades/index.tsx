@@ -1,12 +1,15 @@
 import { $, component$ } from '@builder.io/qwik';
 import FormModal from '~/components/common/modal/formModal/formModal';
 import Table, { TableProps } from '~/components/common/table/table';
+import { useGetEmployees } from '~/routes/payroll/employees';
 import { useCreateGrade, useDeleteGrade, useGetGrades } from '~/services/enrollment.service';
 
 export { useGetGrades, useCreateGrade, useDeleteGrade } from '~/services/enrollment.service';
+export { useGetEmployees } from '~/routes/payroll/employees';
 
 export default component$(() => {
   const gradesLoader = useGetGrades();
+  const professorsLoader = useGetEmployees();
 
   const createGradeAction = useCreateGrade();
   const deleteGradeAction = useDeleteGrade();
@@ -40,6 +43,7 @@ export default component$(() => {
     headers: [
       { name: "Id", key: "id" },
       { name: "Nombre", key: "displayName" },
+      { name: "Profesor", key: "professorId" },
       { name: "Acciones", key: "actions" },
     ],
     data: gradesTable,
@@ -59,6 +63,14 @@ export default component$(() => {
         <div>
           <label for="name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Curso</label>
           <input type="text" name="name" id="name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" placeholder="Curso" required />
+        </div>
+        <div>
+          <label for="professors" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Select an option</label>
+          <select id="professors" name="professorId" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+            {professorsLoader.value.employees.map((professor) => (
+              <option value={professor.id} key={professor.id}>{professor.name}</option>
+            ))}
+          </select>
         </div>
       </FormModal>
 

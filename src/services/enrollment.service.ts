@@ -278,7 +278,8 @@ export const useGetGrades = routeLoader$(async () => {
     return {
       id: g.id,
       name: g.name,
-      displayName: g.display_name
+      displayName: g.display_name,
+      professorId: g.professor_id
     } as GradeResponse
   });
 });
@@ -286,7 +287,8 @@ export const useGetGrades = routeLoader$(async () => {
 export const useCreateGrade = routeAction$(async (grade, event) => {
   const { data, error } = await getSupabase().from("grades").insert({
     name: grade.name,
-    display_name: grade.name
+    display_name: grade.name,
+    professor_id: grade.professorId
   }).select();
   if (error || !data || data.length === 0) {
     console.error("ERROR: Unable to create grade:\n", error);
@@ -296,6 +298,7 @@ export const useCreateGrade = routeAction$(async (grade, event) => {
   return data[0] as GradeResponse;
 }, zod$({
   name: z.string().min(1, "Name is required"),
+  professorId: z.coerce.number().min(1, "Professor ID is required")
 }));
 
 export const useDeleteGrade = routeAction$(async (data, event) => {
