@@ -5,7 +5,7 @@ import { getGuardians, sendNotification } from '~/services/events.service';
 
 export const useGetGuardians = routeLoader$(async () => {
   return await getGuardians();
-})
+});
 
 export const useSendNotification = routeAction$(async (request, event) => {
   if (request.to.includes("All")) {
