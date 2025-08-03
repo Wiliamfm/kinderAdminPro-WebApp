@@ -21,7 +21,7 @@ export default component$(() => {
     { name: "Email", key: "email" },
     { name: "Direccion", key: "address" },
     {
-      name: "Tipo", key: "typeId", format: $((typeId: string) => {
+      name: "Tipo", key: "typeId", format: $((typeId: number) => {
         return guardianTypesLoader.value.find((type) => type.id === typeId)?.displayName ?? "N/A";
       })
     },

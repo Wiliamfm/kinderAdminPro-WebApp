@@ -23,7 +23,7 @@ export const useUpdateEmployee = routeAction$(async (data, event) => {
   const request: UpdateEmployeeRequest = {
     id: Number(event.params.id),
     name: data.name,
-    jobId: data.job,
+    jobId: Number(data.job),
   }
   const response = await updateEmployee(request);
   if (response instanceof BaseError) {
@@ -64,7 +64,7 @@ export default component$(() => {
           <div class="relative z-0 w-full mb-5 group">
             <label for="job" class="sr-only">Underline select</label>
             <select id="job" name="job" class="block py-2.5 px-0 w-full text-sm text-gray-500 bg-transparent border-0 border-b-2 border-gray-200 appearance-none dark:text-gray-400 dark:border-gray-700 focus:outline-none focus:ring-0 focus:border-gray-200 peer" onChange$={(_, element) => {
-              const selectedJobId = element.value;
+              const selectedJobId = Number(element.value);
               const selectedJob = getEmployeeJobsLoader.value.employeeJobs.find((job) => job.id === selectedJobId);
               if (!selectedJob) {
                 console.error("Job not found!");

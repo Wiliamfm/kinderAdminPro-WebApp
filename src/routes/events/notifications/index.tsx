@@ -42,8 +42,9 @@ export default component$(() => {
             recipients.value = [];
             for (let i = 0; i < event.options.length; i++) {
               if (event.options.item(i)?.selected) {
-                if (event.options.item(i)?.value) {
-                  recipients.value.push(event.options.item(i)?.value!);
+                const value = event.options.item(i)?.value;
+                if (value) {
+                  recipients.value.push(value);
                 }
               }
             }
