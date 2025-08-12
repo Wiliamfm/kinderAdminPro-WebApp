@@ -3,9 +3,11 @@ import { bloodTypes } from "~/data/enrollment.data";
 import { CreateGuardianRequest, CreateStudentRequest, GradeResponse, GuardianResponse, GuardianTypeResponse, StudentApplicationResponse, StudentResponse } from "~/types/enrollment.types";
 import { getSupabase } from "./supabase.service";
 
+/* eslint-disable */
 const mapGuardiansStudentsToResponse = (data: any[]) => {
+  /* eslint-enable */
   const studentsGroup: StudentResponse[] = [];
-  for (let s of data) {
+  for (const s of data) {
     let student = studentsGroup.find((student) => student.id === s.student_id.id);
     if (!student) {
       student = {
@@ -107,7 +109,7 @@ const createStudent = server$(async function(req: CreateStudentRequest) {
 
   const response: StudentResponse = data[0];
 
-  for (let guardian of studentGuardians) {
+  for (const guardian of studentGuardians) {
     const res = await getSupabase().from("guardians_students").insert({
       student_id: response.id,
       guardian_id: guardian.id,
@@ -161,7 +163,7 @@ guardian_id(*)
 });
 
 export const useUpdateStudent = routeAction$(async (req, event) => {
-  let student = await getStudent(req.id);
+  const student = await getStudent(req.id);
   if (!student) {
     return event.fail(404, { message: "Student not found" });
   }
@@ -667,7 +669,7 @@ export const getGrade = server$(async function(id: number) {
 });
 
 export const useUpdateGrade = routeAction$(async (req, event) => {
-  let grade = await getGrade(req.id);
+  const grade = await getGrade(req.id);
   if (!grade) {
     return event.fail(404, { message: "Grade not found" });
   }

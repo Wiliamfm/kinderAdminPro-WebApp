@@ -55,7 +55,7 @@ job_id(*)
     console.error("Unable to fetch employees:\n", error);
     return [];
   }
-  return data.map((e: any) => {
+  return data.map((e) => {
     return {
       id: e.id,
       name: e.name,
@@ -139,7 +139,7 @@ export const getEmployeesJobs = server$(async function() {
     console.error("Unable to fetch employee jobs:\n", error);
     return [];
   }
-  return data.map((e: any) => {
+  return data.map((e) => {
     return {
       id: e.id,
       name: e.name,
@@ -241,7 +241,7 @@ export const getEmployeeLeaves = server$(async function(employeeId: number) {
     return [];
   }
 
-  return data.map((e: any) => {
+  return data.map((e) => {
     return {
       id: e.id,
       employeeId: e.employee_id,

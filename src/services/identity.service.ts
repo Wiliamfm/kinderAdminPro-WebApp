@@ -48,7 +48,9 @@ async function getAppUser(email: string): Promise<IdentityUser | null> {
     console.error(`User ${email} has no role`);
     return null;
   }
-  const role = data.role_id.name;
+  /* eslint-disable */
+  const role = (data.role_id as any).name;
+  /* eslint-enable */
   return {
     id: data.id,
     email: data.email,
