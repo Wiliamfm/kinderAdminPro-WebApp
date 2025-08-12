@@ -421,6 +421,16 @@ export const useCreateStudentRequest = routeAction$(async (req, event) => {
   if (req.studentName === "test") {
     return event.fail(400, { message: "Error al registrar el estudiante" });
   }
+  if (!/^\d+$/.test(req.studentDocument)) {
+    return event.fail(400, { message: "El documento del estudiante debe ser numérico." });
+  }
+  if (!/^\d+$/.test(req.guardianDocument)) {
+    return event.fail(400, { message: "El documento del acudiente debe ser numérico." });
+  }
+  if (!/^\d+$/.test(req.phone)) {
+    return event.fail(400, { message: "El telefono del acudiente debe ser numérico." });
+  }
+
   const { data, error } = await getSupabase().from("students_applications").insert({
     student_name: req.studentName,
     birth_date: req.birthDate,
@@ -457,7 +467,7 @@ type_id(*)
   birthDate: z.coerce.date({ required_error: "Fecha de nacimiento requerida" }),
   birthPlace: z.string().min(1, "Lugar de nacimiento requerido"),
   department: z.string().min(1, "Departamento requerido"),
-  studentDocument: z.string().min(1, "Número de documento requerido"),
+  studentDocument: z.string().min(6, "Número de documento requerido y mayor a 6"),
   weight: z.coerce.number().positive("El peso debe ser un número positivo"),
   height: z.coerce.number().positive("La altura debe ser un número positivo"),
   bloodType: z.string().min(1, "Tipo de sangre requerido"),
@@ -478,7 +488,7 @@ type_id(*)
   email: z.string().email("Correo inválido"),
   address: z.string().min(1, "Dirección requerida"),
   typeId: z.string().min(1, "Tipo de acudiente requerido"),
-  guardianDocument: z.string().min(1, "Número de documento del acudiente requerido")
+  guardianDocument: z.string().min(6, "Número de documento del acudiente debe ser mayor a 6")
 }));
 
 export const useGetStudentApplications = routeLoader$(async () => {

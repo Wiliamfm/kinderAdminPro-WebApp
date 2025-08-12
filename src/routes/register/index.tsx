@@ -12,13 +12,20 @@ export default component$(() => {
   const registerStudentAction = useCreateStudentRequest();
   return (
     <div>
-      <Form action={registerStudentAction} class="max-w-4xl mx-auto p-6 bg-white rounded-xl shadow space-y-6" onSubmitCompleted$={() => {
+      <div>
+        {registerStudentAction.value?.failed && registerStudentAction.value.message && <div class="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400" role="alert">
+          {registerStudentAction.value.message}
+        </div>
+        }
+      </div>
+      <Form action={registerStudentAction} class="max-w-4xl mx-auto p-6 bg-white rounded-xl shadow space-y-6" onSubmitCompleted$={(_, element) => {
         if (!registerStudentAction.value) return;
         if (registerStudentAction.value.failed) {
           console.error(registerStudentAction.value.message);
           alert("Error al crear el estudiante");
           return;
         }
+        element.reset();
         alert("Solicitud creada exitosamente");
       }}>
         <h2 class="text-2xl font-bold text-gray-900">Registrar Estudiante</h2>
@@ -52,6 +59,10 @@ export default component$(() => {
           <label for="studentDocument" class="block mb-2 text-sm font-medium text-gray-900">Número de Documento</label>
           <input type="text" id="studentDocument" name="studentDocument" required
             class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg block w-full p-2.5" />
+          {registerStudentAction.value?.failed && registerStudentAction.value.fieldErrors?.studentDocument && <div class="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400" role="alert">
+            <span class="font-medium">Campo inválido!</span> {registerStudentAction.value.fieldErrors.studentDocument}.
+          </div>
+          }
         </div>
 
         <div class="grid grid-cols-2 gap-4">
@@ -113,6 +124,10 @@ export default component$(() => {
             <label for="guardianDocument" class="block mb-2 text-sm font-medium text-gray-900">Número de documento</label>
             <input type="text" id="guardianDocument" name="guardianDocument" required
               class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg block w-full p-2.5" />
+            {registerStudentAction.value?.failed && registerStudentAction.value.fieldErrors?.guardianDocument && <div class="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400" role="alert">
+              <span class="font-medium">Campo inválido!</span> {registerStudentAction.value.fieldErrors?.guardianDocument}.
+            </div>
+            }
           </div>
 
           <div>
@@ -120,6 +135,10 @@ export default component$(() => {
             <input type="tel" id="phone" name="phone" required
               class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg block w-full p-2.5"
               placeholder="+57 300 0000000" />
+            {registerStudentAction.value?.failed && registerStudentAction.value.fieldErrors?.phone && <div class="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400" role="alert">
+              <span class="font-medium">Campo inválido!</span> {registerStudentAction.value.fieldErrors.phone}.
+            </div>
+            }
           </div>
 
           <div>
@@ -139,6 +158,10 @@ export default component$(() => {
             <input type="email" id="email" name="email" required
               class="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg block w-full p-2.5"
               placeholder="example@email.com" />
+            {registerStudentAction.value?.failed && registerStudentAction.value.fieldErrors?.email && <div class="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400" role="alert">
+              <span class="font-medium">Campo inválido!</span> {registerStudentAction.value.fieldErrors.email}.
+            </div>
+            }
           </div>
 
           <div>
