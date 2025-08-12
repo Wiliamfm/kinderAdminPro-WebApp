@@ -21,7 +21,7 @@ export default component$(() => {
     { name: "Email", key: "email" },
     { name: "Direccion", key: "address" },
     {
-      name: "Tipo", key: "typeId", format: $((typeId: string) => {
+      name: "Tipo", key: "typeId", format: $((typeId: number) => {
         return guardianTypesLoader.value.find((type) => type.id === typeId)?.displayName ?? "N/A";
       })
     },
@@ -38,7 +38,7 @@ export default component$(() => {
         <button class="cursor-pointer" onClick$={async () => {
           const response = await deleteGuardianAction.submit({ id: guardian.id });
           if (response.value.failed) {
-            alert("Error al Eliminar");
+            alert("Error al Eliminar: " + response.value.message);
             console.error(response.value);
             return;
           }
