@@ -238,7 +238,7 @@ export const useDeleteStudent = routeAction$(async (data, event) => {
     console.error(`Unable to delete student:\n`, response.error);
     return event.fail(500, { message: "Error al eliminar el estudiante" });
   }
-  let studentResponse = await getSupabase().from("students").delete().eq("id", data.id);
+  const studentResponse = await getSupabase().from("students").delete().eq("id", data.id);
   if (studentResponse.error && studentResponse.status !== 204) {
     console.error(`Unable to delete student:\n`, studentResponse.error);
     return event.fail(500, { message: "Error al eliminar el estudiante" });
