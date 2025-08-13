@@ -2,9 +2,10 @@ import { $, component$ } from '@builder.io/qwik';
 import { DocumentHead } from '@builder.io/qwik-city';
 import Table, { TableHeader } from '~/components/common/table/table';
 import Title from '~/components/common/title/title';
+import { useSendNotification } from '~/routes/events/notifications';
 import { useAcceptStudentApplication, useDeleteStudentApplication, useGetGrades, useGetGuardianTypes, useGetStudentApplications } from '~/services/enrollment.service';
 
-export { useGetGrades, useGetGuardianTypes, useGetStudentApplications, useDeleteStudentApplication, useAcceptStudentApplication };
+export { useGetGrades, useGetGuardianTypes, useGetStudentApplications, useDeleteStudentApplication, useAcceptStudentApplication, useSendNotification };
 
 export default component$(() => {
   const gradesLoader = useGetGrades();
@@ -13,6 +14,7 @@ export default component$(() => {
 
   const deleteApplicationAction = useDeleteStudentApplication();
   const acceptApplicationAction = useAcceptStudentApplication();
+  const sendNotificationAction = useSendNotification();
 
   const tableHeaders: TableHeader[] = [
     { name: "ID", key: "id" },
@@ -58,6 +60,16 @@ export default component$(() => {
             console.error(response.value.message);
             return;
           }
+          console.log(response.value);
+          const notificationResponse = await sendNotificationAction.submit({
+            to: [studentApplication.email],
+            subject: "Estudiante Aceptado",
+            body: `Le informamos que el estudiante: ${studentApplication.studentName} ha sido aceptado;`
+          });
+          if (notificationResponse.value?.failed) {
+            alert("No pudimos enviar la notificación al acudiente!");
+          }
+          console.log(notificationResponse.value);
           alert(`Estudiante ${studentApplication.studentName} Aceptado!`);
         }}>
           <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
@@ -72,6 +84,15 @@ export default component$(() => {
             console.error(response.value.message);
             return;
           }
+          const notificationResponse = await sendNotificationAction.submit({
+            to: [response.value.email],
+            subject: "Estudiante rechazado",
+            body: `Le informamos que el estudiante: ${response.value.studentName} ha sido rechazado;`
+          });
+          if (notificationResponse.value?.failed) {
+            alert("No pudimos enviar la notificación al acudiente!");
+          }
+          console.log(notificationResponse.value);
           alert(`Estudiante ${studentApplication.studentName} Rechazado!`);
         }}>
           <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
