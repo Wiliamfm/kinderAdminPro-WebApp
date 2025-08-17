@@ -1,12 +1,28 @@
-import { component$ } from '@builder.io/qwik';
+import { $, component$ } from '@builder.io/qwik';
 import { routeLoader$, routeAction$, zod$, z } from '@builder.io/qwik-city';
 import Table, { TableHeader } from '~/components/common/table/table';
 import Title from '~/components/common/title/title';
 import { getUserStatus } from '~/services/identity.service';
-import { deleteBulletin, getBulletins } from '~/services/report.service';
+import { deleteBulletin, getBulletins, getGradesByProfessor, getStudentsByProfessor } from '~/services/report.service';
 
 export const useBulletinData = routeLoader$(async () => {
   return await getBulletins();
+});
+
+export const useGetGradesByProfessor = routeLoader$(async (event) => {
+  const loginStatus = await event.resolveValue(useLoginStatus);
+  if (!loginStatus) {
+    return null;
+  }
+  return await getGradesByProfessor(loginStatus.id, true);
+});
+
+export const useGetStudentsByProfessor = routeLoader$(async (event) => {
+  const loginStatus = await event.resolveValue(useLoginStatus);
+  if (!loginStatus) {
+    return null;
+  }
+  return await getStudentsByProfessor(loginStatus.id);
 });
 
 export const useLoginStatus = routeLoader$(async (event) => {
@@ -29,6 +45,9 @@ export const useDeleteRow = routeAction$(async (data, event) => {
 export default component$(() => {
   const loginStatusLoader = useLoginStatus();
   const bulletinLoader = useBulletinData();
+  const gradesLoader = useGetGradesByProfessor();
+  const studentsLoader = useGetStudentsByProfessor();
+
   const deleteBulletinAction = useDeleteRow();
 
   const tableHeaders: TableHeader[] = [
@@ -62,6 +81,48 @@ export default component$(() => {
     };
   });
 
+  const professorTableHeaders: TableHeader[] = [
+    { name: "Id", key: "id" },
+    { name: "Nombre Completo", key: "fullName" },
+    {
+      name: "Grado", key: "gradeId", format: $((id: number) => {
+        if (!gradesLoader.value) {
+          return id;
+        }
+        const grade = gradesLoader.value.find(x => x.id === id);
+        if (!grade) {
+          return id;
+        }
+        return grade.displayName;
+      })
+    },
+    { name: "Acciones", key: "actions" },
+  ];
+  const students = studentsLoader.value?.map(student => {
+    return {
+      ...student, actions: [
+        <a href={`${student.id}`}>
+          <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+            <path fill-rule="evenodd" d="M3.559 4.544c.355-.35.834-.544 1.33-.544H19.11c.496 0 .975.194 1.33.544.356.35.559.829.559 1.331v9.25c0 .502-.203.981-.559 1.331-.355.35-.834.544-1.33.544H15.5l-2.7 3.6a1 1 0 0 1-1.6 0L8.5 17H4.889c-.496 0-.975-.194-1.33-.544A1.868 1.868 0 0 1 3 15.125v-9.25c0-.502.203-.981.559-1.331ZM7.556 7.5a1 1 0 1 0 0 2h8a1 1 0 0 0 0-2h-8Zm0 3.5a1 1 0 1 0 0 2H12a1 1 0 1 0 0-2H7.556Z" clip-rule="evenodd" />
+          </svg>
+        </a >,
+        <button class="cursor-pointer" onClick$={async () => {
+          const response = await deleteBulletinAction.submit({ id: student.id });
+          if (response.value.failed) {
+            alert(response.value.message);
+            console.error(response.value);
+            return;
+          }
+          alert("Boletin Eliminado!");
+        }}>
+          <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+            <path fill-rule="evenodd" d="M8.586 2.586A2 2 0 0 1 10 2h4a2 2 0 0 1 2 2v2h3a1 1 0 1 1 0 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8a1 1 0 0 1 0-2h3V4a2 2 0 0 1 .586-1.414ZM10 6h4V4h-4v2Zm1 4a1 1 0 1 0-2 0v8a1 1 0 1 0 2 0v-8Zm4 0a1 1 0 1 0-2 0v8a1 1 0 1 0 2 0v-8Z" clip-rule="evenodd" />
+          </svg>
+        </button>,
+      ]
+    };
+  });
+
   return (
     <div>
       {loginStatusLoader.value?.role === "admin" && <div>
@@ -75,7 +136,11 @@ export default component$(() => {
         <Table headers={tableHeaders} data={bulletins ?? []} />
       </div>}
 
-      <Title title="Boletin de estudiantes" />
+      {studentsLoader.value && <div>
+        <Title title="Boletin de estudiantes" />
+        <Table headers={professorTableHeaders} data={students ?? []} />
+      </div>
+      }
     </div>
   );
 });
