@@ -54,7 +54,13 @@ export const useCreateEvent = routeAction$(async (data, event) => {
 
 const createEventFormHandler = $((data: CustomEvent<FormSubmitSuccessDetail<unknown>>, element: HTMLFormElement) => {
   console.log("data: ", data.detail);
+  if (!data.detail.value || (data.detail.value as { failed: boolean, message: string }).failed) {
+    const message: string | null = (data.detail.value as { message: string }).message;
+    alert(`Formulario inválido, ${message ?? "por favor revise de nuevo"}`);
+    return;
+  }
   element.reset();
+  window.location.reload();
 });
 
 export default component$(() => {
@@ -115,11 +121,11 @@ export default component$(() => {
 
           <div class="flex items-center">
             <div class="flex-grow">
-              <input name="startDate" type="date" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 w-full ps-10 p-2.5  dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Fecha final" />
+              <input name="startDate" type="date" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 w-full ps-10 p-2.5  dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Fecha final" required />
             </div>
             <span class="mx-4 text-gray-500">to</span>
             <div class="flex-grow">
-              <input name="endDate" type="date" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5  dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Fecha final" />
+              <input name="endDate" type="date" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5  dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Fecha final" required />
             </div>
           </div>
         </div>
