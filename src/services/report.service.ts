@@ -4,7 +4,7 @@ import { Bulletin } from "~/types/report.types";
 import { GradeResponse, StudentResponse } from "~/types/enrollment.types";
 import { EmployeeResponse } from "~/types/payroll.types";
 
-export const getBulletins = server$(async function() {
+export const getBulletins = server$(async function () {
   const { data, error } = await getSupabase().from("bulletins").select("*");
   if (error) {
     console.error("Unable to get bulletin data: ", error)
@@ -20,7 +20,7 @@ export const getBulletins = server$(async function() {
   });
 });
 
-export const deleteBulletin = server$(async function(id: number) {
+export const deleteBulletin = server$(async function (id: number) {
   const response = await getSupabase().from("bulletins").delete().eq("id", id);
   if (response.error && response.status !== 204) {
     return false;
@@ -29,7 +29,7 @@ export const deleteBulletin = server$(async function(id: number) {
   return true;
 });
 
-export const getBulletin = server$(async function(id: number) {
+export const getBulletin = server$(async function (id: number) {
   const { data, error } = await getSupabase().from("bulletins").select("*").eq("id", id).single();
   if (error) {
     console.error("Unable to get bulletin: ", error);
@@ -39,7 +39,7 @@ export const getBulletin = server$(async function(id: number) {
   return data as Bulletin;
 });
 
-export const createBulletin = server$(async function(name: string, type: string) {
+export const createBulletin = server$(async function (name: string, type: string) {
   const { data, error } = await getSupabase().from("bulletins").insert({
     name: name,
     type: type,
@@ -52,7 +52,7 @@ export const createBulletin = server$(async function(name: string, type: string)
   return data as Bulletin;
 });
 
-export const updateBulletin = server$(async function(id: number, name: string, type: string) {
+export const updateBulletin = server$(async function (id: number, name: string, type: string) {
   const bulletin = await getBulletin(id);
   if (!bulletin) {
     return null;
@@ -70,7 +70,7 @@ export const updateBulletin = server$(async function(id: number, name: string, t
   return data as Bulletin;
 });
 
-export const getGradesByProfessor = server$(async function(id: number, useAppId: boolean = false) {
+export const getGradesByProfessor = server$(async function (id: number, useAppId: boolean = false) {
   if (useAppId) {
     const professor = await getProfessorByUserId(id);
     if (!professor) {
@@ -94,7 +94,7 @@ export const getGradesByProfessor = server$(async function(id: number, useAppId:
   });
 });
 
-export const getStudentsByProfessor = server$(async function(id: number) {
+export const getStudentsByProfessor = server$(async function (id: number) {
   const professor = await getProfessorByUserId(id);
   if (!professor) {
     return null;
@@ -131,11 +131,30 @@ export const getStudentsByProfessor = server$(async function(id: number) {
   return students;
 });
 
-export const getProfessorByUserId = server$(async function(id: number) {
+export const getProfessorByUserId = server$(async function (id: number) {
   const { data, error } = await getSupabase().from("employees").select("*").eq("user_app_id", id).single();
   if (error) {
     console.error("Unable to get professors: ", error);
     return null;
   }
   return data as EmployeeResponse;
+});
+
+export const deleteStudentBulletin = server$(async function (studentId: number) {
+  const response = await getSupabase().from("bulletins_students").delete().eq("student_id", studentId);
+  console.log(response);
+  if (response.error && response.status !== 204) {
+    return false;
+  }
+
+  return true;
+});
+
+export const deleteStudentBulletinValue = server$(async function (studentId: number, bulletinId: number) {
+  const response = await getSupabase().from("bulletins_students").delete().eq("student_id", studentId).eq("bulletin_id", bulletinId);
+  if (response.error && response.status !== 204) {
+    return false;
+  }
+
+  return true;
 });

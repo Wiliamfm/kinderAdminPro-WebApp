@@ -18,7 +18,7 @@ export const useGetBulletinItem = routeLoader$(async (event) => {
   return response;
 });
 
-export const useUpdateBolletin = routeAction$(async (req, event) => {
+export const useUpdateBulletin = routeAction$(async (req, event) => {
   const id = Number(event.params["id"]);
   const response = await updateBulletin(id, req.name, req.type);
 
@@ -28,7 +28,7 @@ export const useUpdateBolletin = routeAction$(async (req, event) => {
   type: z.string().min(3),
 }));
 
-export const useCreateBolletin = routeAction$(async (req) => {
+export const useCreateBulletin = routeAction$(async (req) => {
   const response = await createBulletin(req.name, req.type);
 
   return response;
@@ -41,8 +41,8 @@ export default component$(() => {
   const navigateLoader = useNavigate();
   const bulletinLoader = useGetBulletinItem();
 
-  const updateBulletinAction = useUpdateBolletin();
-  const createBulletinAction = useCreateBolletin();
+  const updateBulletinAction = useUpdateBulletin();
+  const createBulletinAction = useCreateBulletin();
 
   return (
     <div>
