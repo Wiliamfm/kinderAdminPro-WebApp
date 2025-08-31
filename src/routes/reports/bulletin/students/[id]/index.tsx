@@ -1,14 +1,63 @@
 import { component$ } from "@builder.io/qwik";
-import { routeLoader$ } from "@builder.io/qwik-city";
+import { routeAction$, routeLoader$, z, zod$ } from "@builder.io/qwik-city";
 import Table, { TableHeader } from "~/components/common/table/table";
-import { getBulletins } from "~/services/report.service";
+import {
+  createStudentBulletinValue,
+  getBulletins,
+  getStudentBulletinValue,
+  updateStudentBulletinValue,
+} from "~/services/report.service";
 
-export const useGetBulletin = routeLoader$(async () => {
-  return await getBulletins();
+export const useGetBulletin = routeLoader$(async (event) => {
+  const studentId = event.params.id;
+  const bulletins = await getBulletins();
+  if (!bulletins) {
+    return [];
+  }
+  const bulletinWithValues = [];
+  for (const bulletin of bulletins) {
+    const value = await getStudentBulletinValue(Number(studentId), bulletin.id);
+    bulletinWithValues.push({ ...bulletin, value: value?.value });
+  }
+
+  return bulletinWithValues;
 });
+
+export const useUpdateStudentBulletinValue = routeAction$(
+  async (data, event) => {
+    const studentId = event.params.id;
+    const studentBulletin = await getStudentBulletinValue(
+      Number(studentId),
+      Number(data.bulletinId),
+    );
+    let response;
+    if (studentBulletin) {
+      response = await updateStudentBulletinValue(
+        Number(studentId),
+        Number(data.bulletinId),
+        Number(data.value),
+      );
+    } else {
+      response = await createStudentBulletinValue(
+        Number(studentId),
+        Number(data.bulletinId),
+        Number(data.value),
+      );
+    }
+
+    return !!response;
+  },
+  zod$({
+    bulletinId: z.coerce.number(),
+    value: z.string().min(1),
+  }),
+);
 
 export default component$(() => {
   const bulletinLoader = useGetBulletin();
+
+  const updateStudentBulletinAction = useUpdateStudentBulletinValue();
+
   const tableHeaders: TableHeader[] = [
     { name: "Id", key: "id" },
     { name: "Tipo", key: "type" },
@@ -19,53 +68,37 @@ export default component$(() => {
     return {
       ...bulletin,
       actions: [
-        <a href={`${bulletin.id}`}>
-          <svg
-            class="h-6 w-6 text-gray-800 dark:text-white"
-            aria-hidden="true"
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            fill="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              fill-rule="evenodd"
-              d="M5 8a4 4 0 1 1 7.796 1.263l-2.533 2.534A4 4 0 0 1 5 8Zm4.06 5H7a4 4 0 0 0-4 4v1a2 2 0 0 0 2 2h2.172a2.999 2.999 0 0 1-.114-1.588l.674-3.372a3 3 0 0 1 .82-1.533L9.06 13Zm9.032-5a2.907 2.907 0 0 0-2.056.852L9.967 14.92a1 1 0 0 0-.273.51l-.675 3.373a1 1 0 0 0 1.177 1.177l3.372-.675a1 1 0 0 0 .511-.273l6.07-6.07a2.91 2.91 0 0 0-.944-4.742A2.907 2.907 0 0 0 18.092 8Z"
-              clip-rule="evenodd"
+        <div class="mb-6">
+          <form>
+            <input type="hidden" name="bulletinId" value={bulletin.id} />
+            <label
+              for="default-input"
+              class="mb-2 block text-sm font-medium text-gray-900 dark:text-white"
+            >
+              Valoración
+            </label>
+            <input
+              type="text"
+              name="value"
+              value={bulletin.value ?? ""}
+              class="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2.5 text-sm text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-blue-500 dark:focus:ring-blue-500"
+              onKeyUp$={async (event, element) => {
+                const response = await updateStudentBulletinAction.submit({
+                  bulletinId: bulletin.id,
+                  value: element.value,
+                });
+                if (!response.value) {
+                  return;
+                }
+                if (response.value.failed) {
+                  alert(response.value.message);
+                  console.error(response.value);
+                  return;
+                }
+              }}
             />
-          </svg>
-        </a>,
-        <button
-          class="cursor-pointer"
-          onClick$={async () => {
-            /**
-           *           const response = await deleteBulletinAction.submit({ id: bulletin.id });
-          if (response.value.failed) {
-            alert(response.value.message);
-            console.error(response.value);
-            return;
-          }
-          alert("Boletin Eliminado!");
-           */
-          }}
-        >
-          <svg
-            class="h-6 w-6 text-gray-800 dark:text-white"
-            aria-hidden="true"
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            fill="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              fill-rule="evenodd"
-              d="M5 8a4 4 0 1 1 8 0 4 4 0 0 1-8 0Zm-2 9a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1Zm13-6a1 1 0 1 0 0 2h4a1 1 0 1 0 0-2h-4Z"
-              clip-rule="evenodd"
-            />
-          </svg>
-        </button>,
+          </form>
+        </div>,
       ],
     };
   });

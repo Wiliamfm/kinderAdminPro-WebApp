@@ -1,6 +1,6 @@
 import { server$ } from "@builder.io/qwik-city";
 import { getSupabase } from "./supabase.service";
-import { Bulletin } from "~/types/report.types";
+import { Bulletin, StudentBulletin } from "~/types/report.types";
 import { GradeResponse, StudentResponse } from "~/types/enrollment.types";
 import { EmployeeResponse } from "~/types/payroll.types";
 
@@ -157,4 +157,37 @@ export const deleteStudentBulletinValue = server$(async function (studentId: num
   }
 
   return true;
+});
+
+export const getStudentBulletinValue = server$(async function (studentId: number, bulletinId: number) {
+  const { data, error } = await getSupabase().from("bulletins_students").select("*").eq("student_id", studentId).eq("bulletin_id", bulletinId).single();
+  if (error) {
+    console.error("Unable to get student bulletin value: ", error);
+    return null;
+  }
+  return data as StudentBulletin;
+});
+
+export const createStudentBulletinValue = server$(async function (studentId: number, bulletinId: number, value: number) {
+  const response = await getSupabase().from("bulletins_students").insert({
+    student_id: studentId,
+    bulletin_id: bulletinId,
+    value: value
+  });
+  if (response.error && response.status !== 204) {
+    return false;
+  }
+});
+
+export const updateStudentBulletinValue = server$(async function (studentId: number, bulletinId: number, value: number) {
+  console.log(value)
+  const response = await getSupabase().from("bulletins_students").update({
+    value: value
+  }).eq("student_id", studentId).eq("bulletin_id", bulletinId);
+  if (response.error && response.status !== 204) {
+    console.error("Unable to update student bulletin value: ", response.error);
+    return false;
+  }
+
+  return response.data;
 });
