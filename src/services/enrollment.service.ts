@@ -433,6 +433,14 @@ export const useCreateStudentRequest = routeAction$(async (req, event) => {
   if (!/^\d+$/.test(req.phone)) {
     return event.fail(400, { message: "El telefono del acudiente debe ser numérico." });
   }
+  if (req.birthDate > new Date()) {
+    return event.fail(400, { message: "La fecha de nacimiento no puede ser mayor a la fecha actual." });
+  }
+  const limitYear = new Date();
+  limitYear.setFullYear(limitYear.getFullYear() - 7);
+  if (req.birthDate < limitYear) {
+    return event.fail(400, { message: "La fecha de nacimiento no puede superar los 7 años." });
+  }
 
   const { data, error } = await getSupabase().from("students_applications").insert({
     student_name: req.studentName,
