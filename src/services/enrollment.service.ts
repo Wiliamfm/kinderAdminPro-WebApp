@@ -48,7 +48,7 @@ const mapGuardiansStudentsToResponse = (data: any[]) => {
   return studentsGroup;
 }
 
-export const getStudents = server$(async function() {
+export const getStudents = server$(async function () {
   const { data, error } = await getSupabase().from("guardians_students").select(`
 *,
 student_id(*),
@@ -61,7 +61,7 @@ guardian_id(*)
   return mapGuardiansStudentsToResponse(data);
 });
 
-const getGuardiansById = server$(async function(ids: number[]) {
+const getGuardiansById = server$(async function (ids: number[]) {
   const { data, error } = await getSupabase().from("guardians").select().in("id", ids);
   if (error) {
     console.error(`Unable to get guardians:\n`, error);
@@ -82,7 +82,7 @@ const getGuardiansById = server$(async function(ids: number[]) {
   });
 });
 
-const createStudent = server$(async function(req: CreateStudentRequest) {
+const createStudent = server$(async function (req: CreateStudentRequest) {
   const studentGuardians = await getGuardiansById(req.guardianIds);
   if (studentGuardians.length !== req.guardianIds.length) {
     console.error("ERROR: Invalid guardian IDs");
@@ -144,7 +144,7 @@ export const useCreateStudent = routeAction$(async (req, event) => {
   guardianIds: z.array(z.coerce.number().min(1)).min(1, "At least one guardian is required"),
 }));
 
-export const getStudent = server$(async function(id: number) {
+export const getStudent = server$(async function (id: number) {
   const { data, error } = await getSupabase().from("guardians_students").select(`
 *,
 student_id(*),
@@ -334,7 +334,7 @@ export const useDeleteGuardian = routeAction$(async (data, event) => {
   id: z.coerce.number().min(1),
 }));
 
-export const getGuardian = server$(async function(id: number) {
+export const getGuardian = server$(async function (id: number) {
   const { data, error } = await getSupabase().from("guardians").select().eq("id", id).single();
   if (error) {
     console.error(`Unable to get guardian:\n`, error);
@@ -654,7 +654,7 @@ export const useAcceptStudentApplication = routeAction$(async (req, event) => {
   id: z.coerce.number().min(1),
 }));
 
-export const getGrade = server$(async function(id: number) {
+export const getGrade = server$(async function (id: number) {
   const { data, error } = await getSupabase().from("grades").select().eq("id", id).single();
   if (error) {
     console.error(`Unable to get grades:\n`, error);
@@ -675,7 +675,8 @@ export const useUpdateGrade = routeAction$(async (req, event) => {
   }
 
   const { data, error } = await getSupabase().from("grades").update({
-    display_name: req.name
+    display_name: req.name,
+    professor_id: req.professorId
   })
     .eq("id", req.id)
     .select()
@@ -693,4 +694,5 @@ export const useUpdateGrade = routeAction$(async (req, event) => {
 }, zod$({
   id: z.coerce.number().min(1),
   name: z.string().min(1, "Name is required"),
+  professorId: z.coerce.number().min(1),
 }));
