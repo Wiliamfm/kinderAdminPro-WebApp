@@ -31,6 +31,9 @@ export const useUpdateStudentBulletinValue = routeAction$(
       Number(data.bulletinId),
     );
     let response;
+    if(data.value <= 0 || data.value > 5) {
+      return event.fail(400, {message: "La valoración debe estar entre 1 y 5"});
+    }
     if (studentBulletin) {
       response = await updateStudentBulletinValue(
         Number(studentId),
@@ -49,7 +52,7 @@ export const useUpdateStudentBulletinValue = routeAction$(
   },
   zod$({
     bulletinId: z.coerce.number(),
-    value: z.string().min(1),
+    value: z.coerce.string().min(1),
   }),
 );
 
@@ -78,11 +81,13 @@ export default component$(() => {
               Valoración
             </label>
             <input
-              type="text"
+              type="number"
+              min="0"
+              max="5"
               name="value"
               value={bulletin.value ?? ""}
               class="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2.5 text-sm text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-blue-500 dark:focus:ring-blue-500"
-              onKeyUp$={async (event, element) => {
+              onBlur$={async (event, element) => {
                 const response = await updateStudentBulletinAction.submit({
                   bulletinId: bulletin.id,
                   value: element.value,
