@@ -8,5 +8,15 @@ export type StudentBulletin = {
   id: number,
   studentId: number,
   bulletinId: number,
-  value: number
+  value: number,
+  semesterId: number
+}
+
+export type SemesterResponse = {
+  id: number,
+  createdAt: Date,
+  semester: string,
+  startDate: Date,
+  endDate: Date,
+  isActive: boolean,
 }

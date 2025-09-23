@@ -1,11 +1,27 @@
 import { server$ } from "@builder.io/qwik-city";
 import { getSupabase } from "./supabase.service";
-import { Bulletin, StudentBulletin } from "~/types/report.types";
+import { Bulletin, SemesterResponse, StudentBulletin } from "~/types/report.types";
 import { GradeResponse, StudentResponse } from "~/types/enrollment.types";
 import { EmployeeResponse } from "~/types/payroll.types";
 
 export const getBulletins = server$(async function () {
   const { data, error } = await getSupabase().from("bulletins").select("*");
+  if (error) {
+    console.error("Unable to get bulletin data: ", error)
+    return null;
+  }
+
+  return data.map(bulletin => {
+    return {
+      id: bulletin.id,
+      type: bulletin.type,
+      name: bulletin.name
+    } as Bulletin;
+  });
+});
+
+export const getBulletinsByGrade = server$(async function (gradeId: number) {
+  const { data, error } = await getSupabase().from("bulletins").select("*").eq("grade_id", gradeId);
   if (error) {
     console.error("Unable to get bulletin data: ", error)
     return null;
@@ -169,10 +185,17 @@ export const getStudentBulletinValue = server$(async function (studentId: number
 });
 
 export const createStudentBulletinValue = server$(async function (studentId: number, bulletinId: number, value: number) {
+  const { data, error } = await getSupabase().from("semesters").select("*").eq("is_active", true).single();
+  if (error) {
+    console.error("Unable to get student bulletin value: ", error);
+    return null;
+  }
+
   const response = await getSupabase().from("bulletins_students").insert({
     student_id: studentId,
     bulletin_id: bulletinId,
-    value: value
+    value: value,
+    semester_id: data.id
   });
   if (response.error && response.status !== 204) {
     return false;
@@ -190,4 +213,47 @@ export const updateStudentBulletinValue = server$(async function (studentId: num
   }
 
   return response.data;
+});
+
+export const getStudentsByGrade = server$(async function (gradeId: number) {
+  const { data, error } = await getSupabase().from("students").select("*").eq("grade_id", gradeId);
+  if (error) {
+    console.error("Unable to get bulletin data: ", error)
+    return null;
+  }
+
+  return data.map(student => {
+    return {
+      id: student.id,
+      fullName: student.full_name,
+      birthDate: student.birth_date,
+      birthPlace: student.birth_place,
+      department: student.department,
+      documentNumber: student.document_number,
+      weight: student.weight,
+      height: student.height,
+      bloodType: student.blood_type,
+      socialSecurity: student.social_security,
+      allergies: student.allergies.split(","),
+      gradeId: student.grade_id,
+    } as StudentResponse;
+  });
+});
+
+export const getSemesters = server$(async function () {
+  const { data, error } = await getSupabase().from("semesters").select("*");
+  if (error) {
+    console.error("Unable to get semesters: ", error);
+    return null;
+  }
+
+  return data.map(semester => {
+    return {
+      id: semester.id,
+      semester: semester.semester,
+      startDate: semester.start_date,
+      endDate: semester.end_date,
+      isActive: semester.is_active,
+    } as SemesterResponse;
+  }) as SemesterResponse[];
 });

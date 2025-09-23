@@ -1,9 +1,10 @@
-import { component$ } from "@builder.io/qwik";
+import { component$, useSignal } from "@builder.io/qwik";
 import { routeAction$, routeLoader$, z, zod$ } from "@builder.io/qwik-city";
 import Table, { TableHeader } from "~/components/common/table/table";
 import {
   createStudentBulletinValue,
   getBulletins,
+  getSemesters,
   getStudentBulletinValue,
   updateStudentBulletinValue,
 } from "~/services/report.service";
@@ -23,6 +24,15 @@ export const useGetBulletin = routeLoader$(async (event) => {
   return bulletinWithValues;
 });
 
+export const useGetSemesters = routeLoader$(async () => {
+  const response = await getSemesters();
+  if (!response) {
+    return [];
+  }
+
+  return response;
+});
+
 export const useUpdateStudentBulletinValue = routeAction$(
   async (data, event) => {
     const studentId = event.params.id;
@@ -31,8 +41,10 @@ export const useUpdateStudentBulletinValue = routeAction$(
       Number(data.bulletinId),
     );
     let response;
-    if(data.value <= 0 || data.value > 5) {
-      return event.fail(400, {message: "La valoración debe estar entre 1 y 5"});
+    if (Number(data.value) <= 0 || Number(data.value) > 5) {
+      return event.fail(400, {
+        message: "La valoración debe estar entre 1 y 5",
+      });
     }
     if (studentBulletin) {
       response = await updateStudentBulletinValue(
@@ -57,7 +69,10 @@ export const useUpdateStudentBulletinValue = routeAction$(
 );
 
 export default component$(() => {
+  const semester = useSignal(1);
+
   const bulletinLoader = useGetBulletin();
+  const semestersLoader = useGetSemesters();
 
   const updateStudentBulletinAction = useUpdateStudentBulletinValue();
 
@@ -88,6 +103,9 @@ export default component$(() => {
               value={bulletin.value ?? ""}
               class="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2.5 text-sm text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-blue-500 dark:focus:ring-blue-500"
               onBlur$={async (event, element) => {
+                if (!element.value) {
+                  return;
+                }
                 const response = await updateStudentBulletinAction.submit({
                   bulletinId: bulletin.id,
                   value: element.value,
@@ -98,6 +116,7 @@ export default component$(() => {
                 if (response.value.failed) {
                   alert(response.value.message);
                   console.error(response.value);
+                  element.value = "";
                   return;
                 }
               }}
@@ -109,6 +128,30 @@ export default component$(() => {
   });
   return (
     <div>
+      <div class="mx-auto my-10 max-w-sm">
+        <label
+          for="gradeId"
+          class="mb-2 block text-sm font-medium text-gray-900"
+        >
+          Semestre
+        </label>
+        <select
+          id="semesterId"
+          name="semesterId"
+          required
+          class="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2.5 text-gray-900"
+          onChange$={(_, event) => {
+            semester.value = Number(event.value);
+          }}
+        >
+          {semestersLoader.value.map((semester) => (
+            <option key={semester.id} value={semester.id}>
+              {semester.semester}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <Table headers={tableHeaders} data={bulletins ?? []} />
     </div>
   );
