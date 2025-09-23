@@ -16,9 +16,11 @@ import {
 
 export const useGetBulletinItem = routeLoader$(async (event) => {
   const id = Number(event.params["id"]);
+  const gradeId = Number(event.query.get("grade_id"));
   if (id === 0) {
     return {
       isNew: true,
+      gradeId: gradeId,
     };
   }
   const response = await getBulletin(id);
@@ -46,13 +48,14 @@ export const useUpdateBulletin = routeAction$(
 
 export const useCreateBulletin = routeAction$(
   async (req) => {
-    const response = await createBulletin(req.name, req.type);
+    const response = await createBulletin(req.name, req.type, req.gradeId);
 
     return response;
   },
   zod$({
     name: z.string().min(3),
     type: z.string().min(3),
+    gradeId: z.coerce.number(),
   }),
 );
 
@@ -138,6 +141,11 @@ export default component$(() => {
           }}
         >
           <div class="mb-6">
+            <input
+              type="hidden"
+              name="gradeId"
+              value={bulletinLoader.value.gradeId}
+            />
             <label
               for="name"
               class="mb-2 block text-sm font-medium text-gray-900 dark:text-white"

@@ -317,7 +317,7 @@ export default component$(() => {
               type="button"
             >
               <span class="relative rounded-md bg-white px-5 py-2.5 transition-all duration-75 ease-in group-hover:bg-transparent dark:bg-gray-900 group-hover:dark:bg-transparent">
-                <a href="0">Crear nuevo </a>
+                <a href={`0?grade_id=${grade.value}`}>Crear nuevo </a>
               </span>
             </button>
             <Table headers={tableHeaders} data={bulletins ?? []} />

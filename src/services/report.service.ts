@@ -55,10 +55,11 @@ export const getBulletin = server$(async function (id: number) {
   return data as Bulletin;
 });
 
-export const createBulletin = server$(async function (name: string, type: string) {
+export const createBulletin = server$(async function (name: string, type: string, gradeId: number) {
   const { data, error } = await getSupabase().from("bulletins").insert({
     name: name,
     type: type,
+    grade_id: gradeId,
   }).select().single();
   if (error) {
     console.error("Unable to create bulletin.");
