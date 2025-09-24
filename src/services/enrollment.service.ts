@@ -424,23 +424,6 @@ export const useCreateStudentRequest = routeAction$(async (req, event) => {
   if (req.studentName === "test") {
     return event.fail(400, { message: "Error al registrar el estudiante" });
   }
-  if (!/^\d+$/.test(req.studentDocument)) {
-    return event.fail(400, { message: "El documento del estudiante debe ser numérico." });
-  }
-  if (!/^\d+$/.test(req.guardianDocument)) {
-    return event.fail(400, { message: "El documento del acudiente debe ser numérico." });
-  }
-  if (!/^\d+$/.test(req.phone)) {
-    return event.fail(400, { message: "El telefono del acudiente debe ser numérico." });
-  }
-  if (req.birthDate > new Date()) {
-    return event.fail(400, { message: "La fecha de nacimiento no puede ser mayor a la fecha actual." });
-  }
-  const limitYear = new Date();
-  limitYear.setFullYear(limitYear.getFullYear() - 7);
-  if (req.birthDate < limitYear) {
-    return event.fail(400, { message: "La fecha de nacimiento no puede superar los 7 años." });
-  }
 
   const { data, error } = await getSupabase().from("students_applications").insert({
     student_name: req.studentName,
@@ -475,10 +458,14 @@ type_id(*)
   return data[0] as StudentApplicationResponse;
 }, zod$({
   studentName: z.string().min(1, "Nombre completo requerido"),
-  birthDate: z.coerce.date({ required_error: "Fecha de nacimiento requerida" }),
+  birthDate: z.coerce.date({ required_error: "Fecha de nacimiento requerida" }).refine(val => {
+    return isAge1to6(val);
+  }, "El estudiante debe tener entre 1 y 6 años."),
   birthPlace: z.string().min(1, "Lugar de nacimiento requerido"),
   department: z.string().min(1, "Departamento requerido"),
-  studentDocument: z.string().min(6, "Número de documento requerido y mayor a 6"),
+  studentDocument: z.string().min(6, "Número de documento requerido y mayor a 6").refine((val) => {
+    return /^\d+$/.test(val);
+  }, "El documento del estudiante debe ser numérico."),
   weight: z.coerce.number().positive("El peso debe ser un número positivo"),
   height: z.coerce.number().positive("La altura debe ser un número positivo"),
   bloodType: z.string().min(1, "Tipo de sangre requerido"),
@@ -493,13 +480,17 @@ type_id(*)
     ),
   gradeId: z.string().min(1, "Grado requerido"),
   guardianName: z.string().min(1, "Nombre del acudiente requerido"),
-  phone: z.string().min(1, "Teléfono requerido"),
+  phone: z.string().min(1, "Teléfono requerido").refine((val) => {
+    return /^\d+$/.test(val);
+  }, "El telefono del acudiente debe ser numérico."),
   profession: z.string(),
   company: z.string(),
   email: z.string().email("Correo inválido"),
   address: z.string().min(1, "Dirección requerida"),
   typeId: z.string().min(1, "Tipo de acudiente requerido"),
-  guardianDocument: z.string().min(6, "Número de documento del acudiente debe ser mayor a 6")
+  guardianDocument: z.string().min(6, "Número de documento del acudiente debe ser mayor a 6").refine((val) => {
+    return /^\d+$/.test(val);
+  }, "El documento del acudiente debe ser numérico."),
 }));
 
 export const useGetStudentApplications = routeLoader$(async () => {
@@ -704,3 +695,19 @@ export const useUpdateGrade = routeAction$(async (req, event) => {
   name: z.string().min(1, "Name is required"),
   professorId: z.coerce.number().min(1),
 }));
+
+function isAge1to6(birthDate: unknown): boolean {
+  if (!(birthDate instanceof Date) || Number.isNaN(birthDate.getTime())) return false;
+
+  const today = new Date();
+  if (birthDate > today) return false;                 // future → invalid
+
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const hadBirthday =
+    today.getMonth() > birthDate.getMonth() ||
+    (today.getMonth() === birthDate.getMonth() && today.getDate() >= birthDate.getDate());
+
+  if (!hadBirthday) age -= 1;
+
+  return age >= 1 && age <= 6;   // 1,2,3,4,5,6 → true
+}
