@@ -5,7 +5,7 @@ import { getSupabase } from "./supabase.service";
 
 const calendarEvents: CalendarEvent[] = [];
 
-export const createEmployee = server$(async function(request: CreateEmployeeRequest) {
+export const createEmployee = server$(async function (request: CreateEmployeeRequest) {
   const job = await getEmployeeJob(request.jobId);
   if (!job) {
     return new BaseError("Invalid job id!", 400, { id: request.jobId });
@@ -46,7 +46,7 @@ job_id(*)
   }
 });
 
-export const getEmployees = server$(async function() {
+export const getEmployees = server$(async function () {
   const { data, error } = await getSupabase().from("employees").select(`
 *,
 job_id(*)
@@ -68,7 +68,7 @@ job_id(*)
   });
 });
 
-export const getEmployee = server$(async function(id: number) {
+export const getEmployee = server$(async function (id: number) {
   const { data, error } = await getSupabase().from("employees").select(`
 *,
 job_id(*)
@@ -88,7 +88,7 @@ job_id(*)
   } as EmployeeResponse;
 });
 
-export const updateEmployee = server$(async function(request: UpdateEmployeeRequest) {
+export const updateEmployee = server$(async function (request: UpdateEmployeeRequest) {
   const employee = await getEmployee(request.id);
   const job = await getEmployeeJob(request.jobId);
   if (!employee || !job) {
@@ -119,13 +119,15 @@ job_id(*)
   } as EmployeeResponse;
 });
 
-export const deleteEmployee = server$(async function(id: number) {
+export const deleteEmployee = server$(async function (id: number) {
   const employee = await getEmployee(id);
   if (!employee) {
     return { data: null, error: new BaseError("Invalid employee id!", 400, { id: id }) };
   }
+  const { error: invoiceError } = await getSupabase().from("employee_invoices").delete().eq("employee_id", id);
+  const { error: leavesError } = await getSupabase().from("employee_leaves").delete().eq("employee_id", id);
   const { error } = await getSupabase().from("employees").delete().eq("id", id);
-  if (error) {
+  if (error || invoiceError || leavesError) {
     console.error(`Unable to delete employee ${id}:\n`, error);
     return { data: null, error: new BaseError("No se pudo eliminar el empleado", 500, { id: id }) };
   }
@@ -133,7 +135,7 @@ export const deleteEmployee = server$(async function(id: number) {
   return { data: employee, error: null };
 });
 
-export const getEmployeesJobs = server$(async function() {
+export const getEmployeesJobs = server$(async function () {
   const { data, error } = await getSupabase().from("employee_jobs").select();
   if (error) {
     console.error("Unable to fetch employee jobs:\n", error);
@@ -149,7 +151,7 @@ export const getEmployeesJobs = server$(async function() {
   });
 });
 
-export const getEmployeeJob = server$(async function(id: number) {
+export const getEmployeeJob = server$(async function (id: number) {
   const { data, error } = await getSupabase().from("employee_jobs").select().eq("id", id).single();
   if (error) {
     console.error(`Unable to fetch employee job ${id}:\n`, error);
@@ -163,7 +165,7 @@ export const getEmployeeJob = server$(async function(id: number) {
   } as EmployeeJobResponse;
 });
 
-export const createEmployeeJob = server$(async function(request: CreateEmployeeJobRequest) {
+export const createEmployeeJob = server$(async function (request: CreateEmployeeJobRequest) {
   if (request.salary < 1000) {
     return new BaseError("Salario no puede ser menor a 1000", 400, { salary: request.salary });
   }
@@ -188,7 +190,7 @@ export const createEmployeeJob = server$(async function(request: CreateEmployeeJ
   } as EmployeeJobResponse;
 });
 
-export const updateEmployeeJob = server$(async function(request: UpdateEmployeeJobRequest) {
+export const updateEmployeeJob = server$(async function (request: UpdateEmployeeJobRequest) {
   const job = await getEmployeeJob(request.id);
   if (!job) {
     return new BaseError("Invalid job id!", 400, { id: request.id });
@@ -212,7 +214,7 @@ export const updateEmployeeJob = server$(async function(request: UpdateEmployeeJ
   } as EmployeeJobResponse;
 });
 
-export const deleteEmployeeJob = server$(async function(id: number) {
+export const deleteEmployeeJob = server$(async function (id: number) {
   const job = await getEmployeeJob(id);
   if (!job) {
     return {
@@ -234,7 +236,7 @@ export const deleteEmployeeJob = server$(async function(id: number) {
   };
 });
 
-export const getEmployeeLeaves = server$(async function(employeeId: number) {
+export const getEmployeeLeaves = server$(async function (employeeId: number) {
   const { data, error } = await getSupabase().from("employee_leaves").select().eq("employee_id", employeeId);
   if (error) {
     console.error("Unable to fetch employee leaves:\n", error);
@@ -251,7 +253,7 @@ export const getEmployeeLeaves = server$(async function(employeeId: number) {
   });
 });
 
-export const createEmployeeLeave = server$(async function(request: CreateEmployeeLeaveRequest) {
+export const createEmployeeLeave = server$(async function (request: CreateEmployeeLeaveRequest) {
   const employee = await getEmployee(request.employeeId);
   if (!employee) {
     return new BaseError("Invalid employee id!", 400, { id: request.employeeId });
@@ -274,7 +276,7 @@ export const createEmployeeLeave = server$(async function(request: CreateEmploye
   } as EmployeeLeaveResponse
 });
 
-export const getEmployeeInvoices = server$(async function(request: EmployeeInvoiceRequest) {
+export const getEmployeeInvoices = server$(async function (request: EmployeeInvoiceRequest) {
   const { data, error } = await getSupabase().from("employee_invoices").select().eq("employee_id", request.employeeId);
   if (error) {
     console.error(`Unable to fetch employee invoices ${request.employeeId}:\n`, error);
@@ -334,7 +336,7 @@ export const useCreateEmployeeInvoice = routeAction$(async (req, event) => {
   employeeId: z.coerce.number()
 }));
 
-export const createCalendarEvent = server$(function(event: CalendarEvent) {
+export const createCalendarEvent = server$(function (event: CalendarEvent) {
   const lastId = String(calendarEvents.length + 1);
   // const { id, ...eventProps } = event;
   // const calendarEvent: CalendarEvent = { id: lastId, ...eventProps };
@@ -344,7 +346,7 @@ export const createCalendarEvent = server$(function(event: CalendarEvent) {
   return calendarEvent;
 });
 
-export const getCalendarEvents = server$(function() {
+export const getCalendarEvents = server$(function () {
   console.info("Getting calendar events: ", calendarEvents.length);
   return calendarEvents;
 });
