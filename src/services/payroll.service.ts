@@ -180,6 +180,9 @@ export const createEmployeeJob = server$(async function (request: CreateEmployee
     .select();
   if (error) {
     console.error(`Unable to create employee job:\n`, error);
+    if (error.message.includes("duplicate key value violates unique constraint")) {
+      return new BaseError("Ya existe un cargo con ese nombre", 400, { name: request.name });
+    }
     return new BaseError("No se pudo crear el cargo", 500, { message: error.message });
   }
   return {
@@ -203,6 +206,9 @@ export const updateEmployeeJob = server$(async function (request: UpdateEmployee
     .select();
   if (error) {
     console.error(`Unable to update employee job ${request.id}:\n`, error);
+    if (error.message.includes("duplicate key value violates unique constraint")) {
+      return new BaseError("Ya existe un cargo con ese nombre", 400, { name: request.name });
+    }
     return new BaseError("No se pudo actualizar el cargo", 500, { message: error.message });
   }
   const updatedJob = data[0];
