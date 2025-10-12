@@ -63,7 +63,7 @@ export default component$(() => {
             for="professors"
             class="mb-2 block text-sm font-medium text-gray-900 dark:text-white"
           >
-            Select an option
+            Seleccione un docente
           </label>
           <select
             id="professors"

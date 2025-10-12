@@ -136,7 +136,7 @@ export default component$(() => {
               alert("No se pudo crear el boletín");
               return;
             }
-            alert("Boletín creado");
+            alert("Item del boletín creado");
             await navigateLoader("/reports/bulletin");
           }}
         >
