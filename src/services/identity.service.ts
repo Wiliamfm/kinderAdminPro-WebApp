@@ -2,7 +2,7 @@ import { routeAction$, server$, z, zod$ } from "@builder.io/qwik-city";
 import { IdentityUser } from "~/types/identity.types";
 import { getSupabase } from "./supabase.service";
 
-export const getUserStatus = server$(async function(email: string | null = null) {
+export const getUserStatus = server$(async function (email: string | null = null) {
   if (!email) {
     return null;
   }
@@ -22,7 +22,7 @@ export const useLogin = routeAction$(async (data, event) => {
   if (!user || user.password !== data.password) {
     return event.fail(401, { message: "Credenciales inválidas!" });
   }
-  event.cookie.set("username", user.email, { httpOnly: true, secure: true, sameSite: "strict", path: "/", maxAge: 60 * 15 });
+  event.cookie.set("username", user.email, { httpOnly: true, secure: true, sameSite: "strict", path: "/", maxAge: 60 * 60 });
   return {
     success: true
   }
