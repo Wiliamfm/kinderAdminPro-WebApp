@@ -3,22 +3,37 @@ import { routeAction$, z, zod$ } from "@builder.io/qwik-city";
 import FormModal from "~/components/common/modal/formModal/formModal";
 import Table, { TableProps } from "~/components/common/table/table";
 import { useGetSemesters } from "~/routes/reports/bulletin/students/[id]";
+import { createSemester } from "~/services/report.service";
 
 export { useGetSemesters };
 
 export const useCreateSemester = routeAction$(
   async (data, event) => {
-    if (data.startDate <= new Date()) {
-      return event.fail(400, {
-        message: "La fecha de inicio debe ser mayor a la actual",
-      });
-    }
-    if (data.endDate >= data.startDate) {
+    // if (data.startDate < new Date()) {
+    //   return event.fail(400, {
+    //     message: "La fecha de inicio debe ser mayor a la actual",
+    //   });
+    // }
+    if (data.endDate <= data.startDate) {
       return event.fail(400, {
         message: "La fecha de inicio debe ser menor a la de finalización",
       });
     }
-    console.log(data);
+
+    const response = await createSemester(
+      data.name,
+      data.startDate,
+      data.endDate,
+    );
+
+    if (response != true) {
+      console.log(response);
+      return event.fail(400, {
+        message: "Error al crear el semestre",
+      });
+    }
+
+    return true;
   },
   zod$({
     name: z.string().min(6, "Nombre debe tener al menos 6 caracteres"),

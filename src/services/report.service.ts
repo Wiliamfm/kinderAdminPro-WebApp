@@ -258,3 +258,48 @@ export const getSemesters = server$(async function () {
     } as SemesterResponse;
   }) as SemesterResponse[];
 });
+
+export const getSemester = server$(async function (id: number) {
+  const { data, error } = await getSupabase().from("semesters").select("*").eq("id", id).single();
+  if (error) {
+    console.error("Unable to get semesters: ", error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    semester: data.semester,
+    startDate: data.start_date,
+    endDate: data.end_date,
+    isActive: data.is_active,
+  } as SemesterResponse;
+
+});
+
+export const createSemester = server$(async function (semester: string, startDate: Date, endDate: Date) {
+  const response = await getSupabase().from("semesters").insert({
+    semester: semester,
+    start_date: startDate,
+    end_date: endDate,
+    is_active: false
+  });
+  if (response.error && response.status !== 204) {
+    return response.error;
+  }
+
+  return true;
+})
+
+export const updateSemester = server$(async function (id: number, semester: string, startDate: Date, endDate: Date) {
+  const response = await getSupabase().from("semesters").update({
+    semester: semester,
+    start_date: startDate,
+    end_date: endDate
+  }).eq("id", id).select().single();
+  if (response.error && response.status !== 204) {
+    console.log("Error when updating semesters: \n", response.error);
+    return null;
+  }
+
+  return response.data as SemesterResponse;
+})
