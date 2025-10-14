@@ -145,7 +145,11 @@ export default component$(() => {
           }}
         >
           {semestersLoader.value.map((semester) => (
-            <option key={semester.id} value={semester.id}>
+            <option
+              key={semester.id}
+              value={semester.id}
+              selected={semester.isActive}
+            >
               {semester.semester}
             </option>
           ))}

@@ -303,3 +303,27 @@ export const updateSemester = server$(async function (id: number, semester: stri
 
   return response.data as SemesterResponse;
 })
+
+export const activateSemester = server$(async function (id: number) {
+  const semester = await getSemester(id);
+  if (!semester) {
+    return null;
+  }
+  let response = await getSupabase().from("semesters").update({
+    is_active: !semester.isActive
+  }).eq("id", id).select().single();
+  if (response.error && response.status !== 204) {
+    console.log("Error when activating semesters: \n", response.error);
+    return null;
+  }
+
+  response = await getSupabase().from("semesters").update({
+    is_active: false
+  }).neq("id", id);
+  if (response.error && response.status !== 204) {
+    console.log("Error when activating semesters: \n", response.error);
+    return null;
+  }
+
+  return !semester.isActive;
+})

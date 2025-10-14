@@ -3,7 +3,7 @@ import { routeAction$, z, zod$ } from "@builder.io/qwik-city";
 import FormModal from "~/components/common/modal/formModal/formModal";
 import Table, { TableProps } from "~/components/common/table/table";
 import { useGetSemesters } from "~/routes/reports/bulletin/students/[id]";
-import { createSemester } from "~/services/report.service";
+import { activateSemester, createSemester } from "~/services/report.service";
 
 export { useGetSemesters };
 
@@ -42,10 +42,26 @@ export const useCreateSemester = routeAction$(
   }),
 );
 
+export const useActivateSemester = routeAction$(
+  async (data, event) => {
+    const response = await activateSemester(Number(data.id));
+    if (!response) {
+      return event.fail(500, {
+        message: "Error al activar el semestre",
+      });
+    }
+    return response;
+  },
+  zod$({
+    id: z.coerce.number().min(1, "El id es requerido"),
+  }),
+);
+
 export default component$(() => {
   const semestersLoader = useGetSemesters();
 
   const createSemesterAction = useCreateSemester();
+  const activateSemesterAction = useActivateSemester();
 
   const gradesTable = semestersLoader.value.map((semester) => {
     return {
@@ -76,36 +92,34 @@ export default component$(() => {
             />
           </svg>
         </a>,
-        // <button
-        //   class="cursor-pointer"
-        //   onClick$={async () => {
-        //     // const response = await deleteGradeAction.submit({
-        //     //   id: semester.id,
-        //     // });
-        //     // if (response.value?.failed) {
-        //     //   alert(response.value?.message);
-        //     //   return;
-        //     // }
-        //     alert(`Grado ${semester.id} eliminado correctamente`);
-        //     window.location.reload();
-        //   }}
-        // >
-        //   <svg
-        //     class="h-6 w-6 text-gray-800 dark:text-white"
-        //     aria-hidden="true"
-        //     xmlns="http://www.w3.org/2000/svg"
-        //     width="24"
-        //     height="24"
-        //     fill="currentColor"
-        //     viewBox="0 0 24 24"
-        //   >
-        //     <path
-        //       fill-rule="evenodd"
-        //       d="M8.586 2.586A2 2 0 0 1 10 2h4a2 2 0 0 1 2 2v2h3a1 1 0 1 1 0 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8a1 1 0 0 1 0-2h3V4a2 2 0 0 1 .586-1.414ZM10 6h4V4h-4v2Zm1 4a1 1 0 1 0-2 0v8a1 1 0 1 0 2 0v-8Zm4 0a1 1 0 1 0-2 0v8a1 1 0 1 0 2 0v-8Z"
-        //       clip-rule="evenodd"
-        //     />
-        //   </svg>
-        // </button>,
+        <button
+          class="cursor-pointer"
+          title="Activar / Desactivar semestre"
+          onClick$={async () => {
+            const response = await activateSemesterAction.submit({
+              id: semester.id,
+            });
+            if (response.value?.failed) {
+              alert(response.value?.message);
+              return;
+            }
+            alert(
+              `Semestre ${semester.semester} ${response.value ? "activado" : "desactivado"}`,
+            );
+          }}
+        >
+          <svg
+            class="h-6 w-6 text-gray-800 dark:text-white"
+            aria-hidden="true"
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path d="M10.83 5a3.001 3.001 0 0 0-5.66 0H4a1 1 0 1 0 0 2h1.17a3.001 3.001 0 0 0 5.66 0H20a1 1 0 1 0 0-2h-9.17ZM4 11h9.17a3.001 3.001 0 0 1 5.66 0H20a1 1 0 1 1 0 2h-1.17a3.001 3.001 0 0 1-5.66 0H4a1 1 0 1 1 0-2Zm1.17 6H4a1 1 0 1 0 0 2h1.17a3.001 3.001 0 0 0 5.66 0H20a1 1 0 1 0 0-2h-9.17a3.001 3.001 0 0 0-5.66 0Z" />
+          </svg>
+        </button>,
       ],
     };
   });
