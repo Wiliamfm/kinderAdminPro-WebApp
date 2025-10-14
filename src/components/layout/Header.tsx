@@ -97,30 +97,36 @@ export default component$<HeaderProps>(({ user }) => {
           id="navbar-user"
         >
           <ul class="mt-4 flex flex-col rounded-lg border border-gray-100 bg-gray-50 p-4 font-medium md:mt-0 md:flex-row md:space-x-8 md:border-0 md:bg-white md:p-0 rtl:space-x-reverse dark:border-gray-700 dark:bg-gray-800 md:dark:bg-gray-900">
-            <li>
-              <a
-                href="/payroll"
-                class="block rounded-sm px-3 py-2 text-gray-900 hover:bg-gray-100 md:p-0 md:hover:bg-transparent md:hover:text-blue-700 dark:border-gray-700 dark:text-white dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent md:dark:hover:text-blue-500"
-              >
-                Gestion del personal
-              </a>
-            </li>
-            <li>
-              <a
-                href="/enrollments"
-                class="block rounded-sm px-3 py-2 text-gray-900 hover:bg-gray-100 md:p-0 md:hover:bg-transparent md:hover:text-blue-700 dark:border-gray-700 dark:text-white dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent md:dark:hover:text-blue-500"
-              >
-                Matrícula
-              </a>
-            </li>
-            <li>
-              <a
-                href="/events"
-                class="block rounded-sm px-3 py-2 text-gray-900 hover:bg-gray-100 md:p-0 md:hover:bg-transparent md:hover:text-blue-700 dark:border-gray-700 dark:text-white dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent md:dark:hover:text-blue-500"
-              >
-                Gestion de Eventos
-              </a>
-            </li>
+            {user.role === "admin" && (
+              <li>
+                <a
+                  href="/payroll"
+                  class="block rounded-sm px-3 py-2 text-gray-900 hover:bg-gray-100 md:p-0 md:hover:bg-transparent md:hover:text-blue-700 dark:border-gray-700 dark:text-white dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent md:dark:hover:text-blue-500"
+                >
+                  Gestion del personal
+                </a>
+              </li>
+            )}
+            {user.role === "admin" && (
+              <li>
+                <a
+                  href="/enrollments"
+                  class="block rounded-sm px-3 py-2 text-gray-900 hover:bg-gray-100 md:p-0 md:hover:bg-transparent md:hover:text-blue-700 dark:border-gray-700 dark:text-white dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent md:dark:hover:text-blue-500"
+                >
+                  Matrícula
+                </a>
+              </li>
+            )}
+            {user.role === "admin" && (
+              <li>
+                <a
+                  href="/events"
+                  class="block rounded-sm px-3 py-2 text-gray-900 hover:bg-gray-100 md:p-0 md:hover:bg-transparent md:hover:text-blue-700 dark:border-gray-700 dark:text-white dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent md:dark:hover:text-blue-500"
+                >
+                  Gestion de Eventos
+                </a>
+              </li>
+            )}
             <li>
               <a
                 href="/reports"
