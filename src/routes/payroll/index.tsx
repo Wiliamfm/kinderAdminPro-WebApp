@@ -71,7 +71,7 @@ export default component$(() => {
 });
 
 export const head: DocumentHead = {
-  title: "Nómina",
+  title: "Gestión de Personal",
   meta: [
     {
       name: "description",
