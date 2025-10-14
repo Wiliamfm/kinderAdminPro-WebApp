@@ -176,9 +176,9 @@ export const deleteStudentBulletinValue = server$(async function (studentId: num
   return true;
 });
 
-export const getStudentBulletinValue = server$(async function (studentId: number, bulletinId: number) {
-  const { data, error } = await getSupabase().from("bulletins_students").select("*").eq("student_id", studentId).eq("bulletin_id", bulletinId).single();
-  if (error) {
+export const getStudentBulletinValue = server$(async function (studentId: number, bulletinId: number, semesterId: number) {
+  const { data, error } = await getSupabase().from("bulletins_students").select("*").eq("student_id", studentId).eq("bulletin_id", bulletinId).eq("semester_id", semesterId).single();
+  if (error && error.code !== "PGRST116" && error.details !== "The result contains 0 rows") {
     console.error("Unable to get student bulletin value: ", error);
     return null;
   }

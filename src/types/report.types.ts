@@ -20,3 +20,11 @@ export type SemesterResponse = {
   endDate: Date,
   isActive: boolean,
 }
+
+export type BulletinWithValue = {
+  id: number,
+  type: string,
+  name: string,
+  value: number | null,
+  semesterId: number
+};

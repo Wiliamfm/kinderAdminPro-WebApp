@@ -1,5 +1,11 @@
-import { component$, useSignal } from "@builder.io/qwik";
-import { routeAction$, routeLoader$, z, zod$ } from "@builder.io/qwik-city";
+import { component$, useSignal, useTask$ } from "@builder.io/qwik";
+import {
+  routeAction$,
+  routeLoader$,
+  useLocation,
+  z,
+  zod$,
+} from "@builder.io/qwik-city";
 import Table, { TableHeader } from "~/components/common/table/table";
 import {
   createStudentBulletinValue,
@@ -8,20 +14,27 @@ import {
   getStudentBulletinValue,
   updateStudentBulletinValue,
 } from "~/services/report.service";
+import { BulletinWithValue } from "~/types/report.types";
 
-export const useGetBulletin = routeLoader$(async (event) => {
-  const studentId = event.params.id;
+export const useGetBulletin = routeLoader$(async () => {
+  // const studentId = event.params.id;
   const bulletins = await getBulletins();
   if (!bulletins) {
     return [];
   }
-  const bulletinWithValues = [];
-  for (const bulletin of bulletins) {
-    const value = await getStudentBulletinValue(Number(studentId), bulletin.id);
-    bulletinWithValues.push({ ...bulletin, value: value?.value });
-  }
 
-  return bulletinWithValues;
+  return bulletins;
+  // const bulletinWithValues = [];
+  // for (const bulletin of bulletins) {
+  //   const value = await getStudentBulletinValue(Number(studentId), bulletin.id);
+  //   bulletinWithValues.push({
+  //     ...bulletin,
+  //     value: value?.value,
+  //     semesterId: value?.semesterId,
+  //   });
+  // }
+
+  // return bulletinWithValues;
 });
 
 export const useGetSemesters = routeLoader$(async () => {
@@ -39,6 +52,7 @@ export const useUpdateStudentBulletinValue = routeAction$(
     const studentBulletin = await getStudentBulletinValue(
       Number(studentId),
       Number(data.bulletinId),
+      Number(data.semesterId),
     );
     let response;
     if (Number(data.value) <= 0 || Number(data.value) > 5) {
@@ -64,6 +78,7 @@ export const useUpdateStudentBulletinValue = routeAction$(
   },
   zod$({
     bulletinId: z.coerce.number(),
+    semesterId: z.coerce.number(),
     value: z.coerce.string().min(1),
   }),
 );
@@ -71,12 +86,35 @@ export const useUpdateStudentBulletinValue = routeAction$(
 export default component$(() => {
   const bulletinLoader = useGetBulletin();
   const semestersLoader = useGetSemesters();
+  const location = useLocation();
 
   const updateStudentBulletinAction = useUpdateStudentBulletinValue();
 
   const semester = useSignal(
     semestersLoader.value.find((semester) => semester.isActive)?.id,
   );
+  const filteredBulletins = useSignal<BulletinWithValue[]>([]);
+
+  useTask$(async ({ track }) => {
+    track(() => semester.value);
+    filteredBulletins.value = [];
+    for (const bulletin of bulletinLoader.value) {
+      if (!semester.value) {
+        console.error("Semester not found");
+        continue;
+      }
+      const bulletinValue = await getStudentBulletinValue(
+        Number(location.params.id),
+        bulletin.id,
+        semester.value,
+      );
+      filteredBulletins.value.push({
+        ...bulletin,
+        value: bulletinValue?.value ?? null,
+        semesterId: semester.value,
+      });
+    }
+  });
 
   const tableHeaders: TableHeader[] = [
     { name: "Id", key: "id" },
@@ -84,7 +122,7 @@ export default component$(() => {
     { name: "Descripción", key: "name" },
     { name: "Valoración", key: "actions" },
   ];
-  const bulletins = bulletinLoader.value?.map((bulletin) => {
+  const bulletins = filteredBulletins.value?.map((bulletin) => {
     return {
       ...bulletin,
       actions: [
@@ -110,6 +148,7 @@ export default component$(() => {
                 }
                 const response = await updateStudentBulletinAction.submit({
                   bulletinId: bulletin.id,
+                  semesterId: bulletin.semesterId,
                   value: element.value,
                 });
                 if (!response.value) {
