@@ -230,7 +230,7 @@ export default component$(() => {
     return {
       ...student,
       actions: [
-        <a href={`students/${student.id}`}>
+        <a href={`students/${student.id}?grade_id=${student.gradeId}`}>
           <svg
             class="h-6 w-6 text-gray-800 dark:text-white"
             aria-hidden="true"

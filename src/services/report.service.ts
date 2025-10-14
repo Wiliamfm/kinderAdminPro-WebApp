@@ -185,7 +185,7 @@ export const getStudentBulletinValue = server$(async function (studentId: number
   return data as StudentBulletin;
 });
 
-export const createStudentBulletinValue = server$(async function (studentId: number, bulletinId: number, value: number) {
+export const createStudentBulletinValue = server$(async function (studentId: number, bulletinId: number, value: number, semesterId: number) {
   const { data, error } = await getSupabase().from("semesters").select("*").eq("is_active", true).single();
   if (error) {
     console.error("Unable to get student bulletin value: ", error);
@@ -196,18 +196,19 @@ export const createStudentBulletinValue = server$(async function (studentId: num
     student_id: studentId,
     bulletin_id: bulletinId,
     value: value,
-    semester_id: data.id
+    semester_id: semesterId
   });
   if (response.error && response.status !== 204) {
     return false;
   }
+
+  return data;
 });
 
-export const updateStudentBulletinValue = server$(async function (studentId: number, bulletinId: number, value: number) {
-  console.log(value)
+export const updateStudentBulletinValue = server$(async function (studentId: number, bulletinId: number, value: number, semesterId: number) {
   const response = await getSupabase().from("bulletins_students").update({
     value: value
-  }).eq("student_id", studentId).eq("bulletin_id", bulletinId);
+  }).eq("student_id", studentId).eq("bulletin_id", bulletinId).eq("semester_id", semesterId).select().single();
   if (response.error && response.status !== 204) {
     console.error("Unable to update student bulletin value: ", response.error);
     return false;

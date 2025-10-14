@@ -10,31 +10,26 @@ import Table, { TableHeader } from "~/components/common/table/table";
 import {
   createStudentBulletinValue,
   getBulletins,
+  getBulletinsByGrade,
   getSemesters,
   getStudentBulletinValue,
   updateStudentBulletinValue,
 } from "~/services/report.service";
 import { BulletinWithValue } from "~/types/report.types";
 
-export const useGetBulletin = routeLoader$(async () => {
-  // const studentId = event.params.id;
-  const bulletins = await getBulletins();
+export const useGetBulletin = routeLoader$(async (event) => {
+  const gradeId = event.query.get("grade_id");
+  let bulletins;
+  if (gradeId) {
+    bulletins = await getBulletinsByGrade(Number(gradeId));
+  } else {
+    bulletins = await getBulletins();
+  }
   if (!bulletins) {
     return [];
   }
 
   return bulletins;
-  // const bulletinWithValues = [];
-  // for (const bulletin of bulletins) {
-  //   const value = await getStudentBulletinValue(Number(studentId), bulletin.id);
-  //   bulletinWithValues.push({
-  //     ...bulletin,
-  //     value: value?.value,
-  //     semesterId: value?.semesterId,
-  //   });
-  // }
-
-  // return bulletinWithValues;
 });
 
 export const useGetSemesters = routeLoader$(async () => {
@@ -65,12 +60,14 @@ export const useUpdateStudentBulletinValue = routeAction$(
         Number(studentId),
         Number(data.bulletinId),
         Number(data.value),
+        Number(data.semesterId),
       );
     } else {
       response = await createStudentBulletinValue(
         Number(studentId),
         Number(data.bulletinId),
         Number(data.value),
+        Number(data.semesterId),
       );
     }
 
@@ -140,7 +137,7 @@ export default component$(() => {
               min="0"
               max="5"
               name="value"
-              value={bulletin.value ?? ""}
+              value={bulletin.value}
               class="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2.5 text-sm text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-blue-500 dark:focus:ring-blue-500"
               onBlur$={async (event, element) => {
                 if (!element.value) {
@@ -148,7 +145,7 @@ export default component$(() => {
                 }
                 const response = await updateStudentBulletinAction.submit({
                   bulletinId: bulletin.id,
-                  semesterId: bulletin.semesterId,
+                  semesterId: semester.value ? Number(semester.value) : 0,
                   value: element.value,
                 });
                 if (!response.value) {
