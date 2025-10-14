@@ -395,9 +395,13 @@ export const useUpdateGuardian = routeAction$(async (req, event) => {
   } as GuardianResponse
 }, zod$({
   id: z.coerce.number().min(1, "ID is required"),
-  fullName: z.string().min(1, "Full name is required"),
-  documentNumber: z.string().min(1, "Document number is required"),
-  phone: z.string().min(1, "Phone is required"),
+  fullName: z.string().min(1, "Nombre del acudiente requerido"),
+  documentNumber: z.string().min(6, "Número de documento del acudiente debe ser mayor a 6").refine((val) => {
+    return /^\d+$/.test(val);
+  }, "El documento del acudiente debe ser numérico."),
+  phone: z.string().min(1, "Teléfono requerido").refine((val) => {
+    return /^\d+$/.test(val);
+  }, "El telefono del acudiente debe ser numérico."),
   profession: z.string().min(1, "Profession is required"),
   company: z.string().min(1, "Company is required"),
   email: z.string().email().min(1, "Email is required"),
