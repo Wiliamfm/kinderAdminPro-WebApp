@@ -69,12 +69,14 @@ export const useUpdateStudentBulletinValue = routeAction$(
 );
 
 export default component$(() => {
-  const semester = useSignal(1);
-
   const bulletinLoader = useGetBulletin();
   const semestersLoader = useGetSemesters();
 
   const updateStudentBulletinAction = useUpdateStudentBulletinValue();
+
+  const semester = useSignal(
+    semestersLoader.value.find((semester) => semester.isActive)?.id,
+  );
 
   const tableHeaders: TableHeader[] = [
     { name: "Id", key: "id" },
