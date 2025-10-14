@@ -233,6 +233,12 @@ export const useDeleteStudent = routeAction$(async (data, event) => {
     return event.fail(404, { message: "Student not found!" });
   }
 
+  const bulletingResponse = await getSupabase().from("bulletins_students").delete().eq("student_id", data.id);
+  if (bulletingResponse.error && bulletingResponse.status !== 204) {
+    console.error(`Unable to delete student:\n`, bulletingResponse.error);
+    return event.fail(500, { message: "Error al eliminar el estudiante" });
+  }
+
   const response = await getSupabase().from("guardians_students").delete().eq("student_id", data.id)
   if (response.error && response.status !== 204) {
     console.error(`Unable to delete student:\n`, response.error);
