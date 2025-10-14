@@ -83,7 +83,17 @@ export default component$(() => {
     headers: [
       { name: "Id", key: "id" },
       { name: "Nombre", key: "displayName" },
-      { name: "Profesor", key: "professorId" },
+      {
+        name: "Profesor",
+        key: "professorId",
+        format: $((professorId: number) => {
+          return (
+            professorsLoader.value.employees.find(
+              (professor) => professor.id === professorId,
+            )?.name ?? "N/A"
+          );
+        }),
+      },
       { name: "Acciones", key: "actions" },
     ],
     data: gradesTable,
