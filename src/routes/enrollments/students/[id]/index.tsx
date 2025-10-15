@@ -22,13 +22,13 @@ export default component$(() => {
   const navigation = useNavigate();
 
   const studentLoader = useGetStudent();
-  const guardiansLoader = useGetGuardians();
+  // const guardiansLoader = useGetGuardians();
   const gradesLoader = useGetGrades();
   const bloodTypes = useGetBloodTypes();
 
   const updateStudentAction = useUpdateStudent();
 
-  const guardianInputRef = useSignal<HTMLInputElement>();
+  // const guardianInputRef = useSignal<HTMLInputElement>();
 
   return (
     <div>
