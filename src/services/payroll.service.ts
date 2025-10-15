@@ -49,7 +49,8 @@ job_id(*)
 export const getEmployees = server$(async function () {
   const { data, error } = await getSupabase().from("employees").select(`
 *,
-job_id(*)
+job_id(*),
+user_app_id(*)
 `);
   if (error) {
     console.error("Unable to fetch employees:\n", error);
@@ -59,6 +60,7 @@ job_id(*)
     return {
       id: e.id,
       name: e.name,
+      email: e.user_app_id?.email ?? "N/A",
       job: {
         id: e.job_id.id,
         name: e.job_id.name,

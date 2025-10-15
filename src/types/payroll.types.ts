@@ -1,6 +1,7 @@
 export type EmployeeResponse = {
   id: number;
   name: string;
+  email: string;
   job: EmployeeJobResponse;
 }
 
