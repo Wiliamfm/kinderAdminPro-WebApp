@@ -174,7 +174,8 @@ export const useUpdateStudent = routeAction$(async (req, event) => {
     return event.fail(400, { message: "Invalid guardian IDs" });
   }
 
-  const allergies = req.allergies.split(',').map(allergy => allergy.trim());
+  const allergies = req.allergies.map(allergy => allergy.trim());
+  //TODO: Update student guardians
   const { data, error } = await getSupabase().from("students").update({
     full_name: req.fullName,
     birth_date: req.birthDate,
@@ -214,15 +215,26 @@ export const useUpdateStudent = routeAction$(async (req, event) => {
 }, zod$({
   id: z.coerce.number().min(1, "ID is required"),
   fullName: z.string().min(1, "Full name is required"),
-  birthDate: z.coerce.date(),
+  birthDate: z.coerce.date({ required_error: "Fecha de nacimiento requerida" }).refine(val => {
+    return isAge1to6(val);
+  }, "El estudiante debe tener entre 1 y 6 años."),
   birthPlace: z.string().min(1, "Birth place is required"),
   department: z.string().min(1, "Department is required"),
-  documentNumber: z.string().min(1, "Document number is required"),
+  documentNumber: z.string().min(6, "Número de documento requerido y mayor a 6").refine((val) => {
+    return /^\d+$/.test(val);
+  }, "El documento del estudiante debe ser numérico."),
   weight: z.coerce.number().positive("Weight must be a positive number"),
   height: z.coerce.number().positive("Height must be a positive number"),
   bloodType: z.string().min(1, "Blood type is required"),
   socialSecurity: z.string().min(1, "Social security is required"),
-  allergies: z.string().min(1, "Allergies is required"),
+  allergies: z
+    .string()
+    .transform((val) =>
+      val
+        .split(",")
+        .map((a) => a.trim())
+        .filter((a) => a.length > 0)
+    ),
   gradeId: z.coerce.number().min(1, "Grade ID is required"),
   guardianIds: z.string().min(1, "At least one guardian is required"),
 }));
