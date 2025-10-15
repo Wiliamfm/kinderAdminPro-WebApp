@@ -129,7 +129,7 @@ export const deleteEmployee = server$(async function (id: number) {
   const { error } = await getSupabase().from("employees").delete().eq("id", id);
   if (error || invoiceError || leavesError) {
     console.error(`Unable to delete employee ${id}:\n`, error);
-    return { data: null, error: new BaseError("No se pudo eliminar el empleado", 500, { id: id }) };
+    return { data: null, error: new BaseError("No se pudo eliminar el empleado, porfavor revise que no tenga cursos asignados", 500, { id: id }) };
   }
 
   return { data: employee, error: null };
