@@ -3,8 +3,6 @@ import { CalendarEvent, CreateEmployeeJobRequest, CreateEmployeeLeaveRequest, Cr
 import { BaseError } from "~/types/shared.types";
 import { getSupabase } from "./supabase.service";
 
-const calendarEvents: CalendarEvent[] = [];
-
 export const createEmployee = server$(async function (request: CreateEmployeeRequest) {
   const job = await getEmployeeJob(request.jobId);
   if (!job) {
@@ -344,17 +342,35 @@ export const useCreateEmployeeInvoice = routeAction$(async (req, event) => {
   employeeId: z.coerce.number()
 }));
 
-export const createCalendarEvent = server$(function (event: CalendarEvent) {
-  const lastId = String(calendarEvents.length + 1);
-  // const { id, ...eventProps } = event;
-  // const calendarEvent: CalendarEvent = { id: lastId, ...eventProps };
-  const calendarEvent: CalendarEvent = { id: lastId, ...event };
-  console.info("Calendar event created: ", calendarEvent);
-  calendarEvents.push(calendarEvent);
-  return calendarEvent;
+export const createCalendarEvent = server$(async function (event: CalendarEvent) {
+  const response = await getSupabase().from("calendar_events").insert({
+    title: event.title,
+    description: event.description,
+    start_date: event.startDate,
+    end_date: event.endDate,
+    is_all_day: event.isAllDay
+  }).select();
+  if (response.error) {
+    console.error("Unable to create calendar event:\n", response.error);
+    return new BaseError("No se pudo crear el evento", 500, { message: response.error.message });
+  }
+  return response.data;
 });
 
-export const getCalendarEvents = server$(function () {
-  console.info("Getting calendar events: ", calendarEvents.length);
-  return calendarEvents;
+export const getCalendarEvents = server$(async function () {
+  const response = await getSupabase().from("calendar_events").select("*");
+  if (response.error) {
+    console.error("Unable to fetch calendar events:\n", response.error);
+    return [];
+  }
+  return response.data.map((e) => {
+    return {
+      id: e.id,
+      title: e.title,
+      description: e.description,
+      startDate: e.start_date,
+      endDate: e.end_date,
+      isAllDay: e.is_all_day
+    } as CalendarEvent
+  });
 });
