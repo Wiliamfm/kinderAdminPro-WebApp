@@ -87,7 +87,7 @@ export default component$(() => {
                 role="alert"
               >
                 <span class="font-medium">Campo inválido!</span>{" "}
-                {registerStudentAction.value.fieldErrors.birthDate}.
+                {registerStudentAction.value.fieldErrors.birthDate}
               </div>
             )}
         </div>
@@ -145,7 +145,7 @@ export default component$(() => {
                 role="alert"
               >
                 <span class="font-medium">Campo inválido!</span>{" "}
-                {registerStudentAction.value.fieldErrors.studentDocument}.
+                {registerStudentAction.value.fieldErrors.studentDocument}
               </div>
             )}
         </div>
@@ -299,7 +299,7 @@ export default component$(() => {
                   role="alert"
                 >
                   <span class="font-medium">Campo inválido!</span>{" "}
-                  {registerStudentAction.value.fieldErrors?.guardianDocument}.
+                  {registerStudentAction.value.fieldErrors?.guardianDocument}
                 </div>
               )}
           </div>
@@ -326,7 +326,7 @@ export default component$(() => {
                   role="alert"
                 >
                   <span class="font-medium">Campo inválido!</span>{" "}
-                  {registerStudentAction.value.fieldErrors.phone}.
+                  {registerStudentAction.value.fieldErrors.phone}
                 </div>
               )}
           </div>
@@ -385,7 +385,7 @@ export default component$(() => {
                   role="alert"
                 >
                   <span class="font-medium">Campo inválido!</span>{" "}
-                  {registerStudentAction.value.fieldErrors.email}.
+                  {registerStudentAction.value.fieldErrors.email}
                 </div>
               )}
           </div>

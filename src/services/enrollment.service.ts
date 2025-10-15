@@ -416,7 +416,7 @@ export const useUpdateGuardian = routeAction$(async (req, event) => {
   }, "El telefono del acudiente debe ser numérico."),
   profession: z.string().min(1, "Profession is required"),
   company: z.string().min(1, "Company is required"),
-  email: z.string().email().min(1, "Email is required"),
+  email: z.string().email().min(1, "Email inválido"),
   address: z.string().min(1, "Address is required"),
   typeId: z.coerce.number().min(1, "Type is required"),
 }));
