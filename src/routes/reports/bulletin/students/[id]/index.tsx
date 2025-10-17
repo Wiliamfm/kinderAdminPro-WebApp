@@ -171,7 +171,7 @@ export default component$(() => {
           for="gradeId"
           class="mb-2 block text-sm font-medium text-gray-900"
         >
-          Semestre
+          Periodo Académico
         </label>
         <select
           id="semesterId"

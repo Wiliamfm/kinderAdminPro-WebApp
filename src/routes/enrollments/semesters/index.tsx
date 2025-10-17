@@ -126,7 +126,7 @@ export default component$(() => {
   const tableProps: TableProps = {
     headers: [
       { name: "Id", key: "id" },
-      { name: "Semestre", key: "semester" },
+      { name: "Periodo Académico", key: "semester" },
       {
         name: "Fecha de Inicio",
         key: "startDate",
@@ -148,14 +148,14 @@ export default component$(() => {
 
   return (
     <div class="flex h-full flex-col place-items-center space-y-10">
-      <h1 class="mt-18 text-4xl">Gestion de Semestres</h1>
+      <h1 class="mt-18 text-4xl">Gestion de Periodos Académicos</h1>
 
       <FormModal
         modalId="job-form-modal"
-        modalTitle={"Agregar Semestre"}
-        modalBtnName={"Agregar Semestre"}
+        modalTitle={"Agregar Periodo Academico"}
+        modalBtnName={"Agregar Periodo Academico"}
         modalBtnClass="relative inline-flex items-center justify-center p-0.5 mb-2 me-2 overflow-hidden text-sm font-medium text-gray-900 rounded-lg group bg-gradient-to-br from-red-200 via-red-300 to-yellow-200 group-hover:from-red-200 group-hover:via-red-300 group-hover:to-yellow-200 dark:text-white dark:hover:text-gray-900 focus:ring-4 focus:outline-none focus:ring-red-100 dark:focus:ring-red-400"
-        formBtnName="Crear Semestre"
+        formBtnName="Crear Periodo Academico"
         formBtnClass="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
         formAction={createSemesterAction}
         formOnSubmitFn={$((_: unknown, element: HTMLFormElement) => {
@@ -177,7 +177,7 @@ export default component$(() => {
             for="name"
             class="mb-2 block text-sm font-medium text-gray-900 dark:text-white"
           >
-            Semestre
+            Periodo Academico
           </label>
           <input
             type="text"
@@ -227,6 +227,6 @@ export default component$(() => {
 
 export const DocumentHead = () => {
   return {
-    title: "Semestres",
+    title: "Periodo Academicos",
   };
 };

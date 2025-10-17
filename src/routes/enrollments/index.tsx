@@ -135,7 +135,7 @@ export default component$(() => {
                 />
               </svg>
               <span class="ms-3 flex-1 whitespace-nowrap">
-                Gestión de Semestres
+                Gestión de Periodos Académicos
               </span>
             </a>
           </li>
