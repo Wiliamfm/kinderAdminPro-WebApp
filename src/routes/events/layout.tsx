@@ -6,6 +6,6 @@ export const onRequest: RequestHandler = async (event) => {
   const username = event.cookie.get("username")?.value;
   const user = await getUserStatus(username);
   if (!user || user.role !== IdentityRolesEnum.Admin) {
-    throw event.redirect(308, "/");
+    // throw event.redirect(308, "/");
   }
 };
