@@ -168,11 +168,11 @@ export const useUpdateStudent = routeAction$(async (req, event) => {
     return event.fail(404, { message: "Student not found" });
   }
 
-  const guardianIds = req.guardianIds.split(',').map(id => Number(id.trim()));
-  const studentGuardians = await getGuardiansById(guardianIds);
-  if (studentGuardians.length !== guardianIds.length) {
-    return event.fail(400, { message: "Invalid guardian IDs" });
-  }
+  // const guardianIds = req.guardianIds.split(',').map(id => Number(id.trim()));
+  // const studentGuardians = await getGuardiansById(guardianIds);
+  // if (studentGuardians.length !== guardianIds.length) {
+  //   return event.fail(400, { message: "Invalid guardian IDs" });
+  // }
 
   const allergies = req.allergies.map(allergy => allergy.trim());
   //TODO: Update student guardians
@@ -210,7 +210,7 @@ export const useUpdateStudent = routeAction$(async (req, event) => {
     socialSecurity: data.social_security,
     allergies: allergies,
     gradeId: data.grade_id,
-    guardians: studentGuardians
+    guardians: []
   } as StudentResponse;
 }, zod$({
   id: z.coerce.number().min(1, "ID is required"),
@@ -236,7 +236,7 @@ export const useUpdateStudent = routeAction$(async (req, event) => {
         .filter((a) => a.length > 0)
     ),
   gradeId: z.coerce.number().min(1, "Grade ID is required"),
-  guardianIds: z.string().min(1, "At least one guardian is required"),
+  guardianIds: z.string().optional(),//.min(1, "At least one guardian is required"),
 }));
 
 export const useDeleteStudent = routeAction$(async (data, event) => {
