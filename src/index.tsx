@@ -1,5 +1,6 @@
 /* @refresh reload */
 import 'solid-devtools';
+import 'bootstrap-icons/font/bootstrap-icons.css';
 import './index.css';
 
 import { render, Suspense } from 'solid-js/web';

@@ -5,6 +5,7 @@
       "name": "vite-template-solid",
       "dependencies": {
         "@solidjs/router": "^0.15.1",
+        "bootstrap-icons": "^1.13.1",
         "pocketbase": "^0.26.8",
         "solid-js": "^1.9.5",
       },
@@ -242,6 +243,8 @@
     "babel-preset-solid": ["babel-preset-solid@1.9.9", "", { "dependencies": { "babel-plugin-jsx-dom-expressions": "0.40.1" }, "optionalDependencies": { "solid-js": "1.9.9" }, "peerDependencies": { "@babel/core": "7.28.4" } }, "sha512-pCnxWrciluXCeli/dj5PIEHgbNzim3evtTn12snjqqg8QZWJNMjH1AWIp4iG/tbVjqQ72aBEymMSagvmgxubXw=="],
 
     "baseline-browser-mapping": ["baseline-browser-mapping@2.8.18", "", { "bin": { "baseline-browser-mapping": "dist/cli.js" } }, "sha512-UYmTpOBwgPScZpS4A+YbapwWuBwasxvO/2IOHArSsAhL/+ZdmATBXTex3t+l2hXwLVYK382ibr/nKoY9GKe86w=="],
+
+    "bootstrap-icons": ["bootstrap-icons@1.13.1", "", {}, "sha512-ijombt4v6bv5CLeXvRWKy7CuM3TRTuPEuGaGKvTV5cz65rQSY8RQ2JcHt6b90cBBAC7s8fsf2EkQDldzCoXUjw=="],
 
     "browserslist": ["browserslist@4.26.3", "", { "dependencies": { "baseline-browser-mapping": "2.8.18", "caniuse-lite": "1.0.30001751", "electron-to-chromium": "1.5.237", "node-releases": "2.0.25", "update-browserslist-db": "1.1.3" }, "bin": { "browserslist": "cli.js" } }, "sha512-lAUU+02RFBuCKQPj/P6NgjlbCnLBMp4UtgTx7vNHd3XSIJF87s9a5rA3aH2yw3GS9DqZAUbOtZdCCiZeVRqt0w=="],
 

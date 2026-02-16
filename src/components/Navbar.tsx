@@ -76,14 +76,14 @@ const Navbar: Component<NavbarProps> = (props) => {
           <button
             ref={buttonRef}
             type="button"
-            class="h-9 w-9 rounded-full border border-yellow-600 bg-yellow-100 hover:bg-yellow-200 text-lg"
+            class="h-9 w-9 rounded-full border border-yellow-600 bg-yellow-100 hover:bg-yellow-200 text-lg flex items-center justify-center"
             aria-label="Usuario"
             aria-haspopup="menu"
             aria-expanded={open()}
             aria-controls="user-menu"
             onClick={() => setOpen((value) => !value)}
           >
-            👤
+            <i class="bi bi-person-circle" aria-hidden="true"></i>
           </button>
 
           <Show when={open()}>
@@ -98,12 +98,13 @@ const Navbar: Component<NavbarProps> = (props) => {
 
               <button
                 type="button"
-                class="mt-3 w-full rounded-lg border border-yellow-500 bg-yellow-100 px-3 py-2 text-sm hover:bg-yellow-200"
+                class="mt-3 w-full rounded-lg border border-yellow-500 bg-yellow-100 px-3 py-2 text-sm hover:bg-yellow-200 inline-flex items-center justify-center gap-2"
                 onClick={() => {
                   setOpen(false);
                   props.onLogout();
                 }}
               >
+                <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
                 Cerrar sesión
               </button>
             </div>
