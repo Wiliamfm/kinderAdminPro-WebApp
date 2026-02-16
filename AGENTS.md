@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 - `src/` contains the SolidJS app code.
-- `src/pages/` holds route-level pages and route data loaders (for example, `about.tsx` and `about.data.ts`).
+- `src/pages/` holds route-level pages (currently `home.tsx`).
 - `src/errors/404.tsx` defines the not-found UI.
 - `src/routes.ts` and `src/app.tsx` configure routing and app composition.
 - `src/index.tsx` and `src/index.css` are the entry point and global styles.
