@@ -40,3 +40,15 @@ Use Node 22+ for compatibility with current toolchain versions.
 ## Security & Configuration Tips
 - Do not commit secrets; use environment files (for example, `.env`) and local-only values.
 - Review dependency updates before merging and keep lockfiles in sync with the chosen package manager.
+
+## Agent Skills
+- `solidjs`: use for Solid component patterns, routing, reactivity, and TSX best practices.
+- `solidjs-solidstart-expert`: use for advanced Solid/SolidStart architecture and production patterns.
+- `pocketbase`: use for PocketBase integration, auth flows, schema usage, and API patterns.
+- `pocketbase-best-practices`: use for security rules, access control, and SDK/query best practices.
+
+Repository-local skill files:
+- `.agents/skills/solidjs/SKILL.md`
+- `.agents/skills/solidjs-solidstart-expert/SKILL.md`
+- `.agents/skills/pocketbase/SKILL.md`
+- `.agents/skills/pocketbase-best-practices/SKILL.md`
