@@ -1,19 +1,43 @@
 import { Title } from "@solidjs/meta";
-import Counter from "~/components/Counter";
+import { useNavigate } from "@solidjs/router";
+import { Show, onMount } from "solid-js";
+import { getCurrentUser, isAuthenticated, logout } from "~/lib/auth";
 
 export default function Home() {
+  const navigate = useNavigate();
+
+  onMount(() => {
+    if (!isAuthenticated()) {
+      navigate("/login", { replace: true });
+    }
+  });
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login", { replace: true });
+  };
+
+  const user = getCurrentUser();
+  const email = typeof user?.email === "string" ? user.email : "user";
+
   return (
-    <main>
-      <Title>Hello World</Title>
-      <h1>Hello world!</h1>
-      <Counter />
-      <p>
-        Visit{" "}
-        <a href="https://start.solidjs.com" target="_blank">
-          start.solidjs.com
-        </a>{" "}
-        to learn how to build SolidStart apps.
-      </p>
-    </main>
+    <Show
+      when={isAuthenticated()}
+      fallback={
+        <main class="home-page">
+          <Title>Redirecting</Title>
+          <p>Redirecting to login...</p>
+        </main>
+      }
+    >
+      <main class="home-page">
+        <Title>Home</Title>
+        <h1>Home</h1>
+        <p>You are signed in as {email}.</p>
+        <button type="button" onClick={handleLogout}>
+          Sign out
+        </button>
+      </main>
+    </Show>
   );
 }

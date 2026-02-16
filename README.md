@@ -23,6 +23,17 @@ npm run dev
 npm run dev -- --open
 ```
 
+## PocketBase configuration
+
+Create a `.env` variable for the frontend:
+
+```bash
+VITE_PB_URL=http://127.0.0.1:8090
+```
+
+Login uses PocketBase auth collection `users` from `src/routes/login.tsx`.
+It authenticates against `POST /api/collections/users/auth-with-password`.
+
 ## Building
 
 Solid apps are built with _presets_, which optimise your project for deployment to different environments.

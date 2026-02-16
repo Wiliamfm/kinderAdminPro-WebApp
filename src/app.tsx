@@ -6,16 +6,12 @@ import "./app.css";
 
 export default function App() {
   return (
-    <Router
-      root={props => (
-        <MetaProvider>
-          <Title>SolidStart - Basic</Title>
-          <a href="/">Index</a>
-          <a href="/about">About</a>
-          <Suspense>{props.children}</Suspense>
-        </MetaProvider>
-      )}
-    >
+    <Router root={props => (
+      <MetaProvider>
+        <Title>PocketBase Login</Title>
+        <Suspense>{props.children}</Suspense>
+      </MetaProvider>
+    )}>
       <FileRoutes />
     </Router>
   );
