@@ -22,6 +22,7 @@ Use Node 22+ for compatibility with current toolchain versions.
 - Components and page files: use clear, PascalCase exports where applicable.
 - Route/data pattern: pair page modules with `.data.ts` files when route-scoped data fetching is needed.
 - Keep CSS near the feature when practical, and use `src/index.css` for shared global styles.
+- All pages must be responsive across mobile, tablet, and desktop breakpoints.
 
 ## Testing Guidelines
 - No test runner is configured yet in `package.json`.

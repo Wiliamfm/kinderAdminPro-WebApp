@@ -18,7 +18,7 @@ const tabs = [
 const Navbar: Component<NavbarProps> = (props) => {
   const [open, setOpen] = createSignal(false);
   let menuRef: HTMLDivElement | undefined;
-  let buttonRef: HTMLButtonElement | undefined;
+  let triggerRef: SVGSVGElement | undefined;
 
   const isActive = (href: string) => props.currentPath === href;
 
@@ -28,9 +28,9 @@ const Navbar: Component<NavbarProps> = (props) => {
 
       const target = event.target as Node | null;
       const inMenu = !!(target && menuRef?.contains(target));
-      const inButton = !!(target && buttonRef?.contains(target));
+      const inTrigger = !!(target && triggerRef?.contains(target));
 
-      if (!inMenu && !inButton) {
+      if (!inMenu && !inTrigger) {
         setOpen(false);
       }
     };
@@ -52,7 +52,7 @@ const Navbar: Component<NavbarProps> = (props) => {
 
   return (
     <nav class="bg-yellow-300 text-gray-900 px-4 border-b border-yellow-400">
-      <div class="flex items-center gap-3 py-2">
+      <div class="flex justify-between items-center py-2">
         <A href="/" class="font-semibold px-2 py-1 rounded-lg hover:bg-yellow-200">
           KinderAdminPro
         </A>
@@ -72,19 +72,31 @@ const Navbar: Component<NavbarProps> = (props) => {
           ))}
         </div>
 
-        <div class="ml-auto relative">
-          <button
-            ref={buttonRef}
-            type="button"
-            class="h-9 w-9 rounded-full border border-yellow-600 bg-yellow-100 hover:bg-yellow-200 text-lg flex items-center justify-center"
+        <div class="relative items-center">
+          <svg
+            ref={triggerRef}
+            xmlns="http://www.w3.org/2000/svg"
+            width="32"
+            height="32"
+            fill="currentColor"
+            class="bi bi-person-circle cursor-pointer"
+            viewBox="0 0 16 16"
+            role="button"
+            tabindex="0"
             aria-label="Usuario"
             aria-haspopup="menu"
             aria-expanded={open()}
-            aria-controls="user-menu"
             onClick={() => setOpen((value) => !value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setOpen((value) => !value);
+              }
+            }}
           >
-            <i class="bi bi-person-circle" aria-hidden="true"></i>
-          </button>
+            <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0"/>
+            <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1"/>
+          </svg>
 
           <Show when={open()}>
             <div
@@ -98,13 +110,12 @@ const Navbar: Component<NavbarProps> = (props) => {
 
               <button
                 type="button"
-                class="mt-3 w-full rounded-lg border border-yellow-500 bg-yellow-100 px-3 py-2 text-sm hover:bg-yellow-200 inline-flex items-center justify-center gap-2"
+                class="mt-3 w-full rounded-lg border border-yellow-500 bg-yellow-100 px-3 py-2 text-sm hover:bg-yellow-200"
                 onClick={() => {
                   setOpen(false);
                   props.onLogout();
                 }}
               >
-                <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
                 Cerrar sesión
               </button>
             </div>
@@ -116,3 +127,4 @@ const Navbar: Component<NavbarProps> = (props) => {
 };
 
 export default Navbar;
+
