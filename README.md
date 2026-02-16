@@ -16,7 +16,7 @@ bun install
 VITE_PB_URL=http://127.0.0.1:8090
 ```
 
-`VITE_PB_URL` is required. The app will fail fast on startup if it is missing or invalid.
+`VITE_PB_URL` is optional. If unset, the app defaults to `http://127.0.0.1:8090`.
 
 ## Run
 

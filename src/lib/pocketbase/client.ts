@@ -1,11 +1,7 @@
 import PocketBase, { ClientResponseError } from 'pocketbase';
 
 function getPocketBaseUrl(): string {
-  const rawUrl = import.meta.env.VITE_PB_URL?.trim();
-
-  if (!rawUrl) {
-    throw new Error('Missing VITE_PB_URL. Set it in your environment file.');
-  }
+  const rawUrl = import.meta.env.VITE_PB_URL?.trim() || 'http://127.0.0.1:8090';
 
   try {
     const parsed = new URL(rawUrl);

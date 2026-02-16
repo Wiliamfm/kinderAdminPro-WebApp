@@ -18,9 +18,9 @@ export default function Home() {
   };
 
   return (
-    <section class="min-h-screen bg-gray-100 text-gray-800 p-8">
-      <div class="mx-auto max-w-2xl rounded-xl bg-white border border-gray-200 p-6">
-        <h1 class="text-2xl font-semibold">Frontend Shell</h1>
+    <section class="min-h-screen bg-yellow-50 text-gray-800 p-8">
+      <div class="mx-auto max-w-2xl rounded-xl bg-white border border-yellow-300 p-6">
+        <h1 class="text-2xl font-semibold">KinderAdminPro</h1>
         <p class="mt-2 text-gray-600">PocketBase backend connectivity status:</p>
 
         <p class="mt-4 text-lg">
