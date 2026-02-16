@@ -7,6 +7,7 @@ export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = createSignal("");
   const [password, setPassword] = createSignal("");
+  const [showPassword, setShowPassword] = createSignal(false);
   const [isSubmitting, setIsSubmitting] = createSignal(false);
   const [errorMessage, setErrorMessage] = createSignal("");
 
@@ -37,11 +38,10 @@ export default function Login() {
 
   return (
     <main class="auth-page">
-      <Title>Login</Title>
+      <Title>KinderAdminPro | Login</Title>
 
       <section class="auth-card">
         <h1>Login</h1>
-        <p>Use your PocketBase account credentials.</p>
 
         <form class="auth-form" onSubmit={handleSubmit}>
           <label for="email">Email</label>
@@ -56,19 +56,29 @@ export default function Login() {
           />
 
           <label for="password">Password</label>
-          <input
-            id="password"
-            type="password"
-            name="password"
-            autocomplete="current-password"
-            required
-            value={password()}
-            onInput={event => setPassword(event.currentTarget.value)}
-          />
+          <div class="password-field">
+            <input
+              id="password"
+              type={showPassword() ? "text" : "password"}
+              name="password"
+              autocomplete="current-password"
+              required
+              value={password()}
+              onInput={event => setPassword(event.currentTarget.value)}
+            />
+            <button
+              class="password-toggle"
+              type="button"
+              aria-label={showPassword() ? "Hide password" : "Show password"}
+              onClick={() => setShowPassword(current => !current)}
+            >
+              {showPassword() ? "🙈" : "👁"}
+            </button>
+          </div>
 
           {errorMessage() && <p class="form-error">{errorMessage()}</p>}
 
-          <button type="submit" disabled={isSubmitting()}>
+          <button class="auth-submit" type="submit" disabled={isSubmitting()}>
             {isSubmitting() ? "Signing in..." : "Sign in"}
           </button>
         </form>

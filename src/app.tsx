@@ -8,7 +8,7 @@ export default function App() {
   return (
     <Router root={props => (
       <MetaProvider>
-        <Title>PocketBase Login</Title>
+        <Title>KinderAdminPro</Title>
         <Suspense>{props.children}</Suspense>
       </MetaProvider>
     )}>
