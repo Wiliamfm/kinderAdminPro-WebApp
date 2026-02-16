@@ -1,7 +1,13 @@
 import { createEffect, createSignal, onCleanup, Suspense, type Component } from 'solid-js';
-import { A, useLocation, useNavigate } from '@solidjs/router';
-import { isAuthenticated, logout, subscribeAuth } from './lib/pocketbase/auth';
+import { useLocation, useNavigate } from '@solidjs/router';
+import {
+  getAuthUserIdentity,
+  isAuthenticated,
+  logout,
+  subscribeAuth,
+} from './lib/pocketbase/auth';
 import { requireAuth } from './lib/auth/guard';
+import Navbar from './components/Navbar';
 
 const App: Component<{ children: Element }> = (props) => {
   const location = useLocation();
@@ -34,37 +40,17 @@ const App: Component<{ children: Element }> = (props) => {
     navigate('/login', { replace: true });
   };
 
+  const userIdentity = () => getAuthUserIdentity();
+
   return (
     <>
       {location.pathname !== '/login' && (
-        <nav class="bg-yellow-300 text-gray-900 px-4 border-b border-yellow-400">
-          <ul class="flex items-center">
-            <li class="py-2 px-4">
-              <A href="/" class="no-underline hover:underline">
-                KinderAdminPro
-              </A>
-            </li>
-
-            <li class="text-sm flex items-center space-x-2 ml-auto text-gray-600">
-              <span>Path</span>
-              <input
-                class="w-32 p-1 bg-gray-50 text-sm rounded-lg border border-gray-200"
-                type="text"
-                readOnly
-                value={location.pathname}
-              />
-              {authed() && (
-                <button
-                  type="button"
-                  class="ml-2 rounded-lg border border-yellow-500 bg-yellow-100 px-2 py-1 hover:bg-yellow-200"
-                  onClick={handleLogout}
-                >
-                  Logout
-                </button>
-              )}
-            </li>
-          </ul>
-        </nav>
+        <Navbar
+          currentPath={location.pathname}
+          onLogout={handleLogout}
+          userName={userIdentity().name}
+          userEmail={userIdentity().email}
+        />
       )}
 
       <main>
