@@ -8,6 +8,7 @@ import EnrollmentManagementPage from './pages/enrollment-management';
 import ReportsPage from './pages/reports';
 import EventManagementPage from './pages/event-management';
 import StaffEmployeesPage from './pages/staff-employees';
+import StaffEmployeeEditPage from './pages/staff-employee-edit';
 
 export const routes: RouteDefinition[] = [
   {
@@ -25,6 +26,10 @@ export const routes: RouteDefinition[] = [
   {
     path: '/staff-management/employees',
     component: StaffEmployeesPage,
+  },
+  {
+    path: '/staff-management/employees/:id',
+    component: StaffEmployeeEditPage,
   },
   {
     path: '/enrollment-management',

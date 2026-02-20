@@ -1,6 +1,12 @@
-import { createResource, For, Show } from 'solid-js';
+import { useNavigate } from '@solidjs/router';
+import { createResource, createSignal, For, Show } from 'solid-js';
+import Modal from '../components/Modal';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
-import { listEmployees } from '../lib/pocketbase/employees';
+import {
+  deactivateEmployee,
+  listActiveEmployees,
+  type EmployeeRecord,
+} from '../lib/pocketbase/employees';
 
 function formatSalary(value: number | string): string {
   if (typeof value === 'number') {
@@ -36,7 +42,29 @@ function getErrorMessage(error: unknown): string {
 }
 
 export default function StaffEmployeesPage() {
-  const [employees] = createResource(listEmployees);
+  const navigate = useNavigate();
+  const [employees, { refetch }] = createResource(listActiveEmployees);
+  const [deleteTarget, setDeleteTarget] = createSignal<EmployeeRecord | null>(null);
+  const [deleteBusy, setDeleteBusy] = createSignal(false);
+  const [actionError, setActionError] = createSignal<string | null>(null);
+
+  const confirmDeactivateEmployee = async () => {
+    const target = deleteTarget();
+    if (!target) return;
+
+    setDeleteBusy(true);
+    setActionError(null);
+
+    try {
+      await deactivateEmployee(target.id);
+      setDeleteTarget(null);
+      await refetch();
+    } catch (error) {
+      setActionError(getErrorMessage(error));
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
 
   return (
     <section class="min-h-screen bg-yellow-50 p-8 text-gray-800">
@@ -46,9 +74,9 @@ export default function StaffEmployeesPage() {
           Aquí puedes consultar el listado actual de empleados y acceder a acciones rápidas.
         </p>
 
-        <Show when={employees.error}>
+        <Show when={employees.error || actionError()}>
           <div class="mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {getErrorMessage(employees.error)}
+            {actionError() ?? getErrorMessage(employees.error)}
           </div>
         </Show>
 
@@ -100,7 +128,7 @@ export default function StaffEmployeesPage() {
                               type="button"
                               class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-yellow-300 bg-yellow-100 text-gray-700 transition-colors hover:bg-yellow-200"
                               aria-label={`Editar ${employee.name || 'empleado'}`}
-                              onClick={() => window.alert(`Editar empleado: ${employee.name || 'Sin nombre'}`)}
+                              onClick={() => navigate(`/staff-management/employees/${employee.id}`)}
                             >
                               <i class="bi bi-pencil-square" aria-hidden="true"></i>
                             </button>
@@ -109,7 +137,7 @@ export default function StaffEmployeesPage() {
                               type="button"
                               class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-300 bg-red-50 text-red-700 transition-colors hover:bg-red-100"
                               aria-label={`Eliminar ${employee.name || 'empleado'}`}
-                              onClick={() => window.alert(`Eliminar empleado: ${employee.name || 'Sin nombre'}`)}
+                              onClick={() => setDeleteTarget(employee)}
                             >
                               <i class="bi bi-trash" aria-hidden="true"></i>
                             </button>
@@ -124,6 +152,26 @@ export default function StaffEmployeesPage() {
           </table>
         </div>
       </div>
+
+      <Modal
+        open={!!deleteTarget()}
+        title="Desactivar empleado"
+        description={
+          deleteTarget()
+            ? `¿Deseas desactivar a ${deleteTarget()?.name || 'este empleado'}?`
+            : undefined
+        }
+        confirmLabel="Desactivar"
+        cancelLabel="Cancelar"
+        variant="danger"
+        busy={deleteBusy()}
+        onConfirm={confirmDeactivateEmployee}
+        onClose={() => {
+          if (!deleteBusy()) {
+            setDeleteTarget(null);
+          }
+        }}
+      />
     </section>
   );
 }
