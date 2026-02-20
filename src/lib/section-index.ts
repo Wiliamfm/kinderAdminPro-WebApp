@@ -14,7 +14,10 @@ export const sectionIndexByPage: Record<string, SectionIndexEntry> = {
     title: 'Gestión de personal',
     description:
       'En esta sección podrás acceder a las funciones principales para administrar el personal de la institución.',
-    links: [{ label: 'Volver al inicio', href: '/' }],
+    links: [
+      { label: 'Gestion de personal', href: '/staff-management/employees' },
+      { label: 'Volver al inicio', href: '/' },
+    ],
   },
   enrollment: {
     title: 'Gestión de matrícula',
