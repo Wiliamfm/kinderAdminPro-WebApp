@@ -10,6 +10,7 @@ export type EmployeeRecord = {
   address: string;
   emergency_contact: string;
   active: boolean;
+  userId: string;
 };
 
 export type EmployeeUpdateInput = {
@@ -20,6 +21,22 @@ export type EmployeeUpdateInput = {
   phone: string;
   address: string;
   emergency_contact: string;
+};
+
+export type EmployeeCreateInput = EmployeeUpdateInput & {
+  userId: string;
+};
+
+type PbEmployeeCreatePayload = {
+  name: string;
+  salary: number;
+  job: string;
+  email: string;
+  phone: string;
+  address: string;
+  emergency_contact: string;
+  user_id: string;
+  active: boolean;
 };
 
 function toStringValue(value: unknown): string {
@@ -58,6 +75,21 @@ function mapEmployeeRecord(record: Record<string, unknown> & { id: string; get?:
     address: toStringValue(record.get?.('address') ?? record.address),
     emergency_contact: toStringValue(record.get?.('emergency_contact') ?? record.emergency_contact),
     active: toBooleanValue(record.get?.('active') ?? record.active),
+    userId: toStringValue(record.get?.('user_id') ?? record.user_id),
+  };
+}
+
+function mapEmployeeCreatePayload(payload: EmployeeCreateInput): PbEmployeeCreatePayload {
+  return {
+    name: payload.name,
+    salary: payload.salary,
+    job: payload.job,
+    email: payload.email,
+    phone: payload.phone,
+    address: payload.address,
+    emergency_contact: payload.emergency_contact,
+    user_id: payload.userId,
+    active: true,
   };
 }
 
@@ -73,6 +105,15 @@ export async function listActiveEmployees(): Promise<EmployeeRecord[]> {
 export async function getEmployeeById(id: string): Promise<EmployeeRecord> {
   try {
     const record = await pb.collection('employees').getOne(id);
+    return mapEmployeeRecord(record);
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
+export async function createEmployee(payload: EmployeeCreateInput): Promise<EmployeeRecord> {
+  try {
+    const record = await pb.collection('employees').create(mapEmployeeCreatePayload(payload));
     return mapEmployeeRecord(record);
   } catch (error) {
     throw normalizePocketBaseError(error);

@@ -4,6 +4,7 @@ import Modal from '../components/Modal';
 import { isAuthUserAdmin } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
+  createEmployee,
   deactivateEmployee,
   listActiveEmployees,
   type EmployeeRecord,
@@ -23,6 +24,24 @@ import {
   type InvoiceRecord,
 } from '../lib/pocketbase/invoices';
 import { createInvoiceFile } from '../lib/pocketbase/invoice-files';
+import {
+  createEmployeeUser,
+  resendUserOnboarding,
+  sendUserOnboardingEmails,
+} from '../lib/pocketbase/users';
+
+type EmployeeCreateForm = {
+  name: string;
+  salary: string;
+  job: string;
+  email: string;
+  phone: string;
+  address: string;
+  emergency_contact: string;
+};
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^[+\d\s()-]{7,20}$/;
 
 function formatSalary(value: number | string): string {
   if (typeof value === 'number') {
@@ -77,6 +96,15 @@ const emptyLeaveForm: LeaveCreateInput = {
   start_datetime: '',
   end_datetime: '',
 };
+const emptyCreateEmployeeForm: EmployeeCreateForm = {
+  name: '',
+  salary: '0',
+  job: '',
+  email: '',
+  phone: '',
+  address: '',
+  emergency_contact: '',
+};
 
 export default function StaffEmployeesPage() {
   const navigate = useNavigate();
@@ -86,6 +114,13 @@ export default function StaffEmployeesPage() {
   const [deleteTarget, setDeleteTarget] = createSignal<EmployeeRecord | null>(null);
   const [deleteBusy, setDeleteBusy] = createSignal(false);
   const [actionError, setActionError] = createSignal<string | null>(null);
+  const [createModalOpen, setCreateModalOpen] = createSignal(false);
+  const [createBusy, setCreateBusy] = createSignal(false);
+  const [createError, setCreateError] = createSignal<string | null>(null);
+  const [createInviteWarning, setCreateInviteWarning] = createSignal<string | null>(null);
+  const [createForm, setCreateForm] = createSignal<EmployeeCreateForm>(emptyCreateEmployeeForm);
+  const [resendBusyEmployeeId, setResendBusyEmployeeId] = createSignal<string | null>(null);
+  const [inviteNotice, setInviteNotice] = createSignal<string | null>(null);
   const [leaveTarget, setLeaveTarget] = createSignal<EmployeeRecord | null>(null);
   const [leaveForm, setLeaveForm] = createSignal<LeaveCreateInput>(emptyLeaveForm);
   const [leavePage, setLeavePage] = createSignal(1);
@@ -124,6 +159,158 @@ export default function StaffEmployeesPage() {
     },
     ({ employeeId, page }) => listEmployeeInvoices(employeeId, page, INVOICES_PAGE_SIZE),
   );
+
+  const openCreateEmployeeModal = () => {
+    setCreateModalOpen(true);
+    setCreateError(null);
+    setCreateInviteWarning(null);
+    setCreateForm(emptyCreateEmployeeForm);
+  };
+
+  const closeCreateEmployeeModal = () => {
+    if (createBusy()) return;
+    setCreateModalOpen(false);
+    setCreateError(null);
+    setCreateInviteWarning(null);
+    setCreateForm(emptyCreateEmployeeForm);
+  };
+
+  const setCreateField = (field: keyof EmployeeCreateForm, value: string) => {
+    setCreateForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  };
+
+  const validateCreateEmployeeForm = () => {
+    const current = createForm();
+
+    const requiredFields: Array<[string, string]> = [
+      ['Nombre', current.name],
+      ['Cargo', current.job],
+      ['Correo', current.email],
+      ['Teléfono', current.phone],
+      ['Dirección', current.address],
+      ['Contacto de emergencia', current.emergency_contact],
+    ];
+
+    const missing = requiredFields.find(([, value]) => value.trim().length === 0);
+    if (missing) {
+      setCreateError(`${missing[0]} es obligatorio.`);
+      return null;
+    }
+
+    if (!EMAIL_REGEX.test(current.email.trim())) {
+      setCreateError('El correo debe tener un formato válido.');
+      return null;
+    }
+
+    if (!PHONE_REGEX.test(current.phone.trim())) {
+      setCreateError('El teléfono debe tener entre 7 y 20 caracteres válidos.');
+      return null;
+    }
+
+    if (current.name.trim().length < 3) {
+      setCreateError('El nombre debe tener al menos 3 caracteres.');
+      return null;
+    }
+
+    if (current.job.trim().length < 2) {
+      setCreateError('El cargo debe tener al menos 2 caracteres.');
+      return null;
+    }
+
+    if (current.address.trim().length < 5) {
+      setCreateError('La dirección debe tener al menos 5 caracteres.');
+      return null;
+    }
+
+    if (current.emergency_contact.trim().length < 3) {
+      setCreateError('El contacto de emergencia debe tener al menos 3 caracteres.');
+      return null;
+    }
+
+    const salary = Number(current.salary);
+    if (!Number.isFinite(salary) || salary < 0 || !Number.isInteger(salary)) {
+      setCreateError('El salario debe ser un número entero válido mayor o igual a 0.');
+      return null;
+    }
+
+    return {
+      name: current.name.trim(),
+      salary,
+      job: current.job.trim(),
+      email: current.email.trim(),
+      phone: current.phone.trim(),
+      address: current.address.trim(),
+      emergency_contact: current.emergency_contact.trim(),
+    };
+  };
+
+  const submitCreateEmployee = async () => {
+    if (!canManageAdminActions()) {
+      setCreateError('No tienes permisos para crear empleados.');
+      return;
+    }
+
+    const validated = validateCreateEmployeeForm();
+    if (!validated) return;
+
+    setCreateBusy(true);
+    setCreateError(null);
+    setCreateInviteWarning(null);
+    setInviteNotice(null);
+
+    try {
+      const createdUser = await createEmployeeUser({
+        email: validated.email,
+        name: validated.name,
+      });
+
+      await createEmployee({
+        ...validated,
+        userId: createdUser.id,
+      });
+
+      try {
+        await sendUserOnboardingEmails(createdUser.email);
+        setInviteNotice(`Invitación enviada a ${createdUser.email}.`);
+      } catch (inviteError) {
+        setCreateInviteWarning(
+          `Empleado creado, pero no se pudo enviar la invitación inicial: ${getErrorMessage(inviteError)}`,
+        );
+      }
+
+      await refetch();
+      setCreateModalOpen(false);
+      setCreateForm(emptyCreateEmployeeForm);
+    } catch (error) {
+      setCreateError(getErrorMessage(error));
+    } finally {
+      setCreateBusy(false);
+    }
+  };
+
+  const resendInvite = async (employee: EmployeeRecord) => {
+    const employeeEmail = employee.email.trim();
+    if (!employeeEmail) {
+      setActionError('El empleado no tiene correo para reenviar invitación.');
+      return;
+    }
+
+    setActionError(null);
+    setInviteNotice(null);
+    setResendBusyEmployeeId(employee.id);
+
+    try {
+      await resendUserOnboarding(employeeEmail);
+      setInviteNotice(`Invitación reenviada a ${employeeEmail}.`);
+    } catch (error) {
+      setActionError(getErrorMessage(error));
+    } finally {
+      setResendBusyEmployeeId(null);
+    }
+  };
 
   const confirmDeactivateEmployee = async () => {
     const target = deleteTarget();
@@ -381,9 +568,33 @@ export default function StaffEmployeesPage() {
           Aquí puedes consultar el listado actual de empleados y acceder a acciones rápidas.
         </p>
 
+        <Show when={canManageAdminActions()}>
+          <div class="mt-4 flex justify-end">
+            <button
+              type="button"
+              class="rounded-lg bg-yellow-600 px-4 py-2 text-sm text-white transition-colors hover:bg-yellow-700"
+              onClick={openCreateEmployeeModal}
+            >
+              Nuevo empleado
+            </button>
+          </div>
+        </Show>
+
         <Show when={employees.error || actionError()}>
           <div class="mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
             {actionError() ?? getErrorMessage(employees.error)}
+          </div>
+        </Show>
+
+        <Show when={inviteNotice()}>
+          <div class="mt-4 rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-700">
+            {inviteNotice()}
+          </div>
+        </Show>
+
+        <Show when={createInviteWarning()}>
+          <div class="mt-4 rounded-lg border border-yellow-300 bg-yellow-100 px-4 py-3 text-sm text-yellow-800">
+            {createInviteWarning()}
           </div>
         </Show>
 
@@ -458,6 +669,16 @@ export default function StaffEmployeesPage() {
                               >
                                 <i class="bi bi-file-earmark-arrow-up" aria-hidden="true"></i>
                               </button>
+
+                              <button
+                                type="button"
+                                class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-indigo-300 bg-indigo-50 text-indigo-700 transition-colors hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                aria-label={`Reenviar invitación a ${employee.name || 'empleado'}`}
+                                disabled={resendBusyEmployeeId() === employee.id}
+                                onClick={() => resendInvite(employee)}
+                              >
+                                <i class="bi bi-envelope" aria-hidden="true"></i>
+                              </button>
                             </Show>
 
                             <button
@@ -479,6 +700,113 @@ export default function StaffEmployeesPage() {
           </table>
         </div>
       </div>
+
+      <Modal
+        open={createModalOpen()}
+        title="Crear empleado"
+        description="Este registro crea también un usuario de acceso con permisos no administrativos y envía invitación de verificación y contraseña."
+        confirmLabel="Crear empleado"
+        cancelLabel="Cancelar"
+        busy={createBusy()}
+        size="xl"
+        onConfirm={submitCreateEmployee}
+        onClose={closeCreateEmployeeModal}
+      >
+        <Show when={canManageAdminActions()} fallback={
+          <div class="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+            No tienes permisos para crear empleados.
+          </div>
+        }>
+          <div class="space-y-4">
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <label class="block">
+                <span class="text-sm text-gray-700">Nombre</span>
+                <input
+                  class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  type="text"
+                  value={createForm().name}
+                  onInput={(event) => setCreateField('name', event.currentTarget.value)}
+                  disabled={createBusy()}
+                />
+              </label>
+              <label class="block">
+                <span class="text-sm text-gray-700">Salario</span>
+                <input
+                  class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={createForm().salary}
+                  onInput={(event) => setCreateField('salary', event.currentTarget.value)}
+                  disabled={createBusy()}
+                />
+              </label>
+              <label class="block">
+                <span class="text-sm text-gray-700">Cargo</span>
+                <input
+                  class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  type="text"
+                  value={createForm().job}
+                  onInput={(event) => setCreateField('job', event.currentTarget.value)}
+                  disabled={createBusy()}
+                />
+              </label>
+              <label class="block">
+                <span class="text-sm text-gray-700">Correo</span>
+                <input
+                  class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  type="email"
+                  value={createForm().email}
+                  onInput={(event) => setCreateField('email', event.currentTarget.value)}
+                  disabled={createBusy()}
+                />
+              </label>
+              <label class="block">
+                <span class="text-sm text-gray-700">Teléfono</span>
+                <input
+                  class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  type="text"
+                  value={createForm().phone}
+                  onInput={(event) => setCreateField('phone', event.currentTarget.value)}
+                  disabled={createBusy()}
+                />
+              </label>
+              <label class="block">
+                <span class="text-sm text-gray-700">Dirección</span>
+                <input
+                  class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  type="text"
+                  value={createForm().address}
+                  onInput={(event) => setCreateField('address', event.currentTarget.value)}
+                  disabled={createBusy()}
+                />
+              </label>
+              <label class="block md:col-span-2">
+                <span class="text-sm text-gray-700">Contacto de emergencia</span>
+                <input
+                  class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  type="text"
+                  value={createForm().emergency_contact}
+                  onInput={(event) => setCreateField('emergency_contact', event.currentTarget.value)}
+                  disabled={createBusy()}
+                />
+              </label>
+            </div>
+
+            <Show when={createError()}>
+              <div class="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {createError()}
+              </div>
+            </Show>
+
+            <Show when={createInviteWarning()}>
+              <div class="rounded-lg border border-yellow-300 bg-yellow-100 px-4 py-3 text-sm text-yellow-800">
+                {createInviteWarning()}
+              </div>
+            </Show>
+          </div>
+        </Show>
+      </Modal>
 
       <Modal
         open={!!leaveTarget()}

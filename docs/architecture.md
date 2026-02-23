@@ -29,6 +29,19 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - Leaves collection rules are admin-only (`@request.auth.is_admin = true`).
 - Important distinction: PocketBase dashboard superusers are not the same as `users` records.
 
+## Employee Onboarding Design
+- Employee creation is handled in `src/pages/staff-employees.tsx` with an admin-only modal.
+- Data flow for create:
+  - `users.create` via `src/lib/pocketbase/users.ts` (`is_admin` forced to `false`),
+  - `employees.create` via `src/lib/pocketbase/employees.ts` with relation `user_id`,
+  - onboarding trigger via `users.requestVerification` + `users.requestPasswordReset`.
+- Recovery behavior:
+  - if invite email fails, created records are kept,
+  - admin can resend onboarding from the employee row action.
+- Onboarding routes:
+  - `/auth/verify` confirms email token,
+  - `/auth/set-password` confirms password-reset token and sets initial password.
+
 ## Leaves Feature Design
 - UI location: `src/pages/staff-employees.tsx` modal under employee actions.
 - Table behavior:

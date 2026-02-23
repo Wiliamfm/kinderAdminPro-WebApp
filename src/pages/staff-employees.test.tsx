@@ -7,7 +7,11 @@ const mocks = vi.hoisted(() => {
     navigate: vi.fn(),
     isAuthUserAdmin: vi.fn(),
     listActiveEmployees: vi.fn(),
+    createEmployee: vi.fn(),
     deactivateEmployee: vi.fn(),
+    createEmployeeUser: vi.fn(),
+    sendUserOnboardingEmails: vi.fn(),
+    resendUserOnboarding: vi.fn(),
     listEmployeeLeaves: vi.fn(),
     createEmployeeLeave: vi.fn(),
     updateEmployeeLeave: vi.fn(),
@@ -29,7 +33,14 @@ vi.mock('../lib/pocketbase/auth', () => ({
 
 vi.mock('../lib/pocketbase/employees', () => ({
   listActiveEmployees: mocks.listActiveEmployees,
+  createEmployee: mocks.createEmployee,
   deactivateEmployee: mocks.deactivateEmployee,
+}));
+
+vi.mock('../lib/pocketbase/users', () => ({
+  createEmployeeUser: mocks.createEmployeeUser,
+  sendUserOnboardingEmails: mocks.sendUserOnboardingEmails,
+  resendUserOnboarding: mocks.resendUserOnboarding,
 }));
 
 vi.mock('../lib/pocketbase/leaves', () => ({
@@ -59,6 +70,7 @@ const employee = {
   address: 'Calle 1',
   emergency_contact: 'Luis',
   active: true,
+  userId: 'u1',
 };
 
 const emptyLeavesPage = {
@@ -84,6 +96,27 @@ describe('StaffEmployeesPage features', () => {
     mocks.listActiveEmployees.mockResolvedValue([employee]);
     mocks.listEmployeeLeaves.mockResolvedValue(emptyLeavesPage);
     mocks.listEmployeeInvoices.mockResolvedValue(emptyInvoicesPage);
+    mocks.createEmployeeUser.mockResolvedValue({
+      id: 'u2',
+      email: 'new@test.com',
+      name: 'New Employee',
+      isAdmin: false,
+      verified: false,
+    });
+    mocks.createEmployee.mockResolvedValue({
+      id: 'e2',
+      name: 'New Employee',
+      salary: 1500,
+      job: 'Docente',
+      email: 'new@test.com',
+      phone: '3001234',
+      address: 'Calle 9',
+      emergency_contact: 'Maria',
+      active: true,
+      userId: 'u2',
+    });
+    mocks.sendUserOnboardingEmails.mockResolvedValue(undefined);
+    mocks.resendUserOnboarding.mockResolvedValue(undefined);
     mocks.hasLeaveOverlap.mockResolvedValue(false);
     mocks.createEmployeeLeave.mockResolvedValue({
       id: 'leave-1',
@@ -146,6 +179,89 @@ describe('StaffEmployeesPage features', () => {
     await screen.findByText('Ana');
     expect(screen.queryByLabelText('Gestionar licencias de Ana')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Subir factura de Ana')).not.toBeInTheDocument();
+    expect(screen.queryByText('Nuevo empleado')).not.toBeInTheDocument();
+  });
+
+  it('creates employee, linked user, and sends onboarding invite', async () => {
+    render(() => <StaffEmployeesPage />);
+    await screen.findByText('Ana');
+
+    fireEvent.click(screen.getByText('Nuevo empleado'));
+    await screen.findByRole('heading', { name: 'Crear empleado' });
+
+    fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'New Employee' } });
+    fireEvent.input(screen.getByLabelText('Salario'), { target: { value: '1500' } });
+    fireEvent.input(screen.getByLabelText('Cargo'), { target: { value: 'Docente' } });
+    fireEvent.input(screen.getByLabelText('Correo'), { target: { value: 'new@test.com' } });
+    fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: '3001234' } });
+    fireEvent.input(screen.getByLabelText('Dirección'), { target: { value: 'Calle 9' } });
+    fireEvent.input(screen.getByLabelText('Contacto de emergencia'), { target: { value: 'Maria' } });
+
+    fireEvent.click(screen.getAllByText('Crear empleado')[1]);
+
+    await waitFor(() => {
+      expect(mocks.createEmployeeUser).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.createEmployeeUser).toHaveBeenCalledWith({
+      email: 'new@test.com',
+      name: 'New Employee',
+    });
+    expect(mocks.createEmployee).toHaveBeenCalledWith({
+      name: 'New Employee',
+      salary: 1500,
+      job: 'Docente',
+      email: 'new@test.com',
+      phone: '3001234',
+      address: 'Calle 9',
+      emergency_contact: 'Maria',
+      userId: 'u2',
+    });
+    await waitFor(() => {
+      expect(mocks.sendUserOnboardingEmails).toHaveBeenCalledWith('new@test.com');
+    });
+  });
+
+  it('keeps employee creation when invite fails and allows resend', async () => {
+    mocks.sendUserOnboardingEmails.mockRejectedValue(new Error('smtp down'));
+    render(() => <StaffEmployeesPage />);
+    await screen.findByText('Ana');
+
+    fireEvent.click(screen.getByText('Nuevo empleado'));
+    fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'New Employee' } });
+    fireEvent.input(screen.getByLabelText('Salario'), { target: { value: '1500' } });
+    fireEvent.input(screen.getByLabelText('Cargo'), { target: { value: 'Docente' } });
+    fireEvent.input(screen.getByLabelText('Correo'), { target: { value: 'new@test.com' } });
+    fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: '3001234' } });
+    fireEvent.input(screen.getByLabelText('Dirección'), { target: { value: 'Calle 9' } });
+    fireEvent.input(screen.getByLabelText('Contacto de emergencia'), { target: { value: 'Maria' } });
+    fireEvent.click(screen.getAllByText('Crear empleado')[1]);
+
+    expect(await screen.findByText(/Empleado creado, pero no se pudo enviar la invitación inicial/)).toBeInTheDocument();
+    expect(mocks.createEmployee).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByLabelText('Reenviar invitación a Ana'));
+    await waitFor(() => {
+      expect(mocks.resendUserOnboarding).toHaveBeenCalledWith('ana@test.com');
+    });
+  });
+
+  it('blocks create employee submit when email format is invalid', async () => {
+    render(() => <StaffEmployeesPage />);
+    await screen.findByText('Ana');
+
+    fireEvent.click(screen.getByText('Nuevo empleado'));
+    fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'New Employee' } });
+    fireEvent.input(screen.getByLabelText('Salario'), { target: { value: '1500' } });
+    fireEvent.input(screen.getByLabelText('Cargo'), { target: { value: 'Docente' } });
+    fireEvent.input(screen.getByLabelText('Correo'), { target: { value: 'not-an-email' } });
+    fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: '3001234' } });
+    fireEvent.input(screen.getByLabelText('Dirección'), { target: { value: 'Calle 9' } });
+    fireEvent.input(screen.getByLabelText('Contacto de emergencia'), { target: { value: 'Maria' } });
+    fireEvent.click(screen.getAllByText('Crear empleado')[1]);
+
+    expect(await screen.findByText('El correo debe tener un formato válido.')).toBeInTheDocument();
+    expect(mocks.createEmployeeUser).not.toHaveBeenCalled();
+    expect(mocks.createEmployee).not.toHaveBeenCalled();
   });
 
   it('opens leaves modal with form and table', async () => {

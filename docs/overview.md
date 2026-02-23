@@ -8,6 +8,7 @@ This application is a SolidJS frontend for staff and operational management work
 ## Scope
 Primary functional areas exposed through routes:
 - Authentication (`/login`)
+- Invitation onboarding (`/auth/verify`, `/auth/set-password`)
 - Home and backend health (`/`)
 - Staff management (`/staff-management`, `/staff-management/employees`, `/staff-management/employees/:id`)
 - Enrollment management (`/enrollment-management`)
@@ -17,6 +18,11 @@ Primary functional areas exposed through routes:
 ## Core Workflows
 - Authenticate against PocketBase `users`.
 - List and manage employees.
+- Create employees from the staff list:
+  - create linked auth user (`users`) with default `is_admin = false`,
+  - persist `employees.user_id` relation,
+  - send verification + password setup emails,
+  - allow admin resend of onboarding invite.
 - Manage employee leaves from the employee list modal:
   - create leave,
   - edit existing leave,
