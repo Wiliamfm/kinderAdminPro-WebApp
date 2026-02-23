@@ -21,8 +21,7 @@ const App: Component<{ children: Element }> = (props) => {
     const pathname = location.pathname;
     const search = location.search;
     const valid = authed();
-    const isPublicAuthRoute =
-      pathname === '/login' || pathname === '/auth/verify' || pathname === '/auth/set-password';
+    const isPublicAuthRoute = pathname === '/login' || pathname === '/auth/set-password';
 
     if (isPublicAuthRoute) {
       if (valid) {
@@ -45,7 +44,6 @@ const App: Component<{ children: Element }> = (props) => {
   const userIdentity = () => getAuthUserIdentity();
   const showNavbar = () =>
     location.pathname !== '/login'
-    && location.pathname !== '/auth/verify'
     && location.pathname !== '/auth/set-password';
 
   return (

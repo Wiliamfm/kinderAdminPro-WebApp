@@ -9,7 +9,6 @@ import ReportsPage from './pages/reports';
 import EventManagementPage from './pages/event-management';
 import StaffEmployeesPage from './pages/staff-employees';
 import StaffEmployeeEditPage from './pages/staff-employee-edit';
-import AuthVerifyPage from './pages/auth-verify';
 import AuthSetPasswordPage from './pages/auth-set-password';
 
 export const routes: RouteDefinition[] = [
@@ -32,10 +31,6 @@ export const routes: RouteDefinition[] = [
   {
     path: '/staff-management/employees/:id',
     component: StaffEmployeeEditPage,
-  },
-  {
-    path: '/auth/verify',
-    component: AuthVerifyPage,
   },
   {
     path: '/auth/set-password',

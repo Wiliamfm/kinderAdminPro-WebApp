@@ -75,7 +75,6 @@ export async function sendPasswordSetupEmail(email: string): Promise<void> {
 }
 
 export async function sendUserOnboardingEmails(email: string): Promise<void> {
-  await sendVerificationEmail(email);
   await sendPasswordSetupEmail(email);
 }
 

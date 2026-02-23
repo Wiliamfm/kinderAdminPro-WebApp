@@ -40,7 +40,6 @@ type EmployeeCreateForm = {
   emergency_contact: string;
 };
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^[+\d\s()-]{7,20}$/;
 
 function formatSalary(value: number | string): string {
@@ -197,11 +196,6 @@ export default function StaffEmployeesPage() {
     const missing = requiredFields.find(([, value]) => value.trim().length === 0);
     if (missing) {
       setCreateError(`${missing[0]} es obligatorio.`);
-      return null;
-    }
-
-    if (!EMAIL_REGEX.test(current.email.trim())) {
-      setCreateError('El correo debe tener un formato válido.');
       return null;
     }
 
@@ -704,7 +698,7 @@ export default function StaffEmployeesPage() {
       <Modal
         open={createModalOpen()}
         title="Crear empleado"
-        description="Este registro crea también un usuario de acceso con permisos no administrativos y envía invitación de verificación y contraseña."
+        description="Este registro crea también un usuario de acceso con permisos no administrativos y envía enlace para definir contraseña."
         confirmLabel="Crear empleado"
         cancelLabel="Cancelar"
         busy={createBusy()}

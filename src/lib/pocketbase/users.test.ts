@@ -91,12 +91,12 @@ describe('users pocketbase client', () => {
 
   it('sends onboarding emails in order and supports resend', async () => {
     await sendUserOnboardingEmails('ana@test.com');
-    expect(hoisted.requestVerification).toHaveBeenCalledTimes(1);
+    expect(hoisted.requestVerification).not.toHaveBeenCalled();
     expect(hoisted.requestPasswordReset).toHaveBeenCalledTimes(1);
 
     vi.clearAllMocks();
     await resendUserOnboarding('ana@test.com');
-    expect(hoisted.requestVerification).toHaveBeenCalledTimes(1);
+    expect(hoisted.requestVerification).not.toHaveBeenCalled();
     expect(hoisted.requestPasswordReset).toHaveBeenCalledTimes(1);
   });
 

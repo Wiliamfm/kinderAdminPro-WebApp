@@ -245,7 +245,7 @@ describe('StaffEmployeesPage features', () => {
     });
   });
 
-  it('blocks create employee submit when email format is invalid', async () => {
+  it('blocks create employee submit when phone format is invalid', async () => {
     render(() => <StaffEmployeesPage />);
     await screen.findByText('Ana');
 
@@ -253,13 +253,15 @@ describe('StaffEmployeesPage features', () => {
     fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'New Employee' } });
     fireEvent.input(screen.getByLabelText('Salario'), { target: { value: '1500' } });
     fireEvent.input(screen.getByLabelText('Cargo'), { target: { value: 'Docente' } });
-    fireEvent.input(screen.getByLabelText('Correo'), { target: { value: 'not-an-email' } });
-    fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: '3001234' } });
+    fireEvent.input(screen.getByLabelText('Correo'), { target: { value: 'new@test.com' } });
+    fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: 'abc' } });
     fireEvent.input(screen.getByLabelText('Dirección'), { target: { value: 'Calle 9' } });
     fireEvent.input(screen.getByLabelText('Contacto de emergencia'), { target: { value: 'Maria' } });
     fireEvent.click(screen.getAllByText('Crear empleado')[1]);
 
-    expect(await screen.findByText('El correo debe tener un formato válido.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('El teléfono debe tener entre 7 y 20 caracteres válidos.'),
+    ).toBeInTheDocument();
     expect(mocks.createEmployeeUser).not.toHaveBeenCalled();
     expect(mocks.createEmployee).not.toHaveBeenCalled();
   });
