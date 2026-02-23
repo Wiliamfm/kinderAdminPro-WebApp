@@ -4,7 +4,7 @@
   "description": "",
   "type": "module",
   "scripts": {
-    "start": "bun x http-server ./dist",
+    "start": "vite preview --strictPort",
     "dev": "vite",
     "build": "vite build",
     "serve": "vite preview",
