@@ -1,15 +1,17 @@
 import SectionIndexCard from '../components/SectionIndexCard';
 import { sectionIndexByPage } from '../lib/section-index';
+import { isAuthUserAdmin } from '../lib/pocketbase/auth';
 
 export default function StaffManagementPage() {
   const section = sectionIndexByPage.staff;
+  const links = section.links.filter((link) => !link.requiresAdmin || isAuthUserAdmin());
 
   return (
     <section class="min-h-screen bg-yellow-50 text-gray-800 p-8">
       <SectionIndexCard
         title={section.title}
         description={section.description}
-        links={section.links}
+        links={links}
       />
     </section>
   );

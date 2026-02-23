@@ -28,6 +28,7 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - Admin-gated UI behavior uses `users.is_admin` read from auth store.
 - Leaves collection rules are admin-only (`@request.auth.is_admin = true`).
 - Important distinction: PocketBase dashboard superusers are not the same as `users` records.
+- App users management route (`/staff-management/app-users`) is admin-only and redirects non-admin users to `/staff-management`.
 
 ## Employee Onboarding Design
 - Employee creation is handled in `src/pages/staff-employees.tsx` with an admin-only modal.
@@ -40,6 +41,22 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - admin can resend onboarding from the employee row action.
 - Onboarding routes:
   - `/auth/set-password` confirms password-reset token and sets initial password.
+
+## App Users Management Design
+- UI location: `src/pages/app-users.tsx`.
+- Data source: `users` collection via `src/lib/pocketbase/users.ts`.
+- Table fields:
+  - `name`,
+  - `is_admin`,
+  - `email`.
+- Row actions:
+  - edit via modal (`name`, `email`, `is_admin`),
+  - delete via confirmation modal.
+- Email update behavior:
+  - own user email is requested through PocketBase email-change flow (confirmation required),
+  - other users email is managed from PocketBase Admin.
+- Safety rule:
+  - authenticated user cannot delete itself; UI hides self-delete and handler blocks it if attempted.
 
 ## Leaves Feature Design
 - UI location: `src/pages/staff-employees.tsx` modal under employee actions.

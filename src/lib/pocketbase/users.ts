@@ -13,6 +13,12 @@ export type CreateEmployeeUserInput = {
   name: string;
 };
 
+export type UpdateAppUserInput = {
+  email: string;
+  name: string;
+  isAdmin: boolean;
+};
+
 function toStringValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -53,6 +59,58 @@ export async function createEmployeeUser(payload: CreateEmployeeUserInput): Prom
     });
 
     return mapUserRecord(record);
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
+export function getAuthUserId(): string | null {
+  const authModel = pb.authStore.model as { id?: unknown } | null;
+  const modelId = toStringValue(authModel?.id);
+  if (modelId.length > 0) {
+    return modelId;
+  }
+
+  const authRecord = pb.authStore.record as { id?: unknown } | null;
+  const recordId = toStringValue(authRecord?.id);
+  return recordId.length > 0 ? recordId : null;
+}
+
+export async function listAppUsers(): Promise<AppUserRecord[]> {
+  try {
+    const records = await pb.collection('users').getFullList({
+      sort: 'name',
+    });
+    return records.map((record) => mapUserRecord(record));
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
+export async function updateAppUser(id: string, payload: UpdateAppUserInput): Promise<AppUserRecord> {
+  try {
+    const record = await pb.collection('users').update(id, {
+      email: payload.email.trim(),
+      name: payload.name.trim(),
+      is_admin: payload.isAdmin,
+    });
+    return mapUserRecord(record);
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
+export async function deleteAppUser(id: string): Promise<void> {
+  try {
+    await pb.collection('users').delete(id);
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
+export async function requestAuthenticatedUserEmailChange(newEmail: string): Promise<void> {
+  try {
+    await pb.collection('users').requestEmailChange(newEmail.trim());
   } catch (error) {
     throw normalizePocketBaseError(error);
   }

@@ -1,6 +1,7 @@
 export type SectionLink = {
   label: string;
   href: string;
+  requiresAdmin?: boolean;
 };
 
 export type SectionIndexEntry = {
@@ -16,6 +17,11 @@ export const sectionIndexByPage: Record<string, SectionIndexEntry> = {
       'En esta sección podrás acceder a las funciones principales para administrar el personal de la institución.',
     links: [
       { label: 'Gestion de personal', href: '/staff-management/employees' },
+      {
+        label: 'Gestion de usuarios',
+        href: '/staff-management/app-users',
+        requiresAdmin: true,
+      },
       { label: 'Volver al inicio', href: '/' },
     ],
   },
