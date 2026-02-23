@@ -10,7 +10,7 @@ Primary functional areas exposed through routes:
 - Authentication (`/login`)
 - Invitation onboarding (`/auth/set-password`)
 - Home and backend health (`/`)
-- Staff management (`/staff-management`, `/staff-management/employees`, `/staff-management/employees/:id`)
+- Staff management (`/staff-management`, `/staff-management/employees`, `/staff-management/employees/:id`, `/staff-management/jobs`, `/staff-management/app-users`)
 - Enrollment management (`/enrollment-management`)
 - Reports (`/reports`)
 - Event management (`/event-management`)
@@ -18,9 +18,11 @@ Primary functional areas exposed through routes:
 ## Core Workflows
 - Authenticate against PocketBase `users`.
 - List and manage employees.
+- List and manage employee jobs (`employee_jobs`) and assign them as relation on employees (`employees.job_id`).
 - Create employees from the staff list:
   - create linked auth user (`users`) with default `is_admin = false`,
   - persist `employees.user_id` relation,
+  - persist `employees.job_id` relation,
   - send password setup email,
   - allow admin resend of onboarding invite.
 - Manage employee leaves from the employee list modal:

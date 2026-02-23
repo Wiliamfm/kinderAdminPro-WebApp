@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from '@solidjs/router';
-import { createEffect, createResource, createSignal, Show } from 'solid-js';
+import { createEffect, createMemo, createResource, createSignal, Show } from 'solid-js';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
+import { listEmployeeJobs } from '../lib/pocketbase/employee-jobs';
 import {
   getEmployeeById,
   updateEmployee,
@@ -20,10 +21,25 @@ function getErrorMessage(error: unknown): string {
   return 'No se pudo completar la operación.';
 }
 
+function formatSalary(value: number | string): string {
+  if (typeof value === 'number') {
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      maximumFractionDigits: 0,
+    }).format(value);
+  }
+
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value;
+  }
+
+  return '—';
+}
+
 const emptyForm: EmployeeUpdateInput = {
   name: '',
-  salary: 0,
-  job: '',
+  jobId: '',
   email: '',
   phone: '',
   address: '',
@@ -34,6 +50,7 @@ export default function StaffEmployeeEditPage() {
   const params = useParams();
   const navigate = useNavigate();
   const [employee] = createResource(() => params.id, getEmployeeById);
+  const [jobs] = createResource(listEmployeeJobs);
   const [form, setForm] = createSignal<EmployeeUpdateInput>(emptyForm);
   const [formError, setFormError] = createSignal<string | null>(null);
   const [saveBusy, setSaveBusy] = createSignal(false);
@@ -44,8 +61,7 @@ export default function StaffEmployeeEditPage() {
 
     setForm({
       name: current.name,
-      salary: typeof current.salary === 'number' ? current.salary : Number(current.salary) || 0,
-      job: current.job,
+      jobId: current.jobId,
       email: current.email,
       phone: current.phone,
       address: current.address,
@@ -54,13 +70,13 @@ export default function StaffEmployeeEditPage() {
   });
 
   const setField = (field: keyof EmployeeUpdateInput, value: string) => {
-    if (field === 'salary') {
-      setForm((prev) => ({ ...prev, salary: Number(value) || 0 }));
-      return;
-    }
-
     setForm((prev) => ({ ...prev, [field]: value }));
   };
+
+  const selectedJob = createMemo(() => {
+    const jobId = form().jobId;
+    return (jobs() ?? []).find((job) => job.id === jobId) ?? null;
+  });
 
   const onSubmit = async (event: SubmitEvent) => {
     event.preventDefault();
@@ -69,7 +85,7 @@ export default function StaffEmployeeEditPage() {
     const current = form();
     const requiredFields: Array<[string, string]> = [
       ['Nombre', current.name],
-      ['Cargo', current.job],
+      ['Cargo', current.jobId],
       ['Correo', current.email],
       ['Teléfono', current.phone],
       ['Dirección', current.address],
@@ -79,11 +95,6 @@ export default function StaffEmployeeEditPage() {
     const missing = requiredFields.find(([, value]) => value.trim().length === 0);
     if (missing) {
       setFormError(`${missing[0]} es obligatorio.`);
-      return;
-    }
-
-    if (!Number.isFinite(current.salary) || current.salary < 0) {
-      setFormError('El salario debe ser un número válido mayor o igual a 0.');
       return;
     }
 
@@ -130,26 +141,24 @@ export default function StaffEmployeeEditPage() {
             </label>
 
             <label class="text-sm">
-              <span class="mb-1 block font-medium text-gray-700">Salario</span>
-              <input
-                type="number"
-                min="0"
-                step="1"
+              <span class="mb-1 block font-medium text-gray-700">Cargo</span>
+              <select
                 class="w-full rounded-lg border border-yellow-300 px-3 py-2"
-                value={String(form().salary)}
-                onInput={(event) => setField('salary', event.currentTarget.value)}
-              />
+                value={form().jobId}
+                onChange={(event) => setField('jobId', event.currentTarget.value)}
+              >
+                <option value="">Selecciona un cargo</option>
+                {jobs()?.map((job) => (
+                  <option value={job.id}>{job.name}</option>
+                ))}
+              </select>
             </label>
 
-            <label class="text-sm">
-              <span class="mb-1 block font-medium text-gray-700">Cargo</span>
-              <input
-                type="text"
-                class="w-full rounded-lg border border-yellow-300 px-3 py-2"
-                value={form().job}
-                onInput={(event) => setField('job', event.currentTarget.value)}
-              />
-            </label>
+            <Show when={selectedJob()}>
+              <p class="rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-gray-700">
+                Salario del cargo: {formatSalary(selectedJob()?.salary ?? '')}
+              </p>
+            </Show>
 
             <label class="text-sm">
               <span class="mb-1 block font-medium text-gray-700">Correo</span>

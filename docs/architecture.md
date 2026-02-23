@@ -29,12 +29,13 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - Leaves collection rules are admin-only (`@request.auth.is_admin = true`).
 - Important distinction: PocketBase dashboard superusers are not the same as `users` records.
 - App users management route (`/staff-management/app-users`) is admin-only and redirects non-admin users to `/staff-management`.
+- Employee jobs route (`/staff-management/jobs`) is admin-only and redirects non-admin users to `/staff-management`.
 
 ## Employee Onboarding Design
 - Employee creation is handled in `src/pages/staff-employees.tsx` with an admin-only modal.
 - Data flow for create:
   - `users.create` via `src/lib/pocketbase/users.ts` (`is_admin` forced to `false`),
-  - `employees.create` via `src/lib/pocketbase/employees.ts` with relation `user_id`,
+  - `employees.create` via `src/lib/pocketbase/employees.ts` with relations `user_id` and `job_id`,
   - onboarding trigger via `users.requestPasswordReset`.
 - Recovery behavior:
   - if invite email fails, created records are kept,
@@ -57,6 +58,22 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - other users email is managed from PocketBase Admin.
 - Safety rule:
   - authenticated user cannot delete itself; UI hides self-delete and handler blocks it if attempted.
+
+## Employee Jobs Design
+- UI location: `src/pages/staff-jobs.tsx`.
+- Data source: `employee_jobs` collection via `src/lib/pocketbase/employee-jobs.ts`.
+- Table fields:
+  - `name`,
+  - `salary`.
+- Row actions:
+  - create via modal,
+  - edit via modal,
+  - delete via confirmation modal.
+- Safety rule:
+  - delete is blocked when one or more active employees are linked to the job.
+- Migration note:
+  - employees now use relation `employees.job_id` (required) instead of legacy `employees.job` and `employees.salary`.
+  - existing employees were backfilled to the default job `Cargo por definir`.
 
 ## Leaves Feature Design
 - UI location: `src/pages/staff-employees.tsx` modal under employee actions.

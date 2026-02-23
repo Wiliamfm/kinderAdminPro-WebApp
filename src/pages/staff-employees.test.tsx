@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => {
     navigate: vi.fn(),
     isAuthUserAdmin: vi.fn(),
     listActiveEmployees: vi.fn(),
+    listEmployeeJobs: vi.fn(),
     createEmployee: vi.fn(),
     deactivateEmployee: vi.fn(),
     createEmployeeUser: vi.fn(),
@@ -37,6 +38,10 @@ vi.mock('../lib/pocketbase/employees', () => ({
   deactivateEmployee: mocks.deactivateEmployee,
 }));
 
+vi.mock('../lib/pocketbase/employee-jobs', () => ({
+  listEmployeeJobs: mocks.listEmployeeJobs,
+}));
+
 vi.mock('../lib/pocketbase/users', () => ({
   createEmployeeUser: mocks.createEmployeeUser,
   sendUserOnboardingEmails: mocks.sendUserOnboardingEmails,
@@ -63,8 +68,9 @@ vi.mock('../lib/pocketbase/invoice-files', () => ({
 const employee = {
   id: 'e1',
   name: 'Ana',
-  salary: 1000,
-  job: 'Docente',
+  jobId: 'j1',
+  jobName: 'Docente',
+  jobSalary: 1000,
   email: 'ana@test.com',
   phone: '3000000',
   address: 'Calle 1',
@@ -94,6 +100,13 @@ describe('StaffEmployeesPage features', () => {
     vi.clearAllMocks();
     mocks.isAuthUserAdmin.mockReturnValue(true);
     mocks.listActiveEmployees.mockResolvedValue([employee]);
+    mocks.listEmployeeJobs.mockResolvedValue([
+      {
+        id: 'j1',
+        name: 'Docente',
+        salary: 1500,
+      },
+    ]);
     mocks.listEmployeeLeaves.mockResolvedValue(emptyLeavesPage);
     mocks.listEmployeeInvoices.mockResolvedValue(emptyInvoicesPage);
     mocks.createEmployeeUser.mockResolvedValue({
@@ -106,8 +119,9 @@ describe('StaffEmployeesPage features', () => {
     mocks.createEmployee.mockResolvedValue({
       id: 'e2',
       name: 'New Employee',
-      salary: 1500,
-      job: 'Docente',
+      jobId: 'j1',
+      jobName: 'Docente',
+      jobSalary: 1500,
       email: 'new@test.com',
       phone: '3001234',
       address: 'Calle 9',
@@ -190,8 +204,7 @@ describe('StaffEmployeesPage features', () => {
     await screen.findByRole('heading', { name: 'Crear empleado' });
 
     fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'New Employee' } });
-    fireEvent.input(screen.getByLabelText('Salario'), { target: { value: '1500' } });
-    fireEvent.input(screen.getByLabelText('Cargo'), { target: { value: 'Docente' } });
+    fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'j1' } });
     fireEvent.input(screen.getByLabelText('Correo'), { target: { value: 'new@test.com' } });
     fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: '3001234' } });
     fireEvent.input(screen.getByLabelText('Dirección'), { target: { value: 'Calle 9' } });
@@ -208,8 +221,7 @@ describe('StaffEmployeesPage features', () => {
     });
     expect(mocks.createEmployee).toHaveBeenCalledWith({
       name: 'New Employee',
-      salary: 1500,
-      job: 'Docente',
+      jobId: 'j1',
       email: 'new@test.com',
       phone: '3001234',
       address: 'Calle 9',
@@ -228,8 +240,7 @@ describe('StaffEmployeesPage features', () => {
 
     fireEvent.click(screen.getByText('Nuevo empleado'));
     fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'New Employee' } });
-    fireEvent.input(screen.getByLabelText('Salario'), { target: { value: '1500' } });
-    fireEvent.input(screen.getByLabelText('Cargo'), { target: { value: 'Docente' } });
+    fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'j1' } });
     fireEvent.input(screen.getByLabelText('Correo'), { target: { value: 'new@test.com' } });
     fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: '3001234' } });
     fireEvent.input(screen.getByLabelText('Dirección'), { target: { value: 'Calle 9' } });
@@ -251,8 +262,7 @@ describe('StaffEmployeesPage features', () => {
 
     fireEvent.click(screen.getByText('Nuevo empleado'));
     fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'New Employee' } });
-    fireEvent.input(screen.getByLabelText('Salario'), { target: { value: '1500' } });
-    fireEvent.input(screen.getByLabelText('Cargo'), { target: { value: 'Docente' } });
+    fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'j1' } });
     fireEvent.input(screen.getByLabelText('Correo'), { target: { value: 'new@test.com' } });
     fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: 'abc' } });
     fireEvent.input(screen.getByLabelText('Dirección'), { target: { value: 'Calle 9' } });

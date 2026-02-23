@@ -18,6 +18,11 @@ export const sectionIndexByPage: Record<string, SectionIndexEntry> = {
     links: [
       { label: 'Gestion de personal', href: '/staff-management/employees' },
       {
+        label: 'Gestion de cargos',
+        href: '/staff-management/jobs',
+        requiresAdmin: true,
+      },
+      {
         label: 'Gestion de usuarios',
         href: '/staff-management/app-users',
         requiresAdmin: true,

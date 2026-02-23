@@ -11,6 +11,7 @@ import StaffEmployeesPage from './pages/staff-employees';
 import StaffEmployeeEditPage from './pages/staff-employee-edit';
 import AuthSetPasswordPage from './pages/auth-set-password';
 import AppUsersPage from './pages/app-users';
+import StaffJobsPage from './pages/staff-jobs';
 
 export const routes: RouteDefinition[] = [
   {
@@ -32,6 +33,10 @@ export const routes: RouteDefinition[] = [
   {
     path: '/staff-management/employees/:id',
     component: StaffEmployeeEditPage,
+  },
+  {
+    path: '/staff-management/jobs',
+    component: StaffJobsPage,
   },
   {
     path: '/staff-management/app-users',

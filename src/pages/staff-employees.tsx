@@ -9,6 +9,7 @@ import {
   listActiveEmployees,
   type EmployeeRecord,
 } from '../lib/pocketbase/employees';
+import { listEmployeeJobs } from '../lib/pocketbase/employee-jobs';
 import {
   createEmployeeLeave,
   hasLeaveOverlap,
@@ -32,8 +33,7 @@ import {
 
 type EmployeeCreateForm = {
   name: string;
-  salary: string;
-  job: string;
+  jobId: string;
   email: string;
   phone: string;
   address: string;
@@ -97,8 +97,7 @@ const emptyLeaveForm: LeaveCreateInput = {
 };
 const emptyCreateEmployeeForm: EmployeeCreateForm = {
   name: '',
-  salary: '0',
-  job: '',
+  jobId: '',
   email: '',
   phone: '',
   address: '',
@@ -110,6 +109,7 @@ export default function StaffEmployeesPage() {
   const canManageAdminActions = () => isAuthUserAdmin();
 
   const [employees, { refetch }] = createResource(listActiveEmployees);
+  const [jobs] = createResource(listEmployeeJobs);
   const [deleteTarget, setDeleteTarget] = createSignal<EmployeeRecord | null>(null);
   const [deleteBusy, setDeleteBusy] = createSignal(false);
   const [actionError, setActionError] = createSignal<string | null>(null);
@@ -186,7 +186,7 @@ export default function StaffEmployeesPage() {
 
     const requiredFields: Array<[string, string]> = [
       ['Nombre', current.name],
-      ['Cargo', current.job],
+      ['Cargo', current.jobId],
       ['Correo', current.email],
       ['Teléfono', current.phone],
       ['Dirección', current.address],
@@ -209,11 +209,6 @@ export default function StaffEmployeesPage() {
       return null;
     }
 
-    if (current.job.trim().length < 2) {
-      setCreateError('El cargo debe tener al menos 2 caracteres.');
-      return null;
-    }
-
     if (current.address.trim().length < 5) {
       setCreateError('La dirección debe tener al menos 5 caracteres.');
       return null;
@@ -224,16 +219,9 @@ export default function StaffEmployeesPage() {
       return null;
     }
 
-    const salary = Number(current.salary);
-    if (!Number.isFinite(salary) || salary < 0 || !Number.isInteger(salary)) {
-      setCreateError('El salario debe ser un número entero válido mayor o igual a 0.');
-      return null;
-    }
-
     return {
       name: current.name.trim(),
-      salary,
-      job: current.job.trim(),
+      jobId: current.jobId.trim(),
       email: current.email.trim(),
       phone: current.phone.trim(),
       address: current.address.trim(),
@@ -553,6 +541,10 @@ export default function StaffEmployeesPage() {
     setInvoiceFile(null);
     if (invoiceFileInputRef) invoiceFileInputRef.value = '';
   };
+  const selectedCreateJob = () => {
+    const jobId = createForm().jobId;
+    return (jobs() ?? []).find((job) => job.id === jobId) ?? null;
+  };
 
   return (
     <section class="min-h-screen bg-yellow-50 p-8 text-gray-800">
@@ -628,8 +620,8 @@ export default function StaffEmployeesPage() {
                     {(employee) => (
                       <tr class="border-t border-yellow-100 align-top">
                         <td class="px-4 py-3">{formatText(employee.name)}</td>
-                        <td class="px-4 py-3">{formatSalary(employee.salary)}</td>
-                        <td class="px-4 py-3">{formatText(employee.job)}</td>
+                        <td class="px-4 py-3">{formatSalary(employee.jobSalary)}</td>
+                        <td class="px-4 py-3">{formatText(employee.jobName)}</td>
                         <td class="px-4 py-3">{formatText(employee.email)}</td>
                         <td class="px-4 py-3">{formatText(employee.phone)}</td>
                         <td class="px-4 py-3">{formatText(employee.address)}</td>
@@ -724,27 +716,26 @@ export default function StaffEmployeesPage() {
                 />
               </label>
               <label class="block">
-                <span class="text-sm text-gray-700">Salario</span>
-                <input
-                  class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={createForm().salary}
-                  onInput={(event) => setCreateField('salary', event.currentTarget.value)}
-                  disabled={createBusy()}
-                />
-              </label>
-              <label class="block">
                 <span class="text-sm text-gray-700">Cargo</span>
-                <input
+                <select
                   class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                  type="text"
-                  value={createForm().job}
-                  onInput={(event) => setCreateField('job', event.currentTarget.value)}
+                  value={createForm().jobId}
+                  onChange={(event) => setCreateField('jobId', event.currentTarget.value)}
                   disabled={createBusy()}
-                />
+                >
+                  <option value="">Selecciona un cargo</option>
+                  <For each={jobs() ?? []}>
+                    {(job) => (
+                      <option value={job.id}>{job.name}</option>
+                    )}
+                  </For>
+                </select>
               </label>
+              <Show when={selectedCreateJob()}>
+                <p class="rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-gray-700 md:col-span-2">
+                  Salario del cargo: {formatSalary(selectedCreateJob()?.salary ?? '')}
+                </p>
+              </Show>
               <label class="block">
                 <span class="text-sm text-gray-700">Correo</span>
                 <input
