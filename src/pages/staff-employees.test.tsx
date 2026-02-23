@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => {
     deactivateEmployee: vi.fn(),
     listEmployeeLeaves: vi.fn(),
     createEmployeeLeave: vi.fn(),
+    updateEmployeeLeave: vi.fn(),
     hasLeaveOverlap: vi.fn(),
   };
 });
@@ -30,6 +31,7 @@ vi.mock('../lib/pocketbase/employees', () => ({
 vi.mock('../lib/pocketbase/leaves', () => ({
   listEmployeeLeaves: mocks.listEmployeeLeaves,
   createEmployeeLeave: mocks.createEmployeeLeave,
+  updateEmployeeLeave: mocks.updateEmployeeLeave,
   hasLeaveOverlap: mocks.hasLeaveOverlap,
 }));
 
@@ -61,6 +63,12 @@ describe('StaffEmployeesPage leaves feature', () => {
     mocks.listEmployeeLeaves.mockResolvedValue(emptyLeavesPage);
     mocks.hasLeaveOverlap.mockResolvedValue(false);
     mocks.createEmployeeLeave.mockResolvedValue({
+      id: 'leave-1',
+      employee: 'e1',
+      start_datetime: '2026-02-20T10:00:00.000Z',
+      end_datetime: '2026-02-20T12:00:00.000Z',
+    });
+    mocks.updateEmployeeLeave.mockResolvedValue({
       id: 'leave-1',
       employee: 'e1',
       start_datetime: '2026-02-20T10:00:00.000Z',
@@ -155,6 +163,77 @@ describe('StaffEmployeesPage leaves feature', () => {
 
     const lastCall = mocks.listEmployeeLeaves.mock.calls.at(-1);
     expect(lastCall).toEqual(['e1', 1, 10]);
+  });
+
+  it('prefills form when editing a leave row', async () => {
+    mocks.listEmployeeLeaves.mockResolvedValue({
+      items: [
+        {
+          id: 'leave-42',
+          employee: 'e1',
+          start_datetime: '2026-02-20T10:00:00.000Z',
+          end_datetime: '2026-02-20T12:00:00.000Z',
+        },
+      ],
+      page: 1,
+      perPage: 10,
+      totalItems: 1,
+      totalPages: 1,
+    });
+
+    await openLeavesModal();
+    fireEvent.click(screen.getByLabelText('Editar licencia leave-42'));
+
+    const startInput = screen.getByLabelText('Inicio de licencia') as HTMLInputElement;
+    const endInput = screen.getByLabelText('Fin de licencia') as HTMLInputElement;
+
+    expect(new Date(startInput.value).toISOString()).toBe('2026-02-20T10:00:00.000Z');
+    expect(new Date(endInput.value).toISOString()).toBe('2026-02-20T12:00:00.000Z');
+    expect(screen.getByText('Actualizar licencia')).toBeInTheDocument();
+  });
+
+  it('updates leave when form is in edit mode', async () => {
+    mocks.listEmployeeLeaves.mockResolvedValue({
+      items: [
+        {
+          id: 'leave-42',
+          employee: 'e1',
+          start_datetime: '2026-02-20T10:00:00.000Z',
+          end_datetime: '2026-02-20T12:00:00.000Z',
+        },
+      ],
+      page: 1,
+      perPage: 10,
+      totalItems: 1,
+      totalPages: 1,
+    });
+
+    await openLeavesModal();
+    fireEvent.click(screen.getByLabelText('Editar licencia leave-42'));
+    fireEvent.input(screen.getByLabelText('Fin de licencia'), {
+      target: { value: '2026-02-20T13:00' },
+    });
+    fireEvent.click(screen.getByText('Actualizar licencia'));
+
+    await waitFor(() => {
+      expect(mocks.updateEmployeeLeave).toHaveBeenCalledTimes(1);
+    });
+
+    const updateCall = mocks.updateEmployeeLeave.mock.calls[0];
+    const updatePayload = updateCall[1];
+    expect(mocks.updateEmployeeLeave).toHaveBeenCalledWith('leave-42', {
+      employee: 'e1',
+      start_datetime: updatePayload.start_datetime,
+      end_datetime: new Date('2026-02-20T13:00').toISOString(),
+    });
+    expect(new Date(updatePayload.start_datetime).toISOString()).toBe('2026-02-20T10:00:00.000Z');
+    expect(mocks.createEmployeeLeave).not.toHaveBeenCalled();
+    expect(mocks.hasLeaveOverlap).toHaveBeenCalledWith(
+      'e1',
+      updatePayload.start_datetime,
+      new Date('2026-02-20T13:00').toISOString(),
+      'leave-42',
+    );
   });
 
   it('supports leaves pagination next and previous', async () => {

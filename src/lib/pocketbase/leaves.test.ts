@@ -3,11 +3,13 @@ import {
   createEmployeeLeave,
   hasLeaveOverlap,
   listEmployeeLeaves,
+  updateEmployeeLeave,
 } from './leaves';
 
 const hoisted = vi.hoisted(() => {
   const getList = vi.fn();
   const create = vi.fn();
+  const update = vi.fn();
   const filter = vi.fn();
   const normalizePocketBaseError = vi.fn();
 
@@ -15,6 +17,7 @@ const hoisted = vi.hoisted(() => {
     collection: vi.fn(() => ({
       getList,
       create,
+      update,
     })),
     filter,
   };
@@ -22,6 +25,7 @@ const hoisted = vi.hoisted(() => {
   return {
     getList,
     create,
+    update,
     filter,
     normalizePocketBaseError,
     pb,
@@ -91,6 +95,25 @@ describe('leaves pocketbase client', () => {
     expect(result.id).toBe('l2');
   });
 
+  it('updates a leave record', async () => {
+    hoisted.update.mockResolvedValue({
+      id: 'l2',
+      employee: 'e1',
+      start_datetime: '2026-02-02T10:00:00.000Z',
+      end_datetime: '2026-02-02T14:00:00.000Z',
+    });
+
+    const payload = {
+      employee: 'e1',
+      start_datetime: '2026-02-02T10:00:00.000Z',
+      end_datetime: '2026-02-02T14:00:00.000Z',
+    };
+    const result = await updateEmployeeLeave('l2', payload);
+
+    expect(hoisted.update).toHaveBeenCalledWith('l2', payload);
+    expect(result.id).toBe('l2');
+  });
+
   it('returns true when overlap exists', async () => {
     hoisted.filter.mockReturnValue('overlap-filter');
     hoisted.getList.mockResolvedValue({
@@ -111,6 +134,35 @@ describe('leaves pocketbase client', () => {
     expect(hoisted.getList).toHaveBeenCalledWith(1, 1, {
       filter: 'overlap-filter',
     });
+  });
+
+  it('adds exclude id to overlap filter when provided', async () => {
+    hoisted.filter.mockReturnValue('overlap-filter-excluding-self');
+    hoisted.getList.mockResolvedValue({
+      items: [],
+      page: 1,
+      perPage: 1,
+      totalItems: 0,
+      totalPages: 1,
+    });
+
+    const result = await hasLeaveOverlap(
+      'e1',
+      '2026-02-10T08:00:00.000Z',
+      '2026-02-10T10:00:00.000Z',
+      'leave-1',
+    );
+
+    expect(result).toBe(false);
+    expect(hoisted.filter).toHaveBeenCalledWith(
+      'employee = {:employeeId} && start_datetime < {:endIso} && end_datetime > {:startIso} && id != {:excludeLeaveId}',
+      {
+        employeeId: 'e1',
+        startIso: '2026-02-10T08:00:00.000Z',
+        endIso: '2026-02-10T10:00:00.000Z',
+        excludeLeaveId: 'leave-1',
+      },
+    );
   });
 
   it('normalizes and rethrows errors', async () => {

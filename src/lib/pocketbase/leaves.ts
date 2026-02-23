@@ -68,21 +68,38 @@ export async function createEmployeeLeave(payload: LeaveCreateInput): Promise<Le
   }
 }
 
+export async function updateEmployeeLeave(
+  id: string,
+  payload: LeaveCreateInput,
+): Promise<LeaveRecord> {
+  try {
+    const record = await pb.collection('leaves').update(id, payload);
+    return mapLeaveRecord(record);
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
 export async function hasLeaveOverlap(
   employeeId: string,
   startIso: string,
   endIso: string,
+  excludeLeaveId?: string,
 ): Promise<boolean> {
   try {
+    const baseFilter =
+      'employee = {:employeeId} && start_datetime < {:endIso} && end_datetime > {:startIso}';
+    const filter = excludeLeaveId
+      ? `${baseFilter} && id != {:excludeLeaveId}`
+      : baseFilter;
+
     const result = await pb.collection('leaves').getList(1, 1, {
-      filter: pb.filter(
-        'employee = {:employeeId} && start_datetime < {:endIso} && end_datetime > {:startIso}',
-        {
-          employeeId,
-          startIso,
-          endIso,
-        },
-      ),
+      filter: pb.filter(filter, {
+        employeeId,
+        startIso,
+        endIso,
+        excludeLeaveId,
+      }),
     });
 
     return result.totalItems > 0;

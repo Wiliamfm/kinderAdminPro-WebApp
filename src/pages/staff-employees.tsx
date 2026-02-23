@@ -12,6 +12,7 @@ import {
   createEmployeeLeave,
   hasLeaveOverlap,
   listEmployeeLeaves,
+  updateEmployeeLeave,
   type LeaveCreateInput,
   type LeaveRecord,
 } from '../lib/pocketbase/leaves';
@@ -80,6 +81,7 @@ export default function StaffEmployeesPage() {
   const [leavePage, setLeavePage] = createSignal(1);
   const [leaveBusy, setLeaveBusy] = createSignal(false);
   const [leaveError, setLeaveError] = createSignal<string | null>(null);
+  const [editingLeaveId, setEditingLeaveId] = createSignal<string | null>(null);
 
   const [leaves, { refetch: refetchLeaves }] = createResource(
     () => {
@@ -116,6 +118,7 @@ export default function StaffEmployeesPage() {
     setLeaveTarget(employee);
     setLeavePage(1);
     setLeaveError(null);
+    setEditingLeaveId(null);
     setLeaveForm({
       employee: employee.id,
       start_datetime: '',
@@ -128,7 +131,27 @@ export default function StaffEmployeesPage() {
     setLeaveTarget(null);
     setLeavePage(1);
     setLeaveError(null);
+    setEditingLeaveId(null);
     setLeaveForm(emptyLeaveForm);
+  };
+
+  const toDateTimeLocalValue = (isoValue: string): string => {
+    if (!isoValue) return '';
+    const parsed = new Date(isoValue);
+    if (Number.isNaN(parsed.getTime())) return '';
+
+    const tzOffsetMs = parsed.getTimezoneOffset() * 60_000;
+    return new Date(parsed.getTime() - tzOffsetMs).toISOString().slice(0, 16);
+  };
+
+  const startEditLeave = (leave: LeaveRecord) => {
+    setEditingLeaveId(leave.id);
+    setLeaveError(null);
+    setLeaveForm((current) => ({
+      ...current,
+      start_datetime: toDateTimeLocalValue(leave.start_datetime),
+      end_datetime: toDateTimeLocalValue(leave.end_datetime),
+    }));
   };
 
   const updateLeaveField = (field: 'start_datetime' | 'end_datetime', value: string) => {
@@ -192,10 +215,12 @@ export default function StaffEmployeesPage() {
     setLeaveError(null);
 
     try {
+      const currentEditingLeaveId = editingLeaveId();
       const overlap = await hasLeaveOverlap(
         target.id,
         validated.target.start_datetime,
         validated.target.end_datetime,
+        currentEditingLeaveId ?? undefined,
       );
 
       if (overlap) {
@@ -203,7 +228,13 @@ export default function StaffEmployeesPage() {
         return;
       }
 
-      await createEmployeeLeave(validated.target);
+      if (currentEditingLeaveId) {
+        await updateEmployeeLeave(currentEditingLeaveId, validated.target);
+      } else {
+        await createEmployeeLeave(validated.target);
+      }
+
+      setEditingLeaveId(null);
       setLeaveForm((current) => ({
         ...current,
         start_datetime: '',
@@ -327,7 +358,7 @@ export default function StaffEmployeesPage() {
         open={!!leaveTarget()}
         title={leaveTarget() ? `Licencias de ${leaveTarget()?.name || 'empleado'}` : 'Licencias'}
         description="Registra una licencia y consulta el historial del empleado (ordenado por fecha de inicio)."
-        confirmLabel="Guardar licencia"
+        confirmLabel={editingLeaveId() ? 'Actualizar licencia' : 'Guardar licencia'}
         cancelLabel="Cerrar"
         busy={leaveBusy()}
         size="xl"
@@ -379,19 +410,20 @@ export default function StaffEmployeesPage() {
                   <tr>
                     <th class="px-4 py-3 font-semibold">Inicio</th>
                     <th class="px-4 py-3 font-semibold">Fin</th>
+                    <th class="px-4 py-3 font-semibold">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   <Show when={!leaves.loading} fallback={
                     <tr>
-                      <td class="px-4 py-4 text-gray-600" colSpan={2}>
+                      <td class="px-4 py-4 text-gray-600" colSpan={3}>
                         Cargando licencias...
                       </td>
                     </tr>
                   }>
                     <Show when={!leaves.error} fallback={
                       <tr>
-                        <td class="px-4 py-4 text-red-700" colSpan={2}>
+                        <td class="px-4 py-4 text-red-700" colSpan={3}>
                           {getErrorMessage(leaves.error)}
                         </td>
                       </tr>
@@ -400,7 +432,7 @@ export default function StaffEmployeesPage() {
                         when={leavesItems().length > 0}
                         fallback={
                           <tr>
-                            <td class="px-4 py-4 text-gray-600" colSpan={2}>
+                            <td class="px-4 py-4 text-gray-600" colSpan={3}>
                               Este empleado no tiene licencias registradas.
                             </td>
                           </tr>
@@ -411,6 +443,17 @@ export default function StaffEmployeesPage() {
                             <tr class="border-t border-yellow-100 align-top">
                               <td class="px-4 py-3">{formatDateTime(leave.start_datetime)}</td>
                               <td class="px-4 py-3">{formatDateTime(leave.end_datetime)}</td>
+                              <td class="px-4 py-3">
+                                <button
+                                  type="button"
+                                  class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-yellow-300 bg-yellow-100 text-gray-700 transition-colors hover:bg-yellow-200"
+                                  aria-label={`Editar licencia ${leave.id}`}
+                                  onClick={() => startEditLeave(leave)}
+                                  disabled={leaveBusy()}
+                                >
+                                  <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                                </button>
+                              </td>
                             </tr>
                           )}
                         </For>
