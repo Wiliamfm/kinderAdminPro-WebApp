@@ -2,17 +2,23 @@
 
 ## Project Structure & Module Organization
 - `src/` contains the SolidJS app code.
-- `src/pages/` holds route-level pages (currently `home.tsx`).
+- `src/pages/` holds route-level pages (for example `home.tsx`, `staff-employees.tsx`, `login.tsx`).
 - `src/errors/404.tsx` defines the not-found UI.
 - `src/routes.ts` and `src/app.tsx` configure routing and app composition.
 - `src/index.tsx` and `src/index.css` are the entry point and global styles.
+- `src/lib/pocketbase/` holds PocketBase client wrappers and request helpers.
+- `src/test/` contains test setup files.
 - `public/` is not currently present; add static assets there if needed.
 
 ## Build, Test, and Development Commands
-- `npm install` (or `pnpm install`): install dependencies.
-- `npm run dev` (or `npm start`): run the Vite dev server locally.
-- `npm run build`: create a production bundle in `dist/`.
-- `npm run serve`: preview the production build locally.
+- `bun install`: install dependencies (preferred in this repository).
+- `bun run dev` (or `bun run start`): run the Vite dev server locally.
+- `bun run build`: create a production bundle in `dist/`.
+- `bun run serve`: preview the production build locally.
+- `bun run test`: run Vitest test suite once.
+- `bun run test:watch`: run Vitest in watch mode.
+
+NPM equivalents are available (`npm run dev`, `npm run build`, `npm run test`), but Bun is the default workflow.
 
 Use Node 22+ for compatibility with current toolchain versions.
 
@@ -25,9 +31,13 @@ Use Node 22+ for compatibility with current toolchain versions.
 - All pages must be responsive across mobile, tablet, and desktop breakpoints.
 
 ## Testing Guidelines
-- No test runner is configured yet in `package.json`.
+- Test runner: Vitest + `@solidjs/testing-library` + JSDOM.
 - When adding tests, prefer colocated files such as `Component.test.tsx` or `feature.test.ts`.
-- If introducing a framework (for example, Vitest), add a `test` script and document command usage in `README.md`.
+- Cover happy-path behavior plus key validation and authorization paths for UI features.
+- Update tests whenever changing:
+  - form validation logic,
+  - modal action behavior,
+  - PocketBase wrapper signatures (`src/lib/pocketbase/*.ts`).
 
 ## Commit & Pull Request Guidelines
 - Follow existing commit style from history: short, imperative summaries (for example, `Add login route`, `install dependencies`).
@@ -41,6 +51,17 @@ Use Node 22+ for compatibility with current toolchain versions.
 ## Security & Configuration Tips
 - Do not commit secrets; use environment files (for example, `.env`) and local-only values.
 - Review dependency updates before merging and keep lockfiles in sync with the chosen package manager.
+
+## Documentation Standards
+- Use `docs/` as the primary reference set for architecture and future changes.
+- Documentation style: Diataxis-lite (overview, reference architecture, process how-to, LLM playbook).
+- When changing auth/rules/schema/routes, update related docs in the same PR.
+- Keep docs in English for broad LLM/tool interoperability.
+
+## LLM Context Rules
+- Read `docs/README.md` before making substantial changes.
+- Treat `docs/architecture.md` as the source of truth for module boundaries and data flow.
+- For changes touching PocketBase schema/rules, include a short assumptions/impact note in PR description.
 
 ## Agent Skills
 - `solidjs`: use for Solid component patterns, routing, reactivity, and TSX best practices.
