@@ -36,6 +36,24 @@ bun run build
 bun run serve
 ```
 
+## Docker
+
+Build the image:
+
+```bash
+docker build -t tesis-front --build-arg VITE_PB_URL=http://host.docker.internal:8090 .
+```
+
+Run the container:
+
+```bash
+docker run --rm -p 3000:3000 tesis-front
+```
+
+Open `http://localhost:3000`.
+
+`VITE_PB_URL` is a Vite compile-time variable. Changing it requires rebuilding the image.
+
 ## Backend Connectivity Behavior
 
 The home page performs a backend health check against PocketBase and shows:
