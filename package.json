@@ -4,7 +4,7 @@
   "description": "",
   "type": "module",
   "scripts": {
-    "start": "vite preview --strictPort",
+    "start": "vite --host 3000",
     "dev": "vite",
     "build": "vite build",
     "serve": "vite preview",
