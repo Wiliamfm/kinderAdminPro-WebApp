@@ -22,6 +22,11 @@ Primary functional areas exposed through routes:
   - edit existing leave,
   - validate date order and overlap,
   - paginate leave history.
+- Store employee invoices in PocketBase:
+  - `invoices` links each invoice to one employee (`employee_id`),
+  - `invoice_files` stores the attached file,
+  - invoice upload is available from a dedicated action icon in the employees table,
+  - invoice history is shown in a modal with a single date column (`Fecha de registro`) that displays `update_datetime` and falls back to `creation_datetime`.
 
 ## Tech Stack
 - SolidJS + TypeScript + Vite

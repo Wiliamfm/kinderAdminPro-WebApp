@@ -1,14 +1,27 @@
 import pb, { normalizePocketBaseError } from './client';
 
+type PbLeaveRecord = {
+  id: string;
+  employee_id: string;
+  start_datetime: string;
+  end_datetime: string;
+};
+
+type PbLeavePayload = {
+  employee_id: string;
+  start_datetime: string;
+  end_datetime: string;
+};
+
 export type LeaveRecord = {
   id: string;
-  employee: string;
+  employeeId: string;
   start_datetime: string;
   end_datetime: string;
 };
 
 export type LeaveCreateInput = {
-  employee: string;
+  employeeId: string;
   start_datetime: string;
   end_datetime: string;
 };
@@ -30,9 +43,17 @@ function mapLeaveRecord(
 ): LeaveRecord {
   return {
     id: record.id,
-    employee: toStringValue(record.get?.('employee') ?? record.employee),
+    employeeId: toStringValue(record.get?.('employee_id') ?? record.employee_id),
     start_datetime: toStringValue(record.get?.('start_datetime') ?? record.start_datetime),
     end_datetime: toStringValue(record.get?.('end_datetime') ?? record.end_datetime),
+  };
+}
+
+function mapLeavePayload(payload: LeaveCreateInput): PbLeavePayload {
+  return {
+    employee_id: payload.employeeId,
+    start_datetime: payload.start_datetime,
+    end_datetime: payload.end_datetime,
   };
 }
 
@@ -44,7 +65,7 @@ export async function listEmployeeLeaves(
   try {
     const result = await pb.collection('leaves').getList(page, perPage, {
       sort: '-start_datetime',
-      filter: pb.filter('employee = {:employeeId}', { employeeId }),
+      filter: pb.filter('employee_id = {:employeeId}', { employeeId }),
     });
 
     return {
@@ -61,7 +82,7 @@ export async function listEmployeeLeaves(
 
 export async function createEmployeeLeave(payload: LeaveCreateInput): Promise<LeaveRecord> {
   try {
-    const record = await pb.collection('leaves').create(payload);
+    const record = await pb.collection('leaves').create(mapLeavePayload(payload));
     return mapLeaveRecord(record);
   } catch (error) {
     throw normalizePocketBaseError(error);
@@ -73,7 +94,7 @@ export async function updateEmployeeLeave(
   payload: LeaveCreateInput,
 ): Promise<LeaveRecord> {
   try {
-    const record = await pb.collection('leaves').update(id, payload);
+    const record = await pb.collection('leaves').update(id, mapLeavePayload(payload));
     return mapLeaveRecord(record);
   } catch (error) {
     throw normalizePocketBaseError(error);
@@ -88,7 +109,7 @@ export async function hasLeaveOverlap(
 ): Promise<boolean> {
   try {
     const baseFilter =
-      'employee = {:employeeId} && start_datetime < {:endIso} && end_datetime > {:startIso}';
+      'employee_id = {:employeeId} && start_datetime < {:endIso} && end_datetime > {:startIso}';
     const filter = excludeLeaveId
       ? `${baseFilter} && id != {:excludeLeaveId}`
       : baseFilter;

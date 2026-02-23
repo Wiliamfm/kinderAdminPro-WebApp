@@ -43,12 +43,12 @@ describe('leaves pocketbase client', () => {
   });
 
   it('lists employee leaves with descending sort and filter binding', async () => {
-    hoisted.filter.mockReturnValue('employee = "e1"');
+    hoisted.filter.mockReturnValue('employee_id = "e1"');
     hoisted.getList.mockResolvedValue({
       items: [
         {
           id: 'l1',
-          employee: 'e1',
+          employee_id: 'e1',
           start_datetime: '2026-02-01T10:00:00.000Z',
           end_datetime: '2026-02-01T12:00:00.000Z',
         },
@@ -65,52 +65,60 @@ describe('leaves pocketbase client', () => {
     expect(result.totalPages).toBe(2);
     expect(result.items[0]).toMatchObject({
       id: 'l1',
-      employee: 'e1',
+      employeeId: 'e1',
     });
-    expect(hoisted.filter).toHaveBeenCalledWith('employee = {:employeeId}', {
+    expect(hoisted.filter).toHaveBeenCalledWith('employee_id = {:employeeId}', {
       employeeId: 'e1',
     });
     expect(hoisted.getList).toHaveBeenCalledWith(2, 10, {
       sort: '-start_datetime',
-      filter: 'employee = "e1"',
+      filter: 'employee_id = "e1"',
     });
   });
 
   it('creates a leave record', async () => {
     hoisted.create.mockResolvedValue({
       id: 'l2',
-      employee: 'e1',
+      employee_id: 'e1',
       start_datetime: '2026-02-02T10:00:00.000Z',
       end_datetime: '2026-02-02T12:00:00.000Z',
     });
 
     const payload = {
-      employee: 'e1',
+      employeeId: 'e1',
       start_datetime: '2026-02-02T10:00:00.000Z',
       end_datetime: '2026-02-02T12:00:00.000Z',
     };
     const result = await createEmployeeLeave(payload);
 
-    expect(hoisted.create).toHaveBeenCalledWith(payload);
+    expect(hoisted.create).toHaveBeenCalledWith({
+      employee_id: 'e1',
+      start_datetime: '2026-02-02T10:00:00.000Z',
+      end_datetime: '2026-02-02T12:00:00.000Z',
+    });
     expect(result.id).toBe('l2');
   });
 
   it('updates a leave record', async () => {
     hoisted.update.mockResolvedValue({
       id: 'l2',
-      employee: 'e1',
+      employee_id: 'e1',
       start_datetime: '2026-02-02T10:00:00.000Z',
       end_datetime: '2026-02-02T14:00:00.000Z',
     });
 
     const payload = {
-      employee: 'e1',
+      employeeId: 'e1',
       start_datetime: '2026-02-02T10:00:00.000Z',
       end_datetime: '2026-02-02T14:00:00.000Z',
     };
     const result = await updateEmployeeLeave('l2', payload);
 
-    expect(hoisted.update).toHaveBeenCalledWith('l2', payload);
+    expect(hoisted.update).toHaveBeenCalledWith('l2', {
+      employee_id: 'e1',
+      start_datetime: '2026-02-02T10:00:00.000Z',
+      end_datetime: '2026-02-02T14:00:00.000Z',
+    });
     expect(result.id).toBe('l2');
   });
 
@@ -155,7 +163,7 @@ describe('leaves pocketbase client', () => {
 
     expect(result).toBe(false);
     expect(hoisted.filter).toHaveBeenCalledWith(
-      'employee = {:employeeId} && start_datetime < {:endIso} && end_datetime > {:startIso} && id != {:excludeLeaveId}',
+      'employee_id = {:employeeId} && start_datetime < {:endIso} && end_datetime > {:startIso} && id != {:excludeLeaveId}',
       {
         employeeId: 'e1',
         startIso: '2026-02-10T08:00:00.000Z',

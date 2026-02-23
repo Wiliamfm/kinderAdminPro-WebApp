@@ -21,6 +21,7 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - PocketBase SDK initialization and error normalization live in `src/lib/pocketbase/client.ts`.
 - Feature modules wrap collection calls and expose typed functions.
 - UI pages call wrapper functions via `createResource` and action handlers.
+- Wrapper modules use mapper functions to keep camelCase TypeScript semantics while translating to PocketBase snake_case fields (for example `employeeId` <-> `employee_id`).
 
 ## Authorization Model
 - App login uses PocketBase `users` auth collection.
@@ -42,6 +43,20 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - Edit mode:
   - tracked with reactive state (`editingLeaveId`),
   - submit performs create or update depending on edit state.
+
+## Invoices Data Model
+- `invoice_files` collection stores invoice file attachments.
+- `invoices` collection stores one-to-many employee invoices:
+  - relation `employee_id` -> `employees` (n:1),
+  - relation `file_id` -> `invoice_files` (n:1),
+  - `creation_datetime` autodate (`onCreate: true`),
+  - `update_datetime` autodate (`onCreate: true`, `onUpdate: true`),
+  - access rules mirror admin-only leaves access.
+- UI behavior in `src/pages/staff-employees.tsx`:
+  - upload action appears as a dedicated icon in each employee row (admin only),
+  - upload flow is `invoice_files.create` then `invoices.create`,
+  - invoice list is filtered by `employee_id` and sorted by `-update_datetime`,
+  - displayed date column uses `update_datetime` fallback to `creation_datetime`.
 
 ## Testing Architecture
 - Runner: Vitest (`vitest.config.ts`).
