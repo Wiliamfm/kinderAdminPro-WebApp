@@ -16,7 +16,12 @@ import {
   type LeaveCreateInput,
   type LeaveRecord,
 } from '../lib/pocketbase/leaves';
-import { createInvoice, listEmployeeInvoices, type InvoiceRecord } from '../lib/pocketbase/invoices';
+import {
+  createInvoice,
+  listEmployeeInvoices,
+  updateInvoice,
+  type InvoiceRecord,
+} from '../lib/pocketbase/invoices';
 import { createInvoiceFile } from '../lib/pocketbase/invoice-files';
 
 function formatSalary(value: number | string): string {
@@ -92,6 +97,7 @@ export default function StaffEmployeesPage() {
   const [invoiceBusy, setInvoiceBusy] = createSignal(false);
   const [invoiceError, setInvoiceError] = createSignal<string | null>(null);
   const [invoiceFile, setInvoiceFile] = createSignal<File | null>(null);
+  const [editingInvoice, setEditingInvoice] = createSignal<InvoiceRecord | null>(null);
   let invoiceFileInputRef: HTMLInputElement | undefined;
 
   const [leaves, { refetch: refetchLeaves }] = createResource(
@@ -154,6 +160,7 @@ export default function StaffEmployeesPage() {
     setInvoicePage(1);
     setInvoiceError(null);
     setInvoiceFile(null);
+    setEditingInvoice(null);
     if (invoiceFileInputRef) invoiceFileInputRef.value = '';
   };
 
@@ -172,6 +179,7 @@ export default function StaffEmployeesPage() {
     setInvoicePage(1);
     setInvoiceError(null);
     setInvoiceFile(null);
+    setEditingInvoice(null);
     if (invoiceFileInputRef) invoiceFileInputRef.value = '';
   };
 
@@ -313,6 +321,7 @@ export default function StaffEmployeesPage() {
   const submitInvoice = async () => {
     const target = invoiceTarget();
     if (!target) return;
+    const invoiceToEdit = editingInvoice();
 
     const file = validateInvoiceFile();
     if (!file) return;
@@ -322,12 +331,21 @@ export default function StaffEmployeesPage() {
 
     try {
       const createdFile = await createInvoiceFile({ file });
-      await createInvoice({
-        employeeId: target.id,
-        fileId: createdFile.id,
-      });
+      if (invoiceToEdit) {
+        await updateInvoice(invoiceToEdit.id, {
+          fileId: createdFile.id,
+          originalFileName: file.name,
+        });
+      } else {
+        await createInvoice({
+          employeeId: target.id,
+          fileId: createdFile.id,
+          originalFileName: file.name,
+        });
+      }
 
       setInvoiceFile(null);
+      setEditingInvoice(null);
       if (invoiceFileInputRef) invoiceFileInputRef.value = '';
       setInvoicePage(1);
       await refetchInvoices();
@@ -348,6 +366,12 @@ export default function StaffEmployeesPage() {
   const invoiceTotalPages = () => Math.max(1, invoices()?.totalPages ?? 1);
   const canGoPreviousInvoicePage = () => invoiceCurrentPage() > 1;
   const canGoNextInvoicePage = () => invoiceCurrentPage() < invoiceTotalPages();
+  const startEditInvoice = (invoice: InvoiceRecord) => {
+    setEditingInvoice(invoice);
+    setInvoiceError(null);
+    setInvoiceFile(null);
+    if (invoiceFileInputRef) invoiceFileInputRef.value = '';
+  };
 
   return (
     <section class="min-h-screen bg-yellow-50 p-8 text-gray-800">
@@ -597,7 +621,7 @@ export default function StaffEmployeesPage() {
         open={!!invoiceTarget()}
         title={invoiceTarget() ? `Facturas de ${invoiceTarget()?.name || 'empleado'}` : 'Facturas'}
         description="Sube una factura en PDF y consulta el historial de facturas del empleado."
-        confirmLabel="Subir factura"
+        confirmLabel={editingInvoice() ? 'Reemplazar factura' : 'Subir factura'}
         cancelLabel="Cerrar"
         busy={invoiceBusy()}
         size="xl"
@@ -631,6 +655,22 @@ export default function StaffEmployeesPage() {
               </p>
             </Show>
 
+            <Show when={editingInvoice()}>
+              <div class="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                <p>
+                  Reemplazando archivo de: {formatText(editingInvoice()?.name)}
+                </p>
+                <button
+                  type="button"
+                  class="rounded-md border border-blue-300 bg-white px-3 py-1 text-xs text-blue-700 transition-colors hover:bg-blue-100"
+                  onClick={() => setEditingInvoice(null)}
+                  disabled={invoiceBusy()}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </Show>
+
             <Show when={invoiceError()}>
               <div class="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {invoiceError()}
@@ -641,21 +681,22 @@ export default function StaffEmployeesPage() {
               <table class="min-w-[640px] w-full text-left text-sm">
                 <thead class="bg-yellow-100 text-gray-700">
                   <tr>
-                    <th class="px-4 py-3 font-semibold">ID de archivo</th>
+                    <th class="px-4 py-3 font-semibold">Nombre de archivo</th>
                     <th class="px-4 py-3 font-semibold">Fecha de registro</th>
+                    <th class="px-4 py-3 font-semibold">Acción</th>
                   </tr>
                 </thead>
                 <tbody>
                   <Show when={!invoices.loading} fallback={
                     <tr>
-                      <td class="px-4 py-4 text-gray-600" colSpan={2}>
+                      <td class="px-4 py-4 text-gray-600" colSpan={3}>
                         Cargando facturas...
                       </td>
                     </tr>
                   }>
                     <Show when={!invoices.error} fallback={
                       <tr>
-                        <td class="px-4 py-4 text-red-700" colSpan={2}>
+                        <td class="px-4 py-4 text-red-700" colSpan={3}>
                           {getErrorMessage(invoices.error)}
                         </td>
                       </tr>
@@ -664,7 +705,7 @@ export default function StaffEmployeesPage() {
                         when={invoiceItems().length > 0}
                         fallback={
                           <tr>
-                            <td class="px-4 py-4 text-gray-600" colSpan={2}>
+                            <td class="px-4 py-4 text-gray-600" colSpan={3}>
                               Este empleado no tiene facturas registradas.
                             </td>
                           </tr>
@@ -673,11 +714,22 @@ export default function StaffEmployeesPage() {
                         <For each={invoiceItems()}>
                           {(invoice: InvoiceRecord) => (
                             <tr class="border-t border-yellow-100 align-top">
-                              <td class="px-4 py-3">{formatText(invoice.fileId)}</td>
+                              <td class="px-4 py-3">{formatText(invoice.name)}</td>
                               <td class="px-4 py-3">
                                 {(invoice.updated || invoice.created)
                                   ? formatDateTime(invoice.updated || invoice.created)
                                   : 'No disponible'}
+                              </td>
+                              <td class="px-4 py-3">
+                                <button
+                                  type="button"
+                                  class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-yellow-300 bg-yellow-100 text-gray-700 transition-colors hover:bg-yellow-200"
+                                  aria-label={`Reemplazar archivo ${invoice.name || invoice.id}`}
+                                  onClick={() => startEditInvoice(invoice)}
+                                  disabled={invoiceBusy()}
+                                >
+                                  <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                                </button>
                               </td>
                             </tr>
                           )}

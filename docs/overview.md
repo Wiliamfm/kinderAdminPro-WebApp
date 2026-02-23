@@ -24,9 +24,11 @@ Primary functional areas exposed through routes:
   - paginate leave history.
 - Store employee invoices in PocketBase:
   - `invoices` links each invoice to one employee (`employee_id`),
+  - `invoices.name` stores the normalized original filename with a timestamp suffix (for example `factura_demo_20260223_1000.pdf`),
   - `invoice_files` stores the attached file,
   - invoice upload is available from a dedicated action icon in the employees table,
-  - invoice history is shown in a modal with a single date column (`Fecha de registro`) that displays `update_datetime` and falls back to `creation_datetime`.
+  - invoice history includes an edit action to upload a new file and replace the existing invoice file,
+  - invoice history is shown in a modal with filename (`Nombre de archivo`) and date (`Fecha de registro`) columns, where date displays `update_datetime` and falls back to `creation_datetime`.
 
 ## Tech Stack
 - SolidJS + TypeScript + Vite

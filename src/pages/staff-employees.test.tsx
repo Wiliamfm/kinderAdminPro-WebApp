@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
     hasLeaveOverlap: vi.fn(),
     listEmployeeInvoices: vi.fn(),
     createInvoice: vi.fn(),
+    updateInvoice: vi.fn(),
     createInvoiceFile: vi.fn(),
   };
 });
@@ -41,6 +42,7 @@ vi.mock('../lib/pocketbase/leaves', () => ({
 vi.mock('../lib/pocketbase/invoices', () => ({
   listEmployeeInvoices: mocks.listEmployeeInvoices,
   createInvoice: mocks.createInvoice,
+  updateInvoice: mocks.updateInvoice,
 }));
 
 vi.mock('../lib/pocketbase/invoice-files', () => ({
@@ -103,8 +105,17 @@ describe('StaffEmployeesPage features', () => {
       id: 'inv-1',
       employeeId: 'e1',
       fileId: 'file-1',
+      name: 'invoice_20260223_1000.pdf',
       created: '2026-02-23T10:00:00.000Z',
       updated: '2026-02-23T10:00:00.000Z',
+    });
+    mocks.updateInvoice.mockResolvedValue({
+      id: 'inv-1',
+      employeeId: 'e1',
+      fileId: 'file-2',
+      name: 'invoice_new_20260223_1100.pdf',
+      created: '2026-02-23T10:00:00.000Z',
+      updated: '2026-02-23T11:00:00.000Z',
     });
   });
 
@@ -357,7 +368,70 @@ describe('StaffEmployeesPage features', () => {
     expect(mocks.createInvoice).toHaveBeenCalledWith({
       employeeId: 'e1',
       fileId: 'file-1',
+      originalFileName: 'invoice.pdf',
     });
+  });
+
+  it('shows invoice file name in history table', async () => {
+    mocks.listEmployeeInvoices.mockResolvedValue({
+      items: [
+        {
+          id: 'inv-1',
+          employeeId: 'e1',
+          fileId: 'file-1',
+          name: 'factura_demo_20260223_1000.pdf',
+          created: '2026-02-23T10:00:00.000Z',
+          updated: '2026-02-23T10:00:00.000Z',
+        },
+      ],
+      page: 1,
+      perPage: 10,
+      totalItems: 1,
+      totalPages: 1,
+    });
+
+    await openInvoiceModal();
+
+    expect(screen.getByText('Nombre de archivo')).toBeInTheDocument();
+    expect(screen.getByText('Acción')).toBeInTheDocument();
+    expect(screen.getByText('factura_demo_20260223_1000.pdf')).toBeInTheDocument();
+    expect(screen.queryByText('file-1')).not.toBeInTheDocument();
+  });
+
+  it('replaces invoice file when edit action is selected', async () => {
+    mocks.listEmployeeInvoices.mockResolvedValue({
+      items: [
+        {
+          id: 'inv-1',
+          employeeId: 'e1',
+          fileId: 'file-1',
+          name: 'factura_demo_20260223_1000.pdf',
+          created: '2026-02-23T10:00:00.000Z',
+          updated: '2026-02-23T10:00:00.000Z',
+        },
+      ],
+      page: 1,
+      perPage: 10,
+      totalItems: 1,
+      totalPages: 1,
+    });
+
+    await openInvoiceModal();
+    fireEvent.click(screen.getByLabelText('Reemplazar archivo factura_demo_20260223_1000.pdf'));
+
+    const input = screen.getByLabelText('Archivo de factura (PDF)') as HTMLInputElement;
+    const file = new File(['pdf-content'], 'factura nueva.pdf', { type: 'application/pdf' });
+    fireEvent.change(input, { target: { files: [file] } });
+    fireEvent.click(screen.getByText('Reemplazar factura'));
+
+    await waitFor(() => {
+      expect(mocks.createInvoiceFile).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.updateInvoice).toHaveBeenCalledWith('inv-1', {
+      fileId: 'file-1',
+      originalFileName: 'factura nueva.pdf',
+    });
+    expect(mocks.createInvoice).not.toHaveBeenCalled();
   });
 
   it('supports invoices pagination next and previous', async () => {
