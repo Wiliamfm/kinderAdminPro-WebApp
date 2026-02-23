@@ -4,7 +4,7 @@
   "description": "",
   "type": "module",
   "scripts": {
-    "start": "bunx http-server ./dist",
+    "start": "bun x http-server ./dist",
     "dev": "vite",
     "build": "vite build",
     "serve": "vite preview",
