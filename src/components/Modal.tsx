@@ -8,6 +8,7 @@ type ModalProps = {
   cancelLabel?: string;
   busy?: boolean;
   variant?: 'default' | 'danger';
+  size?: 'md' | 'xl';
   onConfirm: () => void;
   onClose: () => void;
   children?: JSX.Element;
@@ -37,7 +38,13 @@ const Modal: Component<ModalProps> = (props) => {
           }
         }}
       >
-        <div class="w-full max-w-md rounded-xl border border-yellow-300 bg-white p-6 shadow-xl">
+        <div
+          class="w-full rounded-xl border border-yellow-300 bg-white p-6 shadow-xl"
+          classList={{
+            'max-w-md': props.size !== 'xl',
+            'max-w-4xl': props.size === 'xl',
+          }}
+        >
           <h2 class="text-lg font-semibold text-gray-900">{props.title}</h2>
           <Show when={props.description}>
             <p class="mt-2 text-sm text-gray-600">{props.description}</p>

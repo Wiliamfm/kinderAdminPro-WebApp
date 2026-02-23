@@ -18,6 +18,11 @@ export function getAuthUser() {
   return pb.authStore.record;
 }
 
+export function isAuthUserAdmin(): boolean {
+  const record = getAuthUser() as { is_admin?: unknown } | null;
+  return record?.is_admin === true;
+}
+
 export function getAuthUserIdentity(): { name: string; email: string } {
   const record = getAuthUser();
   const rawName = typeof record?.name === 'string' ? record.name.trim() : '';

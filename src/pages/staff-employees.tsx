@@ -1,12 +1,20 @@
 import { useNavigate } from '@solidjs/router';
 import { createResource, createSignal, For, Show } from 'solid-js';
 import Modal from '../components/Modal';
+import { isAuthUserAdmin } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
   deactivateEmployee,
   listActiveEmployees,
   type EmployeeRecord,
 } from '../lib/pocketbase/employees';
+import {
+  createEmployeeLeave,
+  hasLeaveOverlap,
+  listEmployeeLeaves,
+  type LeaveCreateInput,
+  type LeaveRecord,
+} from '../lib/pocketbase/leaves';
 
 function formatSalary(value: number | string): string {
   if (typeof value === 'number') {
@@ -28,6 +36,17 @@ function formatText(value: string): string {
   return value.trim().length > 0 ? value : '—';
 }
 
+function formatDateTime(value: string): string {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '—';
+
+  return new Intl.DateTimeFormat('es-CO', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(parsed);
+}
+
 function getErrorMessage(error: unknown): string {
   const normalized = error as PocketBaseRequestError | undefined;
   if (normalized && typeof normalized.message === 'string') {
@@ -41,12 +60,39 @@ function getErrorMessage(error: unknown): string {
   return 'No se pudo cargar la lista de empleados.';
 }
 
+const LEAVES_PAGE_SIZE = 10;
+const emptyLeaveForm: LeaveCreateInput = {
+  employee: '',
+  start_datetime: '',
+  end_datetime: '',
+};
+
 export default function StaffEmployeesPage() {
   const navigate = useNavigate();
+  const canManageLeaves = () => isAuthUserAdmin();
+
   const [employees, { refetch }] = createResource(listActiveEmployees);
   const [deleteTarget, setDeleteTarget] = createSignal<EmployeeRecord | null>(null);
   const [deleteBusy, setDeleteBusy] = createSignal(false);
   const [actionError, setActionError] = createSignal<string | null>(null);
+  const [leaveTarget, setLeaveTarget] = createSignal<EmployeeRecord | null>(null);
+  const [leaveForm, setLeaveForm] = createSignal<LeaveCreateInput>(emptyLeaveForm);
+  const [leavePage, setLeavePage] = createSignal(1);
+  const [leaveBusy, setLeaveBusy] = createSignal(false);
+  const [leaveError, setLeaveError] = createSignal<string | null>(null);
+
+  const [leaves, { refetch: refetchLeaves }] = createResource(
+    () => {
+      const target = leaveTarget();
+      if (!target) return undefined;
+
+      return {
+        employeeId: target.id,
+        page: leavePage(),
+      };
+    },
+    ({ employeeId, page }) => listEmployeeLeaves(employeeId, page, LEAVES_PAGE_SIZE),
+  );
 
   const confirmDeactivateEmployee = async () => {
     const target = deleteTarget();
@@ -65,6 +111,119 @@ export default function StaffEmployeesPage() {
       setDeleteBusy(false);
     }
   };
+
+  const openLeavesModal = (employee: EmployeeRecord) => {
+    setLeaveTarget(employee);
+    setLeavePage(1);
+    setLeaveError(null);
+    setLeaveForm({
+      employee: employee.id,
+      start_datetime: '',
+      end_datetime: '',
+    });
+  };
+
+  const closeLeavesModal = () => {
+    if (leaveBusy()) return;
+    setLeaveTarget(null);
+    setLeavePage(1);
+    setLeaveError(null);
+    setLeaveForm(emptyLeaveForm);
+  };
+
+  const updateLeaveField = (field: 'start_datetime' | 'end_datetime', value: string) => {
+    setLeaveForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  };
+
+  const parseLocalDateTime = (value: string): Date | null => {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  const validateLeaveForm = (): { start: Date; end: Date; target: LeaveCreateInput } | null => {
+    const employee = leaveTarget();
+    if (!employee) {
+      setLeaveError('No se encontró el empleado seleccionado.');
+      return null;
+    }
+
+    const startValue = leaveForm().start_datetime.trim();
+    const endValue = leaveForm().end_datetime.trim();
+
+    if (!startValue || !endValue) {
+      setLeaveError('Debes completar fecha y hora de inicio y fin.');
+      return null;
+    }
+
+    const start = parseLocalDateTime(startValue);
+    const end = parseLocalDateTime(endValue);
+    if (!start || !end) {
+      setLeaveError('Las fechas ingresadas no son válidas.');
+      return null;
+    }
+
+    if (end.getTime() <= start.getTime()) {
+      setLeaveError('La fecha de fin debe ser posterior a la fecha de inicio.');
+      return null;
+    }
+
+    return {
+      start,
+      end,
+      target: {
+        employee: employee.id,
+        start_datetime: start.toISOString(),
+        end_datetime: end.toISOString(),
+      },
+    };
+  };
+
+  const submitLeave = async () => {
+    const target = leaveTarget();
+    if (!target) return;
+
+    const validated = validateLeaveForm();
+    if (!validated) return;
+
+    setLeaveBusy(true);
+    setLeaveError(null);
+
+    try {
+      const overlap = await hasLeaveOverlap(
+        target.id,
+        validated.target.start_datetime,
+        validated.target.end_datetime,
+      );
+
+      if (overlap) {
+        setLeaveError('La licencia se cruza con otra licencia existente para este empleado.');
+        return;
+      }
+
+      await createEmployeeLeave(validated.target);
+      setLeaveForm((current) => ({
+        ...current,
+        start_datetime: '',
+        end_datetime: '',
+      }));
+
+      setLeavePage(1);
+      await refetchLeaves();
+    } catch (error) {
+      setLeaveError(getErrorMessage(error));
+    } finally {
+      setLeaveBusy(false);
+    }
+  };
+
+  const leavesItems = () => leaves()?.items ?? [];
+  const leavesPage = () => leaves()?.page ?? 1;
+  const leavesTotalPages = () => Math.max(1, leaves()?.totalPages ?? 1);
+  const canGoPreviousLeavesPage = () => leavesPage() > 1;
+  const canGoNextLeavesPage = () => leavesPage() < leavesTotalPages();
 
   return (
     <section class="min-h-screen bg-yellow-50 p-8 text-gray-800">
@@ -133,6 +292,17 @@ export default function StaffEmployeesPage() {
                               <i class="bi bi-pencil-square" aria-hidden="true"></i>
                             </button>
 
+                            <Show when={canManageLeaves()}>
+                              <button
+                                type="button"
+                                class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-blue-300 bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100"
+                                aria-label={`Gestionar licencias de ${employee.name || 'empleado'}`}
+                                onClick={() => openLeavesModal(employee)}
+                              >
+                                <i class="bi bi-calendar-plus" aria-hidden="true"></i>
+                              </button>
+                            </Show>
+
                             <button
                               type="button"
                               class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-300 bg-red-50 text-red-700 transition-colors hover:bg-red-100"
@@ -152,6 +322,131 @@ export default function StaffEmployeesPage() {
           </table>
         </div>
       </div>
+
+      <Modal
+        open={!!leaveTarget()}
+        title={leaveTarget() ? `Licencias de ${leaveTarget()?.name || 'empleado'}` : 'Licencias'}
+        description="Registra una licencia y consulta el historial del empleado (ordenado por fecha de inicio)."
+        confirmLabel="Guardar licencia"
+        cancelLabel="Cerrar"
+        busy={leaveBusy()}
+        size="xl"
+        onConfirm={submitLeave}
+        onClose={closeLeavesModal}
+      >
+        <Show when={canManageLeaves()} fallback={
+          <div class="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+            No tienes permisos para gestionar licencias.
+          </div>
+        }>
+          <div class="space-y-4">
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <label class="block">
+                <span class="text-sm text-gray-700">Inicio de licencia</span>
+                <input
+                  class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  type="datetime-local"
+                  value={leaveForm().start_datetime}
+                  onInput={(event) => updateLeaveField('start_datetime', event.currentTarget.value)}
+                  disabled={leaveBusy()}
+                />
+              </label>
+              <label class="block">
+                <span class="text-sm text-gray-700">Fin de licencia</span>
+                <input
+                  class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  type="datetime-local"
+                  value={leaveForm().end_datetime}
+                  onInput={(event) => updateLeaveField('end_datetime', event.currentTarget.value)}
+                  disabled={leaveBusy()}
+                />
+              </label>
+            </div>
+
+            <p class="text-xs text-gray-500">
+              Las fechas se capturan en tu hora local y se guardan en UTC.
+            </p>
+
+            <Show when={leaveError()}>
+              <div class="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {leaveError()}
+              </div>
+            </Show>
+
+            <div class="overflow-x-auto rounded-lg border border-yellow-200">
+              <table class="min-w-[640px] w-full text-left text-sm">
+                <thead class="bg-yellow-100 text-gray-700">
+                  <tr>
+                    <th class="px-4 py-3 font-semibold">Inicio</th>
+                    <th class="px-4 py-3 font-semibold">Fin</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <Show when={!leaves.loading} fallback={
+                    <tr>
+                      <td class="px-4 py-4 text-gray-600" colSpan={2}>
+                        Cargando licencias...
+                      </td>
+                    </tr>
+                  }>
+                    <Show when={!leaves.error} fallback={
+                      <tr>
+                        <td class="px-4 py-4 text-red-700" colSpan={2}>
+                          {getErrorMessage(leaves.error)}
+                        </td>
+                      </tr>
+                    }>
+                      <Show
+                        when={leavesItems().length > 0}
+                        fallback={
+                          <tr>
+                            <td class="px-4 py-4 text-gray-600" colSpan={2}>
+                              Este empleado no tiene licencias registradas.
+                            </td>
+                          </tr>
+                        }
+                      >
+                        <For each={leavesItems()}>
+                          {(leave: LeaveRecord) => (
+                            <tr class="border-t border-yellow-100 align-top">
+                              <td class="px-4 py-3">{formatDateTime(leave.start_datetime)}</td>
+                              <td class="px-4 py-3">{formatDateTime(leave.end_datetime)}</td>
+                            </tr>
+                          )}
+                        </For>
+                      </Show>
+                    </Show>
+                  </Show>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <p class="text-xs text-gray-600">
+                Página {leavesPage()} de {leavesTotalPages()}
+              </p>
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  class="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={leaveBusy() || leaves.loading || !canGoPreviousLeavesPage()}
+                  onClick={() => setLeavePage((current) => Math.max(1, current - 1))}
+                >
+                  Anterior
+                </button>
+                <button
+                  type="button"
+                  class="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={leaveBusy() || leaves.loading || !canGoNextLeavesPage()}
+                  onClick={() => setLeavePage((current) => current + 1)}
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+          </div>
+        </Show>
+      </Modal>
 
       <Modal
         open={!!deleteTarget()}
