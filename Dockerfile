@@ -23,6 +23,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup -u 1001
 COPY --from=build --chown=appuser:appgroup /app/dist ./dist
 COPY --from=build --chown=appuser:appgroup /app/package.json ./package.json
 COPY --from=build --chown=appuser:appgroup /app/node_modules ./node_modules
+COPY --from=build --chown=appuser:appgroup /app/vite.config.ts ./vite.config.ts
 
 USER appuser
 
