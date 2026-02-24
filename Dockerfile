@@ -10,26 +10,31 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-ARG VITE_PB_URL=http://127.0.0.1:8090
+ARG VITE_PB_URL=https://kinderadminpro-pocketbase.onrender.com
+
 ENV VITE_PB_URL=${VITE_PB_URL}
 
 RUN bun run build
 
-FROM docker.io/oven/bun:1-alpine AS runtime
-WORKDIR /app
+# FROM docker.io/oven/bun:1-alpine AS runtime
+# WORKDIR /app
+#
+# RUN addgroup -S appgroup && adduser -S appuser -G appgroup -u 1001
+#
+# COPY --from=build --chown=appuser:appgroup /app/dist ./dist
+# COPY --from=build --chown=appuser:appgroup /app/package.json ./package.json
+# COPY --from=build --chown=appuser:appgroup /app/node_modules ./node_modules
+#
+# USER appuser
+#
+# EXPOSE 3000
+#
+# HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+#   CMD bun -e "await fetch('http://127.0.0.1:3000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+#
+# CMD ["bun", "run", "start", "--port", "3000", "--host", "0.0.0.0"]
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup -u 1001
-
-COPY --from=build --chown=appuser:appgroup /app/dist ./dist
-COPY --from=build --chown=appuser:appgroup /app/package.json ./package.json
-COPY --from=build --chown=appuser:appgroup /app/node_modules ./node_modules
-COPY --from=build --chown=appuser:appgroup /app/vite.config.ts ./vite.config.ts
-
-USER appuser
-
-EXPOSE 3000
-
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD bun -e "await fetch('http://127.0.0.1:3000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
-
-CMD ["bun", "run", "start", "--port", "3000", "--host", "0.0.0.0"]
+FROM nginx:alpine  
+COPY --from=build /app/dist /usr/share/nginx/html  
+EXPOSE 80  
+CMD ["nginx", "-g", "daemon off;"]

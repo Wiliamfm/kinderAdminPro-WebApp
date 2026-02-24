@@ -1,7 +1,7 @@
 import PocketBase, { ClientResponseError } from 'pocketbase';
 
 function getPocketBaseUrl(): string {
-  const rawUrl = import.meta.env.VITE_PB_URL?.trim() || 'http://127.0.0.1:8090';
+  const rawUrl = import.meta.env.VITE_PB_URL?.trim() || 'https://kinderadminpro-pocketbase.onrender.com' || 'http://127.0.0.1:8090';
 
   try {
     const parsed = new URL(rawUrl);
