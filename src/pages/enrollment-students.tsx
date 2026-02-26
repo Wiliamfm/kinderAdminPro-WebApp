@@ -83,6 +83,12 @@ function parseOptionalNumber(value: string): number | null {
   return numeric;
 }
 
+function isAtLeastYearsOld(date: Date, minimumYears: number): boolean {
+  const threshold = new Date();
+  threshold.setFullYear(threshold.getFullYear() - minimumYears);
+  return date.getTime() <= threshold.getTime();
+}
+
 export default function EnrollmentStudentsPage() {
   const navigate = useNavigate();
   const [students, { refetch }] = createResource(async () => {
@@ -133,6 +139,10 @@ export default function EnrollmentStudentsPage() {
     const dateOfBirth = new Date(current.date_of_birth.trim());
     if (Number.isNaN(dateOfBirth.getTime())) {
       setCreateError('La fecha de nacimiento no es válida.');
+      return null;
+    }
+    if (!isAtLeastYearsOld(dateOfBirth, 2)) {
+      setCreateError('El estudiante debe tener al menos 2 años.');
       return null;
     }
 

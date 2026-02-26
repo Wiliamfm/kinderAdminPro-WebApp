@@ -39,6 +39,16 @@ const studentFixture = {
   active: true,
 };
 
+function toDateTimeLocalValue(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 describe('EnrollmentStudentEditPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -94,5 +104,22 @@ describe('EnrollmentStudentEditPage', () => {
     await waitFor(() => {
       expect(mocks.navigate).toHaveBeenCalledWith('/enrollment-management/students', { replace: true });
     });
+  });
+
+  it('blocks update when student is younger than 2 years', async () => {
+    render(() => <EnrollmentStudentEditPage />);
+    await screen.findByDisplayValue('Ana');
+
+    const tooYoung = new Date();
+    tooYoung.setFullYear(tooYoung.getFullYear() - 1);
+
+    fireEvent.input(screen.getByLabelText('Fecha de nacimiento'), {
+      target: { value: toDateTimeLocalValue(tooYoung) },
+    });
+
+    fireEvent.click(screen.getByText('Guardar cambios'));
+
+    expect(await screen.findByText('El estudiante debe tener al menos 2 años.')).toBeInTheDocument();
+    expect(mocks.updateStudent).not.toHaveBeenCalled();
   });
 });

@@ -41,6 +41,16 @@ const studentsFixture = [
   },
 ];
 
+function toDateTimeLocalValue(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 describe('EnrollmentStudentsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -97,6 +107,31 @@ describe('EnrollmentStudentsPage', () => {
         }),
       );
     });
+  });
+
+  it('blocks create when student is younger than 2 years', async () => {
+    render(() => <EnrollmentStudentsPage />);
+    await screen.findByText('Ana');
+
+    const tooYoung = new Date();
+    tooYoung.setFullYear(tooYoung.getFullYear() - 1);
+
+    fireEvent.click(screen.getByText('Nuevo estudiante'));
+    await screen.findByRole('heading', { name: 'Crear estudiante' });
+
+    fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'Bebe' } });
+    fireEvent.input(screen.getByLabelText('Fecha de nacimiento'), {
+      target: { value: toDateTimeLocalValue(tooYoung) },
+    });
+    fireEvent.input(screen.getByLabelText('Lugar de nacimiento'), { target: { value: 'Bogota' } });
+    fireEvent.input(screen.getByLabelText('Departamento'), { target: { value: 'Cundinamarca' } });
+    fireEvent.input(screen.getByLabelText('Documento'), { target: { value: 'DOC-NEW' } });
+    fireEvent.change(screen.getByLabelText('Tipo de sangre'), { target: { value: 'A+' } });
+
+    fireEvent.click(screen.getAllByText('Crear estudiante')[1]);
+
+    expect(await screen.findByText('El estudiante debe tener al menos 2 años.')).toBeInTheDocument();
+    expect(mocks.createStudent).not.toHaveBeenCalled();
   });
 
   it('soft deletes a student from confirmation modal', async () => {
