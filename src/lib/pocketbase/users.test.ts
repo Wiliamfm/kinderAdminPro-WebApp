@@ -6,6 +6,7 @@ import {
   deleteAppUser,
   getAuthUserId,
   listAppUsers,
+  listAppUsersPage,
   requestAuthenticatedUserEmailChange,
   resendUserOnboarding,
   sendPasswordSetupEmail,
@@ -17,6 +18,7 @@ import {
 const hoisted = vi.hoisted(() => {
   const create = vi.fn();
   const getFullList = vi.fn();
+  const getList = vi.fn();
   const update = vi.fn();
   const del = vi.fn();
   const requestVerification = vi.fn();
@@ -30,6 +32,7 @@ const hoisted = vi.hoisted(() => {
     collection: vi.fn(() => ({
       create,
       getFullList,
+      getList,
       update,
       delete: del,
       requestVerification,
@@ -47,6 +50,7 @@ const hoisted = vi.hoisted(() => {
   return {
     create,
     getFullList,
+    getList,
     update,
     del,
     requestVerification,
@@ -189,6 +193,42 @@ describe('users pocketbase client', () => {
         verified: false,
       },
     ]);
+  });
+
+  it('lists app users page with mapped sort fields', async () => {
+    hoisted.getList.mockResolvedValue({
+      items: [
+        {
+          id: 'u1',
+          email: 'ana@test.com',
+          name: 'Ana',
+          is_admin: true,
+          verified: true,
+        },
+      ],
+      page: 2,
+      perPage: 10,
+      totalItems: 11,
+      totalPages: 2,
+    });
+
+    const result = await listAppUsersPage(2, 10, {
+      sortField: 'isAdmin',
+      sortDirection: 'desc',
+    });
+
+    expect(hoisted.getList).toHaveBeenCalledWith(2, 10, {
+      sort: '-is_admin',
+    });
+    expect(result.page).toBe(2);
+    expect(result.totalPages).toBe(2);
+    expect(result.items[0]).toEqual({
+      id: 'u1',
+      email: 'ana@test.com',
+      name: 'Ana',
+      isAdmin: true,
+      verified: true,
+    });
   });
 
   it('updates app user fields', async () => {

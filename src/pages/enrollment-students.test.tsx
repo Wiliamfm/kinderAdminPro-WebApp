@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   isAuthUserAdmin: vi.fn(),
   listGrades: vi.fn(),
-  listActiveStudents: vi.fn(),
+  listActiveStudentsPage: vi.fn(),
   createStudent: vi.fn(),
   deactivateStudent: vi.fn(),
 }));
@@ -20,7 +20,7 @@ vi.mock('../lib/pocketbase/auth', () => ({
 }));
 
 vi.mock('../lib/pocketbase/students', () => ({
-  listActiveStudents: mocks.listActiveStudents,
+  listActiveStudentsPage: mocks.listActiveStudentsPage,
   createStudent: mocks.createStudent,
   deactivateStudent: mocks.deactivateStudent,
 }));
@@ -51,6 +51,14 @@ const studentsFixture = [
   },
 ];
 
+const studentsPageFixture = {
+  items: studentsFixture,
+  page: 1,
+  perPage: 10,
+  totalItems: studentsFixture.length,
+  totalPages: 1,
+};
+
 function toDateTimeLocalValue(date: Date): string {
   const pad = (value: number) => String(value).padStart(2, '0');
   const year = date.getFullYear();
@@ -66,7 +74,7 @@ describe('EnrollmentStudentsPage', () => {
     vi.clearAllMocks();
     mocks.isAuthUserAdmin.mockReturnValue(true);
     mocks.listGrades.mockResolvedValue(gradesFixture);
-    mocks.listActiveStudents.mockResolvedValue(studentsFixture);
+    mocks.listActiveStudentsPage.mockResolvedValue(studentsPageFixture);
     mocks.createStudent.mockResolvedValue(studentsFixture[0]);
     mocks.deactivateStudent.mockResolvedValue(undefined);
   });
@@ -78,7 +86,7 @@ describe('EnrollmentStudentsPage', () => {
     await waitFor(() => {
       expect(mocks.navigate).toHaveBeenCalledWith('/enrollment-management', { replace: true });
     });
-    expect(mocks.listActiveStudents).not.toHaveBeenCalled();
+    expect(mocks.listActiveStudentsPage).not.toHaveBeenCalled();
   });
 
   it('renders students table with actions', async () => {
@@ -91,27 +99,17 @@ describe('EnrollmentStudentsPage', () => {
     expect(screen.getByLabelText('Eliminar estudiante Ana')).toBeInTheDocument();
   });
 
-  it('sorts students by document column when header is clicked', async () => {
-    mocks.listActiveStudents.mockResolvedValue([
-      studentsFixture[0],
-      {
-        ...studentsFixture[0],
-        id: 's2',
-        name: 'Bruno',
-        document_id: '9999',
-      },
-    ]);
-
+  it('requests students sorted by document column when header is clicked', async () => {
     render(() => <EnrollmentStudentsPage />);
     await screen.findByText('Ana');
-    await screen.findByText('Bruno');
 
     fireEvent.click(screen.getByRole('button', { name: 'Documento' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Documento' }));
-
-    const rows = screen.getAllByRole('row').slice(1);
-    expect(rows[0]).toHaveTextContent('Bruno');
-    expect(rows[1]).toHaveTextContent('Ana');
+    await waitFor(() => {
+      expect(mocks.listActiveStudentsPage).toHaveBeenCalledWith(1, 10, {
+        sortField: 'document_id',
+        sortDirection: 'asc',
+      });
+    });
   });
 
   it('creates a student from modal', async () => {
@@ -222,5 +220,53 @@ describe('EnrollmentStudentsPage', () => {
     fireEvent.click(screen.getByLabelText('Editar estudiante Ana'));
 
     expect(mocks.navigate).toHaveBeenCalledWith('/enrollment-management/students/s1');
+  });
+
+  it('supports students pagination next and previous', async () => {
+    mocks.listActiveStudentsPage.mockImplementation(async (page: number) => {
+      if (page === 1) {
+        return {
+          items: [studentsFixture[0]],
+          page: 1,
+          perPage: 10,
+          totalItems: 11,
+          totalPages: 2,
+        };
+      }
+
+      return {
+        items: [
+          {
+            ...studentsFixture[0],
+            id: 's2',
+            name: 'Bruno',
+            document_id: '1002',
+          },
+        ],
+        page: 2,
+        perPage: 10,
+        totalItems: 11,
+        totalPages: 2,
+      };
+    });
+
+    render(() => <EnrollmentStudentsPage />);
+    await screen.findByText('Ana');
+
+    fireEvent.click(screen.getByText('Siguiente'));
+    await waitFor(() => {
+      expect(mocks.listActiveStudentsPage).toHaveBeenCalledWith(2, 10, {
+        sortField: 'name',
+        sortDirection: 'asc',
+      });
+    });
+
+    fireEvent.click(screen.getByText('Anterior'));
+    await waitFor(() => {
+      expect(mocks.listActiveStudentsPage).toHaveBeenCalledWith(1, 10, {
+        sortField: 'name',
+        sortDirection: 'asc',
+      });
+    });
   });
 });

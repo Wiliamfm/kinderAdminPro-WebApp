@@ -21,7 +21,9 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - All data columns in page tables and modal tables are sortable via clickable headers.
 - Action columns are intentionally not sortable.
 - Sort toggle behavior is `asc`/`desc`; selecting a different column starts in `asc`.
-- For paginated data (`leaves`, `invoices`), sorting is handled server-side so order remains consistent across pages.
+- All route and modal tables are paginated with `10` rows per page.
+- Sorting for paginated tables is handled server-side so order remains consistent across pages.
+- Shared pagination UI controls live in `src/components/PaginationControls.tsx`.
 
 ## Form Validation Pattern
 - Admin forms use touched-based realtime validation.

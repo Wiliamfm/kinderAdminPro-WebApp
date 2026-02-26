@@ -1,4 +1,5 @@
 import pb, { normalizePocketBaseError } from './client';
+import type { PaginatedListResult } from '../table/pagination';
 
 export type EmployeeRecord = {
   id: string;
@@ -26,6 +27,24 @@ export type EmployeeUpdateInput = {
 export type EmployeeCreateInput = EmployeeUpdateInput & {
   userId: string;
 };
+
+export type EmployeeListSortField =
+  | 'name'
+  | 'jobSalary'
+  | 'jobName'
+  | 'email'
+  | 'phone'
+  | 'address'
+  | 'emergency_contact';
+
+export type EmployeeListSortDirection = 'asc' | 'desc';
+
+export type EmployeeListOptions = {
+  sortField?: EmployeeListSortField;
+  sortDirection?: EmployeeListSortDirection;
+};
+
+export type PaginatedEmployeesResult = PaginatedListResult<EmployeeRecord>;
 
 type PbEmployeeCreatePayload = {
   name: string;
@@ -113,6 +132,24 @@ function mapEmployeeCreatePayload(payload: EmployeeCreateInput): PbEmployeeCreat
   };
 }
 
+const EMPLOYEE_SORT_FIELD_MAP: Record<EmployeeListSortField, string> = {
+  name: 'name',
+  jobSalary: 'job_id.salary',
+  jobName: 'job_id.name',
+  email: 'email',
+  phone: 'phone',
+  address: 'address',
+  emergency_contact: 'emergency_contact',
+};
+
+function buildSortExpression(
+  sortField: EmployeeListSortField,
+  sortDirection: EmployeeListSortDirection,
+): string {
+  const mappedField = EMPLOYEE_SORT_FIELD_MAP[sortField];
+  return sortDirection === 'desc' ? `-${mappedField}` : mappedField;
+}
+
 export async function listActiveEmployees(): Promise<EmployeeRecord[]> {
   try {
     const records = await pb.collection('employees').getFullList({
@@ -120,6 +157,32 @@ export async function listActiveEmployees(): Promise<EmployeeRecord[]> {
       expand: 'job_id',
     });
     return records.map((record) => mapEmployeeRecord(record)).filter((record) => record.active);
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
+export async function listActiveEmployeesPage(
+  page: number,
+  perPage: number,
+  options: EmployeeListOptions = {},
+): Promise<PaginatedEmployeesResult> {
+  try {
+    const sortField = options.sortField ?? 'name';
+    const sortDirection = options.sortDirection ?? 'asc';
+    const result = await pb.collection('employees').getList(page, perPage, {
+      sort: buildSortExpression(sortField, sortDirection),
+      filter: 'active = true',
+      expand: 'job_id',
+    });
+
+    return {
+      items: result.items.map((record) => mapEmployeeRecord(record)),
+      page: result.page,
+      perPage: result.perPage,
+      totalItems: result.totalItems,
+      totalPages: result.totalPages,
+    };
   } catch (error) {
     throw normalizePocketBaseError(error);
   }

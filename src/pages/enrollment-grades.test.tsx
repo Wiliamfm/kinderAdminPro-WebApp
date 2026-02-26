@@ -5,7 +5,7 @@ import EnrollmentGradesPage from './enrollment-grades';
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   isAuthUserAdmin: vi.fn(),
-  listGrades: vi.fn(),
+  listGradesPage: vi.fn(),
   createGrade: vi.fn(),
   updateGrade: vi.fn(),
   deleteGrade: vi.fn(),
@@ -21,7 +21,7 @@ vi.mock('../lib/pocketbase/auth', () => ({
 }));
 
 vi.mock('../lib/pocketbase/grades', () => ({
-  listGrades: mocks.listGrades,
+  listGradesPage: mocks.listGradesPage,
   createGrade: mocks.createGrade,
   updateGrade: mocks.updateGrade,
   deleteGrade: mocks.deleteGrade,
@@ -33,11 +33,19 @@ const gradesFixture = [
   { id: 'g2', name: 'Segundo A', capacity: 35 },
 ];
 
+const gradesPageFixture = {
+  items: gradesFixture,
+  page: 1,
+  perPage: 10,
+  totalItems: gradesFixture.length,
+  totalPages: 1,
+};
+
 describe('EnrollmentGradesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.isAuthUserAdmin.mockReturnValue(true);
-    mocks.listGrades.mockResolvedValue(gradesFixture);
+    mocks.listGradesPage.mockResolvedValue(gradesPageFixture);
     mocks.createGrade.mockResolvedValue(gradesFixture[0]);
     mocks.updateGrade.mockResolvedValue(gradesFixture[0]);
     mocks.deleteGrade.mockResolvedValue(undefined);
@@ -61,16 +69,17 @@ describe('EnrollmentGradesPage', () => {
     expect(await screen.findByRole('heading', { name: 'Crear grado' })).toBeInTheDocument();
   });
 
-  it('sorts grades by capacity when header is clicked', async () => {
+  it('requests grades sorted by capacity when header is clicked', async () => {
     render(() => <EnrollmentGradesPage />);
     await screen.findByText('Primero A');
 
     fireEvent.click(screen.getByRole('button', { name: 'Capacidad' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Capacidad' }));
-
-    const rows = screen.getAllByRole('row').slice(1);
-    expect(rows[0]).toHaveTextContent('Segundo A');
-    expect(rows[1]).toHaveTextContent('Primero A');
+    await waitFor(() => {
+      expect(mocks.listGradesPage).toHaveBeenCalledWith(1, 10, {
+        sortField: 'capacity',
+        sortDirection: 'asc',
+      });
+    });
   });
 
   it('creates a grade', async () => {
@@ -129,5 +138,46 @@ describe('EnrollmentGradesPage', () => {
     });
     expect(mocks.deleteGrade).not.toHaveBeenCalled();
     expect(await screen.findByText(/No se puede eliminar el grado Primero A/)).toBeInTheDocument();
+  });
+
+  it('supports grades pagination next and previous', async () => {
+    mocks.listGradesPage.mockImplementation(async (page: number) => {
+      if (page === 1) {
+        return {
+          items: [gradesFixture[0]],
+          page: 1,
+          perPage: 10,
+          totalItems: 11,
+          totalPages: 2,
+        };
+      }
+
+      return {
+        items: [gradesFixture[1]],
+        page: 2,
+        perPage: 10,
+        totalItems: 11,
+        totalPages: 2,
+      };
+    });
+
+    render(() => <EnrollmentGradesPage />);
+    await screen.findByText('Primero A');
+
+    fireEvent.click(screen.getByText('Siguiente'));
+    await waitFor(() => {
+      expect(mocks.listGradesPage).toHaveBeenCalledWith(2, 10, {
+        sortField: 'name',
+        sortDirection: 'asc',
+      });
+    });
+
+    fireEvent.click(screen.getByText('Anterior'));
+    await waitFor(() => {
+      expect(mocks.listGradesPage).toHaveBeenCalledWith(1, 10, {
+        sortField: 'name',
+        sortDirection: 'asc',
+      });
+    });
   });
 });

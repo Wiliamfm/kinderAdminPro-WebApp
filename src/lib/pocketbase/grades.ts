@@ -1,4 +1,5 @@
 import pb, { normalizePocketBaseError } from './client';
+import type { PaginatedListResult } from '../table/pagination';
 
 export type GradeRecord = {
   id: string;
@@ -12,6 +13,14 @@ export type GradeCreateInput = {
 };
 
 export type GradeUpdateInput = GradeCreateInput;
+
+export type GradeListSortField = 'name' | 'capacity';
+export type GradeListSortDirection = 'asc' | 'desc';
+export type GradeListOptions = {
+  sortField?: GradeListSortField;
+  sortDirection?: GradeListSortDirection;
+};
+export type PaginatedGradesResult = PaginatedListResult<GradeRecord>;
 
 function toStringValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -44,6 +53,13 @@ function mapGradeRecord(
   };
 }
 
+function buildSortExpression(
+  sortField: GradeListSortField,
+  sortDirection: GradeListSortDirection,
+): string {
+  return sortDirection === 'desc' ? `-${sortField}` : sortField;
+}
+
 export async function listGrades(): Promise<GradeRecord[]> {
   try {
     const records = await pb.collection('grades').getFullList({
@@ -51,6 +67,30 @@ export async function listGrades(): Promise<GradeRecord[]> {
     });
 
     return records.map((record) => mapGradeRecord(record));
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
+export async function listGradesPage(
+  page: number,
+  perPage: number,
+  options: GradeListOptions = {},
+): Promise<PaginatedGradesResult> {
+  try {
+    const sortField = options.sortField ?? 'name';
+    const sortDirection = options.sortDirection ?? 'asc';
+    const result = await pb.collection('grades').getList(page, perPage, {
+      sort: buildSortExpression(sortField, sortDirection),
+    });
+
+    return {
+      items: result.items.map((record) => mapGradeRecord(record)),
+      page: result.page,
+      perPage: result.perPage,
+      totalItems: result.totalItems,
+      totalPages: result.totalPages,
+    };
   } catch (error) {
     throw normalizePocketBaseError(error);
   }

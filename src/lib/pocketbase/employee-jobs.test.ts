@@ -4,11 +4,13 @@ import {
   createEmployeeJob,
   deleteEmployeeJob,
   listEmployeeJobs,
+  listEmployeeJobsPage,
   updateEmployeeJob,
 } from './employee-jobs';
 
 const hoisted = vi.hoisted(() => {
   const getFullList = vi.fn();
+  const getListRecords = vi.fn();
   const create = vi.fn();
   const update = vi.fn();
   const del = vi.fn();
@@ -20,6 +22,7 @@ const hoisted = vi.hoisted(() => {
       if (name === 'employee_jobs') {
         return {
           getFullList,
+          getList: getListRecords,
           create,
           update,
           delete: del,
@@ -34,6 +37,7 @@ const hoisted = vi.hoisted(() => {
 
   return {
     getFullList,
+    getListRecords,
     create,
     update,
     del,
@@ -66,6 +70,28 @@ describe('employee-jobs pocketbase client', () => {
       { id: 'j1', name: 'Docente', salary: 1000 },
       { id: 'j2', name: 'Coordinador', salary: 1500 },
     ]);
+  });
+
+  it('lists jobs page', async () => {
+    hoisted.getListRecords.mockResolvedValue({
+      items: [{ id: 'j1', name: 'Docente', salary: 1000 }],
+      page: 2,
+      perPage: 10,
+      totalItems: 11,
+      totalPages: 2,
+    });
+
+    const result = await listEmployeeJobsPage(2, 10, {
+      sortField: 'salary',
+      sortDirection: 'desc',
+    });
+
+    expect(hoisted.getListRecords).toHaveBeenCalledWith(2, 10, {
+      sort: '-salary',
+    });
+    expect(result.page).toBe(2);
+    expect(result.totalPages).toBe(2);
+    expect(result.items[0]).toEqual({ id: 'j1', name: 'Docente', salary: 1000 });
   });
 
   it('creates and updates jobs', async () => {

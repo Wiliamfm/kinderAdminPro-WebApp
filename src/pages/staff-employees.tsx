@@ -2,6 +2,7 @@ import { useNavigate } from '@solidjs/router';
 import { createMemo, createResource, createSignal, For, Show } from 'solid-js';
 import InlineFieldAlert from '../components/InlineFieldAlert';
 import Modal from '../components/Modal';
+import PaginationControls from '../components/PaginationControls';
 import SortableHeaderCell from '../components/SortableHeaderCell';
 import {
   createInitialTouchedMap,
@@ -10,13 +11,15 @@ import {
   touchField,
   type FieldErrorMap,
 } from '../lib/forms/realtime-validation';
-import { sortRows, toggleSort, type SortState } from '../lib/table/sorting';
+import { toggleSort, type SortState } from '../lib/table/sorting';
+import { clampPage, DEFAULT_TABLE_PAGE_SIZE } from '../lib/table/pagination';
 import { isAuthUserAdmin } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
   createEmployee,
   deactivateEmployee,
-  listActiveEmployees,
+  listActiveEmployeesPage,
+  type EmployeeListSortField,
   type EmployeeRecord,
 } from '../lib/pocketbase/employees';
 import { listEmployeeJobs } from '../lib/pocketbase/employee-jobs';
@@ -103,20 +106,6 @@ function formatDateTime(value: unknown): string {
   }).format(parsed);
 }
 
-function toSortableText(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function toSortableNumber(value: number | string): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value !== 'string') return null;
-
-  const parsed = Number(value.trim());
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
 function getErrorMessage(error: unknown): string {
   const normalized = error as PocketBaseRequestError | undefined;
   if (normalized && typeof normalized.message === 'string') {
@@ -130,8 +119,8 @@ function getErrorMessage(error: unknown): string {
   return 'No se pudo cargar la lista de empleados.';
 }
 
-const LEAVES_PAGE_SIZE = 10;
-const INVOICES_PAGE_SIZE = 10;
+const LEAVES_PAGE_SIZE = DEFAULT_TABLE_PAGE_SIZE;
+const INVOICES_PAGE_SIZE = DEFAULT_TABLE_PAGE_SIZE;
 const emptyLeaveForm: LeaveCreateInput = {
   employeeId: '',
   start_datetime: '',
@@ -154,14 +143,7 @@ const DEFAULT_INVOICE_SORT: SortState<InvoiceSortField> = {
   direction: 'desc',
 };
 
-type EmployeeSortKey =
-  | 'name'
-  | 'jobSalary'
-  | 'jobName'
-  | 'email'
-  | 'phone'
-  | 'address'
-  | 'emergency_contact';
+type EmployeeSortKey = EmployeeListSortField;
 
 function validateCreateEmployeeForm(current: EmployeeCreateForm): FieldErrorMap<CreateEmployeeField> {
   const errors: FieldErrorMap<CreateEmployeeField> = {};
@@ -240,7 +222,7 @@ export default function StaffEmployeesPage() {
   const navigate = useNavigate();
   const canManageAdminActions = () => isAuthUserAdmin();
 
-  const [employees, { refetch }] = createResource(listActiveEmployees);
+  const [employeePage, setEmployeePage] = createSignal(1);
   const [jobs] = createResource(listEmployeeJobs);
   const [deleteTarget, setDeleteTarget] = createSignal<EmployeeRecord | null>(null);
   const [deleteBusy, setDeleteBusy] = createSignal(false);
@@ -249,6 +231,17 @@ export default function StaffEmployeesPage() {
     key: 'name',
     direction: 'asc',
   });
+  const [employees, { refetch }] = createResource(
+    () => ({
+      page: employeePage(),
+      sortField: employeeSort().key,
+      sortDirection: employeeSort().direction,
+    }),
+    ({ page, sortField, sortDirection }) => listActiveEmployeesPage(page, DEFAULT_TABLE_PAGE_SIZE, {
+      sortField,
+      sortDirection,
+    }),
+  );
   const [createModalOpen, setCreateModalOpen] = createSignal(false);
   const [createBusy, setCreateBusy] = createSignal(false);
   const [createError, setCreateError] = createSignal<string | null>(null);
@@ -391,6 +384,10 @@ export default function StaffEmployeesPage() {
       }
 
       await refetch();
+      const totalPages = employees()?.totalPages ?? 1;
+      if (employeePage() > totalPages) {
+        setEmployeePage(clampPage(employeePage(), totalPages));
+      }
       setCreateModalOpen(false);
       setCreateForm(emptyCreateEmployeeForm);
       setCreateTouched(createInitialTouchedMap(CREATE_EMPLOYEE_FIELDS));
@@ -433,6 +430,10 @@ export default function StaffEmployeesPage() {
       await deactivateEmployee(target.id);
       setDeleteTarget(null);
       await refetch();
+      const totalPages = employees()?.totalPages ?? 1;
+      if (employeePage() > totalPages) {
+        setEmployeePage(clampPage(employeePage(), totalPages));
+      }
     } catch (error) {
       setActionError(getErrorMessage(error));
     } finally {
@@ -665,13 +666,9 @@ export default function StaffEmployeesPage() {
   const leavesItems = () => leaves()?.items ?? [];
   const leavesPage = () => leaves()?.page ?? 1;
   const leavesTotalPages = () => Math.max(1, leaves()?.totalPages ?? 1);
-  const canGoPreviousLeavesPage = () => leavesPage() > 1;
-  const canGoNextLeavesPage = () => leavesPage() < leavesTotalPages();
   const invoiceItems = () => invoices()?.items ?? [];
   const invoiceCurrentPage = () => invoices()?.page ?? 1;
   const invoiceTotalPages = () => Math.max(1, invoices()?.totalPages ?? 1);
-  const canGoPreviousInvoicePage = () => invoiceCurrentPage() > 1;
-  const canGoNextInvoicePage = () => invoiceCurrentPage() < invoiceTotalPages();
   const startEditInvoice = (invoice: InvoiceRecord) => {
     setEditingInvoice(invoice);
     setInvoiceError(null);
@@ -683,15 +680,13 @@ export default function StaffEmployeesPage() {
     const jobId = createForm().jobId;
     return (jobs() ?? []).find((job) => job.id === jobId) ?? null;
   };
-  const employeeRows = createMemo(() => sortRows(employees() ?? [], employeeSort(), {
-    name: (employee) => toSortableText(employee.name),
-    jobSalary: (employee) => toSortableNumber(employee.jobSalary),
-    jobName: (employee) => toSortableText(employee.jobName),
-    email: (employee) => toSortableText(employee.email),
-    phone: (employee) => toSortableText(employee.phone),
-    address: (employee) => toSortableText(employee.address),
-    emergency_contact: (employee) => toSortableText(employee.emergency_contact),
-  }));
+  const employeeRows = () => employees()?.items ?? [];
+  const employeeCurrentPage = () => employees()?.page ?? 1;
+  const employeeTotalPages = () => employees()?.totalPages ?? 1;
+  const handleEmployeeSort = (key: EmployeeSortKey) => {
+    setEmployeeSort((current) => toggleSort(current, key));
+    setEmployeePage(1);
+  };
   const handleLeaveSort = (key: LeaveSortField) => {
     setLeaveSort((current) => toggleSort(current, key));
     setLeavePage(1);
@@ -748,49 +743,49 @@ export default function StaffEmployeesPage() {
                   label="Nombre"
                   columnKey="name"
                   sort={employeeSort()}
-                  onSort={(key) => setEmployeeSort((current) => toggleSort(current, key))}
+                  onSort={handleEmployeeSort}
                 />
                 <SortableHeaderCell
                   class="px-4 py-3 font-semibold"
                   label="Salario"
                   columnKey="jobSalary"
                   sort={employeeSort()}
-                  onSort={(key) => setEmployeeSort((current) => toggleSort(current, key))}
+                  onSort={handleEmployeeSort}
                 />
                 <SortableHeaderCell
                   class="px-4 py-3 font-semibold"
                   label="Cargo"
                   columnKey="jobName"
                   sort={employeeSort()}
-                  onSort={(key) => setEmployeeSort((current) => toggleSort(current, key))}
+                  onSort={handleEmployeeSort}
                 />
                 <SortableHeaderCell
                   class="px-4 py-3 font-semibold"
                   label="Correo"
                   columnKey="email"
                   sort={employeeSort()}
-                  onSort={(key) => setEmployeeSort((current) => toggleSort(current, key))}
+                  onSort={handleEmployeeSort}
                 />
                 <SortableHeaderCell
                   class="px-4 py-3 font-semibold"
                   label="Teléfono"
                   columnKey="phone"
                   sort={employeeSort()}
-                  onSort={(key) => setEmployeeSort((current) => toggleSort(current, key))}
+                  onSort={handleEmployeeSort}
                 />
                 <SortableHeaderCell
                   class="px-4 py-3 font-semibold"
                   label="Dirección"
                   columnKey="address"
                   sort={employeeSort()}
-                  onSort={(key) => setEmployeeSort((current) => toggleSort(current, key))}
+                  onSort={handleEmployeeSort}
                 />
                 <SortableHeaderCell
                   class="px-4 py-3 font-semibold"
                   label="Contacto de emergencia"
                   columnKey="emergency_contact"
                   sort={employeeSort()}
-                  onSort={(key) => setEmployeeSort((current) => toggleSort(current, key))}
+                  onSort={handleEmployeeSort}
                 />
                 <th class="px-4 py-3 font-semibold">Acciones</th>
               </tr>
@@ -804,7 +799,7 @@ export default function StaffEmployeesPage() {
                 </tr>
               }>
                 <Show
-                  when={(employees() ?? []).length > 0}
+                  when={employeeRows().length > 0}
                   fallback={
                     <tr>
                       <td class="px-4 py-4 text-gray-600" colSpan={8}>
@@ -882,6 +877,13 @@ export default function StaffEmployeesPage() {
             </tbody>
           </table>
         </div>
+        <PaginationControls
+          class="mt-3 flex items-center justify-between"
+          page={employeeCurrentPage()}
+          totalPages={employeeTotalPages()}
+          busy={employees.loading || createBusy() || deleteBusy()}
+          onPageChange={(nextPage) => setEmployeePage(nextPage)}
+        />
       </div>
 
       <Modal
@@ -1150,29 +1152,12 @@ export default function StaffEmployeesPage() {
               </table>
             </div>
 
-            <div class="flex items-center justify-between">
-              <p class="text-xs text-gray-600">
-                Página {leavesPage()} de {leavesTotalPages()}
-              </p>
-              <div class="flex items-center gap-2">
-                <button
-                  type="button"
-                  class="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={leaveBusy() || leaves.loading || !canGoPreviousLeavesPage()}
-                  onClick={() => setLeavePage((current) => Math.max(1, current - 1))}
-                >
-                  Anterior
-                </button>
-                <button
-                  type="button"
-                  class="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={leaveBusy() || leaves.loading || !canGoNextLeavesPage()}
-                  onClick={() => setLeavePage((current) => current + 1)}
-                >
-                  Siguiente
-                </button>
-              </div>
-            </div>
+            <PaginationControls
+              page={leavesPage()}
+              totalPages={leavesTotalPages()}
+              busy={leaveBusy() || leaves.loading}
+              onPageChange={(nextPage) => setLeavePage(nextPage)}
+            />
           </div>
         </Show>
       </Modal>
@@ -1319,29 +1304,12 @@ export default function StaffEmployeesPage() {
               </table>
             </div>
 
-            <div class="flex items-center justify-between">
-              <p class="text-xs text-gray-600">
-                Página {invoiceCurrentPage()} de {invoiceTotalPages()}
-              </p>
-              <div class="flex items-center gap-2">
-                <button
-                  type="button"
-                  class="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={invoiceBusy() || invoices.loading || !canGoPreviousInvoicePage()}
-                  onClick={() => setInvoicePage((current) => Math.max(1, current - 1))}
-                >
-                  Anterior
-                </button>
-                <button
-                  type="button"
-                  class="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={invoiceBusy() || invoices.loading || !canGoNextInvoicePage()}
-                  onClick={() => setInvoicePage((current) => current + 1)}
-                >
-                  Siguiente
-                </button>
-              </div>
-            </div>
+            <PaginationControls
+              page={invoiceCurrentPage()}
+              totalPages={invoiceTotalPages()}
+              busy={invoiceBusy() || invoices.loading}
+              onPageChange={(nextPage) => setInvoicePage(nextPage)}
+            />
           </div>
         </Show>
       </Modal>

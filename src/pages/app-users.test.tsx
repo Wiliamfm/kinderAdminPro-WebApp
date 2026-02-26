@@ -5,7 +5,7 @@ import AppUsersPage from './app-users';
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   isAuthUserAdmin: vi.fn(),
-  listAppUsers: vi.fn(),
+  listAppUsersPage: vi.fn(),
   updateAppUser: vi.fn(),
   deleteAppUser: vi.fn(),
   getAuthUserId: vi.fn(),
@@ -21,7 +21,7 @@ vi.mock('../lib/pocketbase/auth', () => ({
 }));
 
 vi.mock('../lib/pocketbase/users', () => ({
-  listAppUsers: mocks.listAppUsers,
+  listAppUsersPage: mocks.listAppUsersPage,
   updateAppUser: mocks.updateAppUser,
   deleteAppUser: mocks.deleteAppUser,
   getAuthUserId: mocks.getAuthUserId,
@@ -45,12 +45,20 @@ const usersFixture = [
   },
 ];
 
+const usersPageFixture = {
+  items: usersFixture,
+  page: 1,
+  perPage: 10,
+  totalItems: usersFixture.length,
+  totalPages: 1,
+};
+
 describe('AppUsersPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.isAuthUserAdmin.mockReturnValue(true);
     mocks.getAuthUserId.mockReturnValue('u-admin');
-    mocks.listAppUsers.mockResolvedValue(usersFixture);
+    mocks.listAppUsersPage.mockResolvedValue(usersPageFixture);
     mocks.updateAppUser.mockResolvedValue(usersFixture[0]);
     mocks.deleteAppUser.mockResolvedValue(undefined);
     mocks.requestAuthenticatedUserEmailChange.mockResolvedValue(undefined);
@@ -66,17 +74,17 @@ describe('AppUsersPage', () => {
     expect(screen.getByLabelText('Editar usuario Ana Admin')).toBeInTheDocument();
   });
 
-  it('sorts users by admin column when header is clicked', async () => {
+  it('requests sorted users by admin column when header is clicked', async () => {
     render(() => <AppUsersPage />);
     await screen.findByText('Ana Admin');
 
     fireEvent.click(screen.getByRole('button', { name: 'Admin' }));
-    let rows = screen.getAllByRole('row').slice(1);
-    expect(rows[0]).toHaveTextContent('Luis User');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Admin' }));
-    rows = screen.getAllByRole('row').slice(1);
-    expect(rows[0]).toHaveTextContent('Ana Admin');
+    await waitFor(() => {
+      expect(mocks.listAppUsersPage).toHaveBeenCalledWith(1, 10, {
+        sortField: 'isAdmin',
+        sortDirection: 'asc',
+      });
+    });
   });
 
   it('redirects non-admin users to staff management', async () => {
@@ -86,7 +94,7 @@ describe('AppUsersPage', () => {
     await waitFor(() => {
       expect(mocks.navigate).toHaveBeenCalledWith('/staff-management', { replace: true });
     });
-    expect(mocks.listAppUsers).not.toHaveBeenCalled();
+    expect(mocks.listAppUsersPage).not.toHaveBeenCalled();
   });
 
   it('edits a user from modal and refreshes list', async () => {
@@ -107,7 +115,7 @@ describe('AppUsersPage', () => {
       });
     });
 
-    expect(mocks.listAppUsers).toHaveBeenCalledTimes(2);
+    expect(mocks.listAppUsersPage).toHaveBeenCalledTimes(2);
   });
 
   it('shows realtime validation for invalid name while editing', async () => {
@@ -158,7 +166,7 @@ describe('AppUsersPage', () => {
     await waitFor(() => {
       expect(mocks.deleteAppUser).toHaveBeenCalledWith('u-user');
     });
-    expect(mocks.listAppUsers).toHaveBeenCalledTimes(2);
+    expect(mocks.listAppUsersPage).toHaveBeenCalledTimes(2);
   });
 
   it('keeps email input disabled when editing another user', async () => {
@@ -172,5 +180,46 @@ describe('AppUsersPage', () => {
     expect(
       screen.getByText('El correo de otros usuarios se gestiona desde PocketBase Admin.'),
     ).toBeInTheDocument();
+  });
+
+  it('supports users pagination next and previous', async () => {
+    mocks.listAppUsersPage.mockImplementation(async (page: number) => {
+      if (page === 1) {
+        return {
+          items: [usersFixture[0]],
+          page: 1,
+          perPage: 10,
+          totalItems: 11,
+          totalPages: 2,
+        };
+      }
+
+      return {
+        items: [usersFixture[1]],
+        page: 2,
+        perPage: 10,
+        totalItems: 11,
+        totalPages: 2,
+      };
+    });
+
+    render(() => <AppUsersPage />);
+    await screen.findByText('Ana Admin');
+
+    fireEvent.click(screen.getByText('Siguiente'));
+    await waitFor(() => {
+      expect(mocks.listAppUsersPage).toHaveBeenCalledWith(2, 10, {
+        sortField: 'name',
+        sortDirection: 'asc',
+      });
+    });
+
+    fireEvent.click(screen.getByText('Anterior'));
+    await waitFor(() => {
+      expect(mocks.listAppUsersPage).toHaveBeenCalledWith(1, 10, {
+        sortField: 'name',
+        sortDirection: 'asc',
+      });
+    });
   });
 });

@@ -4,11 +4,13 @@ import {
   createGrade,
   deleteGrade,
   listGrades,
+  listGradesPage,
   updateGrade,
 } from './grades';
 
 const hoisted = vi.hoisted(() => {
   const getFullList = vi.fn();
+  const getListRecords = vi.fn();
   const create = vi.fn();
   const update = vi.fn();
   const del = vi.fn();
@@ -20,6 +22,7 @@ const hoisted = vi.hoisted(() => {
       if (name === 'grades') {
         return {
           getFullList,
+          getList: getListRecords,
           create,
           update,
           delete: del,
@@ -34,6 +37,7 @@ const hoisted = vi.hoisted(() => {
 
   return {
     getFullList,
+    getListRecords,
     create,
     update,
     del,
@@ -66,6 +70,30 @@ describe('grades pocketbase client', () => {
       { id: 'g1', name: 'Primero A', capacity: 30 },
       { id: 'g2', name: 'Segundo A', capacity: 35 },
     ]);
+  });
+
+  it('lists grades page', async () => {
+    hoisted.getListRecords.mockResolvedValue({
+      items: [
+        { id: 'g1', name: 'Primero A', capacity: 30 },
+      ],
+      page: 2,
+      perPage: 10,
+      totalItems: 11,
+      totalPages: 2,
+    });
+
+    const result = await listGradesPage(2, 10, {
+      sortField: 'capacity',
+      sortDirection: 'desc',
+    });
+
+    expect(hoisted.getListRecords).toHaveBeenCalledWith(2, 10, {
+      sort: '-capacity',
+    });
+    expect(result.page).toBe(2);
+    expect(result.totalPages).toBe(2);
+    expect(result.items[0]).toEqual({ id: 'g1', name: 'Primero A', capacity: 30 });
   });
 
   it('creates and updates grades', async () => {

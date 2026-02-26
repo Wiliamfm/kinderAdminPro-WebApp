@@ -1,4 +1,5 @@
 import pb, { normalizePocketBaseError } from './client';
+import type { PaginatedListResult } from '../table/pagination';
 
 type PbLeaveRecord = {
   id: string;
@@ -33,13 +34,7 @@ export type LeaveListOptions = {
   sortDirection?: LeaveSortDirection;
 };
 
-export type PaginatedLeavesResult = {
-  items: LeaveRecord[];
-  page: number;
-  perPage: number;
-  totalItems: number;
-  totalPages: number;
-};
+export type PaginatedLeavesResult = PaginatedListResult<LeaveRecord>;
 
 function toStringValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';

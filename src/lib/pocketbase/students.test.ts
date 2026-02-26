@@ -4,11 +4,13 @@ import {
   deactivateStudent,
   getStudentById,
   listActiveStudents,
+  listActiveStudentsPage,
   updateStudent,
 } from './students';
 
 const hoisted = vi.hoisted(() => {
   const getFullList = vi.fn();
+  const getList = vi.fn();
   const getOne = vi.fn();
   const create = vi.fn();
   const update = vi.fn();
@@ -17,6 +19,7 @@ const hoisted = vi.hoisted(() => {
   const pb = {
     collection: vi.fn(() => ({
       getFullList,
+      getList,
       getOne,
       create,
       update,
@@ -25,6 +28,7 @@ const hoisted = vi.hoisted(() => {
 
   return {
     getFullList,
+    getList,
     getOne,
     create,
     update,
@@ -100,6 +104,55 @@ describe('students pocketbase client', () => {
       grade_name: 'Primero A',
       document_id: 'DOC-1',
       active: true,
+    });
+  });
+
+  it('lists active students page with grade relation sorting', async () => {
+    hoisted.getList.mockResolvedValue({
+      items: [
+        {
+          id: 's1',
+          name: 'Ana',
+          grade_id: 'g1',
+          date_of_birth: '2015-06-15T13:30:00.000Z',
+          birth_place: 'Bogota',
+          department: 'Cundinamarca',
+          document_id: 'DOC-1',
+          weight: 20.5,
+          height: 115,
+          blood_type: 'O+',
+          social_security: 'SSN-1',
+          allergies: 'Ninguna',
+          active: true,
+          expand: {
+            grade_id: {
+              id: 'g1',
+              name: 'Primero A',
+            },
+          },
+        },
+      ],
+      page: 2,
+      perPage: 10,
+      totalItems: 11,
+      totalPages: 2,
+    });
+
+    const result = await listActiveStudentsPage(2, 10, {
+      sortField: 'grade_name',
+      sortDirection: 'asc',
+    });
+
+    expect(hoisted.getList).toHaveBeenCalledWith(2, 10, {
+      sort: 'grade_id.name',
+      filter: 'active = true',
+      expand: 'grade_id',
+    });
+    expect(result.page).toBe(2);
+    expect(result.totalPages).toBe(2);
+    expect(result.items[0]).toMatchObject({
+      id: 's1',
+      grade_name: 'Primero A',
     });
   });
 

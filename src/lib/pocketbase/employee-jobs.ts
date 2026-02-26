@@ -1,4 +1,5 @@
 import pb, { normalizePocketBaseError } from './client';
+import type { PaginatedListResult } from '../table/pagination';
 
 export type EmployeeJobRecord = {
   id: string;
@@ -12,6 +13,14 @@ export type EmployeeJobCreateInput = {
 };
 
 export type EmployeeJobUpdateInput = EmployeeJobCreateInput;
+
+export type EmployeeJobListSortField = 'name' | 'salary';
+export type EmployeeJobListSortDirection = 'asc' | 'desc';
+export type EmployeeJobListOptions = {
+  sortField?: EmployeeJobListSortField;
+  sortDirection?: EmployeeJobListSortDirection;
+};
+export type PaginatedEmployeeJobsResult = PaginatedListResult<EmployeeJobRecord>;
 
 function toStringValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -44,6 +53,13 @@ function mapEmployeeJobRecord(
   };
 }
 
+function buildSortExpression(
+  sortField: EmployeeJobListSortField,
+  sortDirection: EmployeeJobListSortDirection,
+): string {
+  return sortDirection === 'desc' ? `-${sortField}` : sortField;
+}
+
 export async function listEmployeeJobs(): Promise<EmployeeJobRecord[]> {
   try {
     const records = await pb.collection('employee_jobs').getFullList({
@@ -51,6 +67,30 @@ export async function listEmployeeJobs(): Promise<EmployeeJobRecord[]> {
     });
 
     return records.map((record) => mapEmployeeJobRecord(record));
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
+export async function listEmployeeJobsPage(
+  page: number,
+  perPage: number,
+  options: EmployeeJobListOptions = {},
+): Promise<PaginatedEmployeeJobsResult> {
+  try {
+    const sortField = options.sortField ?? 'name';
+    const sortDirection = options.sortDirection ?? 'asc';
+    const result = await pb.collection('employee_jobs').getList(page, perPage, {
+      sort: buildSortExpression(sortField, sortDirection),
+    });
+
+    return {
+      items: result.items.map((record) => mapEmployeeJobRecord(record)),
+      page: result.page,
+      perPage: result.perPage,
+      totalItems: result.totalItems,
+      totalPages: result.totalPages,
+    };
   } catch (error) {
     throw normalizePocketBaseError(error);
   }

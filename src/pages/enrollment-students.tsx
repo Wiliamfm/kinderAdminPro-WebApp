@@ -2,6 +2,7 @@ import { useNavigate } from '@solidjs/router';
 import { createEffect, createMemo, createResource, createSignal, For, Show } from 'solid-js';
 import InlineFieldAlert from '../components/InlineFieldAlert';
 import Modal from '../components/Modal';
+import PaginationControls from '../components/PaginationControls';
 import SortableHeaderCell from '../components/SortableHeaderCell';
 import {
   createInitialTouchedMap,
@@ -10,14 +11,16 @@ import {
   touchField,
   type FieldErrorMap,
 } from '../lib/forms/realtime-validation';
-import { sortRows, toggleSort, type SortState } from '../lib/table/sorting';
+import { toggleSort, type SortState } from '../lib/table/sorting';
+import { clampPage, DEFAULT_TABLE_PAGE_SIZE } from '../lib/table/pagination';
 import { isAuthUserAdmin } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import { listGrades } from '../lib/pocketbase/grades';
 import {
   createStudent,
   deactivateStudent,
-  listActiveStudents,
+  listActiveStudentsPage,
+  type StudentListSortField,
   type StudentCreateInput,
   type StudentRecord,
 } from '../lib/pocketbase/students';
@@ -102,31 +105,7 @@ function formatNumber(value: number | null): string {
   return String(value);
 }
 
-function toSortableText(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function toSortableDateTime(value: unknown): number | null {
-  if (typeof value !== 'string') return null;
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed.getTime();
-}
-
-type StudentSortKey =
-  | 'name'
-  | 'grade_name'
-  | 'date_of_birth'
-  | 'birth_place'
-  | 'department'
-  | 'document_id'
-  | 'weight'
-  | 'height'
-  | 'blood_type'
-  | 'social_security'
-  | 'allergies';
+type StudentSortKey = StudentListSortField;
 
 function parseOptionalNumber(value: string): number | null {
   const trimmed = value.trim();
@@ -212,10 +191,7 @@ function toStudentCreateInput(form: StudentForm): StudentCreateInput {
 
 export default function EnrollmentStudentsPage() {
   const navigate = useNavigate();
-  const [students, { refetch }] = createResource(async () => {
-    if (!isAuthUserAdmin()) return [];
-    return listActiveStudents();
-  });
+  const [studentPage, setStudentPage] = createSignal(1);
   const [grades] = createResource(async () => {
     if (!isAuthUserAdmin()) return [];
     return listGrades();
@@ -236,6 +212,21 @@ export default function EnrollmentStudentsPage() {
     key: 'name',
     direction: 'asc',
   });
+  const [students, { refetch }] = createResource(
+    () => {
+      if (!isAuthUserAdmin()) return undefined;
+
+      return {
+        page: studentPage(),
+        sortField: studentSort().key,
+        sortDirection: studentSort().direction,
+      };
+    },
+    ({ page, sortField, sortDirection }) => listActiveStudentsPage(page, DEFAULT_TABLE_PAGE_SIZE, {
+      sortField,
+      sortDirection,
+    }),
+  );
 
   createEffect(() => {
     if (!isAuthUserAdmin()) {
@@ -271,6 +262,10 @@ export default function EnrollmentStudentsPage() {
     try {
       await createStudent(toStudentCreateInput(createForm()));
       await refetch();
+      const totalPages = students()?.totalPages ?? 1;
+      if (studentPage() > totalPages) {
+        setStudentPage(clampPage(studentPage(), totalPages));
+      }
       setCreateOpen(false);
       setCreateForm(emptyForm);
       setCreateTouched(createInitialTouchedMap(STUDENT_VALIDATED_FIELDS));
@@ -304,6 +299,10 @@ export default function EnrollmentStudentsPage() {
     try {
       await deactivateStudent(target.id);
       await refetch();
+      const totalPages = students()?.totalPages ?? 1;
+      if (studentPage() > totalPages) {
+        setStudentPage(clampPage(studentPage(), totalPages));
+      }
       setDeleteTarget(null);
     } catch (error) {
       setActionError(getErrorMessage(error));
@@ -312,19 +311,13 @@ export default function EnrollmentStudentsPage() {
     }
   };
 
-  const studentRows = createMemo(() => sortRows(students() ?? [], studentSort(), {
-    name: (student) => toSortableText(student.name),
-    grade_name: (student) => toSortableText(student.grade_name),
-    date_of_birth: (student) => toSortableDateTime(student.date_of_birth),
-    birth_place: (student) => toSortableText(student.birth_place),
-    department: (student) => toSortableText(student.department),
-    document_id: (student) => toSortableText(student.document_id),
-    weight: (student) => student.weight,
-    height: (student) => student.height,
-    blood_type: (student) => toSortableText(student.blood_type),
-    social_security: (student) => toSortableText(student.social_security),
-    allergies: (student) => toSortableText(student.allergies),
-  }));
+  const studentRows = () => students()?.items ?? [];
+  const studentCurrentPage = () => students()?.page ?? 1;
+  const studentTotalPages = () => students()?.totalPages ?? 1;
+  const handleStudentSort = (key: StudentSortKey) => {
+    setStudentSort((current) => toggleSort(current, key));
+    setStudentPage(1);
+  };
 
   return (
     <section class="min-h-screen bg-yellow-50 text-gray-800 p-4 sm:p-6 lg:p-8">
@@ -375,77 +368,77 @@ export default function EnrollmentStudentsPage() {
                   label="Nombre"
                   columnKey="name"
                   sort={studentSort()}
-                  onSort={(key) => setStudentSort((current) => toggleSort(current, key))}
+                  onSort={handleStudentSort}
                 />
                 <SortableHeaderCell
                   class="px-4 py-3 font-semibold"
                   label="Grado"
                   columnKey="grade_name"
                   sort={studentSort()}
-                  onSort={(key) => setStudentSort((current) => toggleSort(current, key))}
+                  onSort={handleStudentSort}
                 />
                 <SortableHeaderCell
                   class="px-4 py-3 font-semibold"
                   label="Fecha de nacimiento"
                   columnKey="date_of_birth"
                   sort={studentSort()}
-                  onSort={(key) => setStudentSort((current) => toggleSort(current, key))}
+                  onSort={handleStudentSort}
                 />
                 <SortableHeaderCell
                   class="px-4 py-3 font-semibold"
                   label="Lugar de nacimiento"
                   columnKey="birth_place"
                   sort={studentSort()}
-                  onSort={(key) => setStudentSort((current) => toggleSort(current, key))}
+                  onSort={handleStudentSort}
                 />
                 <SortableHeaderCell
                   class="px-4 py-3 font-semibold"
                   label="Departamento"
                   columnKey="department"
                   sort={studentSort()}
-                  onSort={(key) => setStudentSort((current) => toggleSort(current, key))}
+                  onSort={handleStudentSort}
                 />
                 <SortableHeaderCell
                   class="px-4 py-3 font-semibold"
                   label="Documento"
                   columnKey="document_id"
                   sort={studentSort()}
-                  onSort={(key) => setStudentSort((current) => toggleSort(current, key))}
+                  onSort={handleStudentSort}
                 />
                 <SortableHeaderCell
                   class="px-4 py-3 font-semibold"
                   label="Peso"
                   columnKey="weight"
                   sort={studentSort()}
-                  onSort={(key) => setStudentSort((current) => toggleSort(current, key))}
+                  onSort={handleStudentSort}
                 />
                 <SortableHeaderCell
                   class="px-4 py-3 font-semibold"
                   label="Altura"
                   columnKey="height"
                   sort={studentSort()}
-                  onSort={(key) => setStudentSort((current) => toggleSort(current, key))}
+                  onSort={handleStudentSort}
                 />
                 <SortableHeaderCell
                   class="px-4 py-3 font-semibold"
                   label="Tipo de sangre"
                   columnKey="blood_type"
                   sort={studentSort()}
-                  onSort={(key) => setStudentSort((current) => toggleSort(current, key))}
+                  onSort={handleStudentSort}
                 />
                 <SortableHeaderCell
                   class="px-4 py-3 font-semibold"
                   label="Seguridad social"
                   columnKey="social_security"
                   sort={studentSort()}
-                  onSort={(key) => setStudentSort((current) => toggleSort(current, key))}
+                  onSort={handleStudentSort}
                 />
                 <SortableHeaderCell
                   class="px-4 py-3 font-semibold"
                   label="Alergias"
                   columnKey="allergies"
                   sort={studentSort()}
-                  onSort={(key) => setStudentSort((current) => toggleSort(current, key))}
+                  onSort={handleStudentSort}
                 />
                 <th class="px-4 py-3 font-semibold">Acciones</th>
               </tr>
@@ -466,7 +459,7 @@ export default function EnrollmentStudentsPage() {
                   </tr>
                 }>
                   <Show
-                    when={(students() ?? []).length > 0}
+                    when={studentRows().length > 0}
                     fallback={
                       <tr>
                         <td class="px-4 py-4 text-gray-600" colSpan={12}>
@@ -518,6 +511,13 @@ export default function EnrollmentStudentsPage() {
             </tbody>
           </table>
         </div>
+        <PaginationControls
+          class="mt-3 flex items-center justify-between"
+          page={studentCurrentPage()}
+          totalPages={studentTotalPages()}
+          busy={students.loading || createBusy() || deleteBusy()}
+          onPageChange={(nextPage) => setStudentPage(nextPage)}
+        />
       </div>
 
       <Modal

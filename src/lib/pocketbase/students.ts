@@ -1,4 +1,5 @@
 import pb, { normalizePocketBaseError } from './client';
+import type { PaginatedListResult } from '../table/pagination';
 
 export type StudentRecord = {
   id: string;
@@ -32,6 +33,28 @@ export type StudentCreateInput = {
 };
 
 export type StudentUpdateInput = StudentCreateInput;
+
+export type StudentListSortField =
+  | 'name'
+  | 'grade_name'
+  | 'date_of_birth'
+  | 'birth_place'
+  | 'department'
+  | 'document_id'
+  | 'weight'
+  | 'height'
+  | 'blood_type'
+  | 'social_security'
+  | 'allergies';
+
+export type StudentListSortDirection = 'asc' | 'desc';
+
+export type StudentListOptions = {
+  sortField?: StudentListSortField;
+  sortDirection?: StudentListSortDirection;
+};
+
+export type PaginatedStudentsResult = PaginatedListResult<StudentRecord>;
 
 type PbStudentPayload = {
   name: string;
@@ -128,6 +151,28 @@ function mapStudentPayload(payload: StudentCreateInput | StudentUpdateInput): Pb
   };
 }
 
+const STUDENT_SORT_FIELD_MAP: Record<StudentListSortField, string> = {
+  name: 'name',
+  grade_name: 'grade_id.name',
+  date_of_birth: 'date_of_birth',
+  birth_place: 'birth_place',
+  department: 'department',
+  document_id: 'document_id',
+  weight: 'weight',
+  height: 'height',
+  blood_type: 'blood_type',
+  social_security: 'social_security',
+  allergies: 'allergies',
+};
+
+function buildSortExpression(
+  sortField: StudentListSortField,
+  sortDirection: StudentListSortDirection,
+): string {
+  const mappedField = STUDENT_SORT_FIELD_MAP[sortField];
+  return sortDirection === 'desc' ? `-${mappedField}` : mappedField;
+}
+
 export async function listActiveStudents(): Promise<StudentRecord[]> {
   try {
     const records = await pb.collection('students').getFullList({
@@ -135,6 +180,32 @@ export async function listActiveStudents(): Promise<StudentRecord[]> {
       expand: 'grade_id',
     });
     return records.map((record) => mapStudentRecord(record)).filter((record) => record.active);
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
+export async function listActiveStudentsPage(
+  page: number,
+  perPage: number,
+  options: StudentListOptions = {},
+): Promise<PaginatedStudentsResult> {
+  try {
+    const sortField = options.sortField ?? 'name';
+    const sortDirection = options.sortDirection ?? 'asc';
+    const result = await pb.collection('students').getList(page, perPage, {
+      sort: buildSortExpression(sortField, sortDirection),
+      filter: 'active = true',
+      expand: 'grade_id',
+    });
+
+    return {
+      items: result.items.map((record) => mapStudentRecord(record)),
+      page: result.page,
+      perPage: result.perPage,
+      totalItems: result.totalItems,
+      totalPages: result.totalPages,
+    };
   } catch (error) {
     throw normalizePocketBaseError(error);
   }

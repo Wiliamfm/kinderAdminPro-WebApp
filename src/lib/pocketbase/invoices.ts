@@ -1,4 +1,5 @@
 import pb, { normalizePocketBaseError } from './client';
+import type { PaginatedListResult } from '../table/pagination';
 
 type PbInvoiceRecord = {
   id: string;
@@ -49,13 +50,7 @@ export type InvoiceListOptions = {
   sortDirection?: InvoiceSortDirection;
 };
 
-export type PaginatedInvoicesResult = {
-  items: InvoiceRecord[];
-  page: number;
-  perPage: number;
-  totalItems: number;
-  totalPages: number;
-};
+export type PaginatedInvoicesResult = PaginatedListResult<InvoiceRecord>;
 
 function toStringValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';

@@ -2,6 +2,7 @@ import { useNavigate } from '@solidjs/router';
 import { createEffect, createMemo, createResource, createSignal, For, Show } from 'solid-js';
 import InlineFieldAlert from '../components/InlineFieldAlert';
 import Modal from '../components/Modal';
+import PaginationControls from '../components/PaginationControls';
 import SortableHeaderCell from '../components/SortableHeaderCell';
 import {
   createInitialTouchedMap,
@@ -10,14 +11,16 @@ import {
   touchField,
   type FieldErrorMap,
 } from '../lib/forms/realtime-validation';
-import { sortRows, toggleSort, type SortState } from '../lib/table/sorting';
+import { toggleSort, type SortState } from '../lib/table/sorting';
+import { clampPage, DEFAULT_TABLE_PAGE_SIZE } from '../lib/table/pagination';
 import { isAuthUserAdmin } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
   deleteAppUser,
   getAuthUserId,
-  listAppUsers,
+  listAppUsersPage,
   requestAuthenticatedUserEmailChange,
+  type AppUserListSortField,
   type AppUserRecord,
   updateAppUser,
 } from '../lib/pocketbase/users';
@@ -80,20 +83,11 @@ function formatText(value: unknown): string {
   return trimmed.length > 0 ? trimmed : '—';
 }
 
-function toSortableText(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-type UserSortKey = 'name' | 'isAdmin' | 'email';
+type UserSortKey = AppUserListSortField;
 
 export default function AppUsersPage() {
   const navigate = useNavigate();
-  const [users, { refetch }] = createResource(async () => {
-    if (!isAuthUserAdmin()) return [];
-    return listAppUsers();
-  });
+  const [userPage, setUserPage] = createSignal(1);
 
   const [editTarget, setEditTarget] = createSignal<AppUserRecord | null>(null);
   const [editForm, setEditForm] = createSignal<UserEditForm>(emptyEditForm);
@@ -108,6 +102,21 @@ export default function AppUsersPage() {
     key: 'name',
     direction: 'asc',
   });
+  const [users, { refetch }] = createResource(
+    () => {
+      if (!isAuthUserAdmin()) return undefined;
+
+      return {
+        page: userPage(),
+        sortField: userSort().key,
+        sortDirection: userSort().direction,
+      };
+    },
+    ({ page, sortField, sortDirection }) => listAppUsersPage(page, DEFAULT_TABLE_PAGE_SIZE, {
+      sortField,
+      sortDirection,
+    }),
+  );
 
   const authUserId = () => getAuthUserId();
 
@@ -188,6 +197,10 @@ export default function AppUsersPage() {
       }
 
       await refetch();
+      const totalPages = users()?.totalPages ?? 1;
+      if (userPage() > totalPages) {
+        setUserPage(clampPage(userPage(), totalPages));
+      }
       setEditTarget(null);
       setEditForm(emptyEditForm);
       setEditTouched(createInitialTouchedMap(EDIT_FIELDS));
@@ -225,6 +238,10 @@ export default function AppUsersPage() {
     try {
       await deleteAppUser(target.id);
       await refetch();
+      const totalPages = users()?.totalPages ?? 1;
+      if (userPage() > totalPages) {
+        setUserPage(clampPage(userPage(), totalPages));
+      }
       setDeleteTarget(null);
     } catch (error) {
       setActionError(getErrorMessage(error));
@@ -233,12 +250,13 @@ export default function AppUsersPage() {
     }
   };
 
-  const userRows = () => users() ?? [];
-  const sortedUserRows = createMemo(() => sortRows(userRows(), userSort(), {
-    name: (user) => toSortableText(user.name),
-    isAdmin: (user) => user.isAdmin,
-    email: (user) => toSortableText(user.email),
-  }));
+  const userRows = () => users()?.items ?? [];
+  const userCurrentPage = () => users()?.page ?? 1;
+  const userTotalPages = () => users()?.totalPages ?? 1;
+  const handleUserSort = (key: UserSortKey) => {
+    setUserSort((current) => toggleSort(current, key));
+    setUserPage(1);
+  };
   const isEditingSelf = () => editTarget()?.id === authUserId();
 
   return (
@@ -276,21 +294,21 @@ export default function AppUsersPage() {
                   label="Nombre"
                   columnKey="name"
                   sort={userSort()}
-                  onSort={(key) => setUserSort((current) => toggleSort(current, key))}
+                  onSort={handleUserSort}
                 />
                 <SortableHeaderCell
                   class="px-3 py-2 font-medium text-gray-700"
                   label="Admin"
                   columnKey="isAdmin"
                   sort={userSort()}
-                  onSort={(key) => setUserSort((current) => toggleSort(current, key))}
+                  onSort={handleUserSort}
                 />
                 <SortableHeaderCell
                   class="px-3 py-2 font-medium text-gray-700"
                   label="Correo"
                   columnKey="email"
                   sort={userSort()}
-                  onSort={(key) => setUserSort((current) => toggleSort(current, key))}
+                  onSort={handleUserSort}
                 />
                 <th class="px-3 py-2 font-medium text-gray-700">Acciones</th>
               </tr>
@@ -307,7 +325,7 @@ export default function AppUsersPage() {
                     </tr>
                   }
                 >
-                  <For each={sortedUserRows()}>
+                  <For each={userRows()}>
                     {(user) => {
                       const isSelf = () => user.id === authUserId();
 
@@ -365,6 +383,13 @@ export default function AppUsersPage() {
             </tbody>
           </table>
         </div>
+        <PaginationControls
+          class="mt-3 flex items-center justify-between"
+          page={userCurrentPage()}
+          totalPages={userTotalPages()}
+          busy={users.loading || editBusy() || deleteBusy()}
+          onPageChange={(nextPage) => setUserPage(nextPage)}
+        />
       </div>
 
       <Modal

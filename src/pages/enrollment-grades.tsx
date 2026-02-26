@@ -2,6 +2,7 @@ import { useNavigate } from '@solidjs/router';
 import { createEffect, createMemo, createResource, createSignal, For, Show } from 'solid-js';
 import InlineFieldAlert from '../components/InlineFieldAlert';
 import Modal from '../components/Modal';
+import PaginationControls from '../components/PaginationControls';
 import SortableHeaderCell from '../components/SortableHeaderCell';
 import {
   createInitialTouchedMap,
@@ -10,14 +11,16 @@ import {
   touchField,
   type FieldErrorMap,
 } from '../lib/forms/realtime-validation';
-import { sortRows, toggleSort, type SortState } from '../lib/table/sorting';
+import { toggleSort, type SortState } from '../lib/table/sorting';
+import { clampPage, DEFAULT_TABLE_PAGE_SIZE } from '../lib/table/pagination';
 import { isAuthUserAdmin } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
   countActiveStudentsByGradeId,
   createGrade,
   deleteGrade,
-  listGrades,
+  listGradesPage,
+  type GradeListSortField,
   type GradeRecord,
   updateGrade,
 } from '../lib/pocketbase/grades';
@@ -83,25 +86,11 @@ function formatCapacity(value: number | string): string {
   return '—';
 }
 
-function toSortableText(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function toSortableNumber(value: number | string): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value !== 'string') return null;
-
-  const parsed = Number(value.trim());
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-type GradeSortKey = 'name' | 'capacity';
+type GradeSortKey = GradeListSortField;
 
 export default function EnrollmentGradesPage() {
   const navigate = useNavigate();
-  const [grades, { refetch }] = createResource(listGrades);
+  const [gradePage, setGradePage] = createSignal(1);
 
   const [actionError, setActionError] = createSignal<string | null>(null);
 
@@ -123,6 +112,17 @@ export default function EnrollmentGradesPage() {
     key: 'name',
     direction: 'asc',
   });
+  const [grades, { refetch }] = createResource(
+    () => ({
+      page: gradePage(),
+      sortField: gradeSort().key,
+      sortDirection: gradeSort().direction,
+    }),
+    ({ page, sortField, sortDirection }) => listGradesPage(page, DEFAULT_TABLE_PAGE_SIZE, {
+      sortField,
+      sortDirection,
+    }),
+  );
 
   createEffect(() => {
     if (!isAuthUserAdmin()) {
@@ -167,6 +167,10 @@ export default function EnrollmentGradesPage() {
     try {
       await createGrade(buildPayload(createForm()));
       await refetch();
+      const totalPages = grades()?.totalPages ?? 1;
+      if (gradePage() > totalPages) {
+        setGradePage(clampPage(gradePage(), totalPages));
+      }
       setCreateOpen(false);
       setCreateForm(emptyForm);
       setCreateTouched(createInitialTouchedMap(GRADE_FIELDS));
@@ -202,6 +206,10 @@ export default function EnrollmentGradesPage() {
     try {
       await updateGrade(target.id, buildPayload(editForm()));
       await refetch();
+      const totalPages = grades()?.totalPages ?? 1;
+      if (gradePage() > totalPages) {
+        setGradePage(clampPage(gradePage(), totalPages));
+      }
       setEditTarget(null);
       setEditForm(emptyForm);
       setEditTouched(createInitialTouchedMap(GRADE_FIELDS));
@@ -231,6 +239,10 @@ export default function EnrollmentGradesPage() {
 
       await deleteGrade(target.id);
       await refetch();
+      const totalPages = grades()?.totalPages ?? 1;
+      if (gradePage() > totalPages) {
+        setGradePage(clampPage(gradePage(), totalPages));
+      }
       setDeleteTarget(null);
     } catch (error) {
       setActionError(getErrorMessage(error));
@@ -239,10 +251,13 @@ export default function EnrollmentGradesPage() {
     }
   };
 
-  const gradeRows = createMemo(() => sortRows(grades() ?? [], gradeSort(), {
-    name: (grade) => toSortableText(grade.name),
-    capacity: (grade) => toSortableNumber(grade.capacity),
-  }));
+  const gradeRows = () => grades()?.items ?? [];
+  const gradeCurrentPage = () => grades()?.page ?? 1;
+  const gradeTotalPages = () => grades()?.totalPages ?? 1;
+  const handleGradeSort = (key: GradeSortKey) => {
+    setGradeSort((current) => toggleSort(current, key));
+    setGradePage(1);
+  };
 
   return (
     <section class="min-h-screen bg-yellow-50 p-4 sm:p-6 lg:p-8 text-gray-800">
@@ -294,14 +309,14 @@ export default function EnrollmentGradesPage() {
                   label="Nombre"
                   columnKey="name"
                   sort={gradeSort()}
-                  onSort={(key) => setGradeSort((current) => toggleSort(current, key))}
+                  onSort={handleGradeSort}
                 />
                 <SortableHeaderCell
                   class="px-4 py-3 font-semibold"
                   label="Capacidad"
                   columnKey="capacity"
                   sort={gradeSort()}
-                  onSort={(key) => setGradeSort((current) => toggleSort(current, key))}
+                  onSort={handleGradeSort}
                 />
                 <th class="px-4 py-3 font-semibold">Acciones</th>
               </tr>
@@ -328,7 +343,7 @@ export default function EnrollmentGradesPage() {
                   }
                 >
                   <Show
-                    when={(grades() ?? []).length > 0}
+                    when={gradeRows().length > 0}
                     fallback={
                       <tr>
                         <td class="px-4 py-4 text-gray-600" colSpan={3}>
@@ -372,6 +387,13 @@ export default function EnrollmentGradesPage() {
             </tbody>
           </table>
         </div>
+        <PaginationControls
+          class="mt-3 flex items-center justify-between"
+          page={gradeCurrentPage()}
+          totalPages={gradeTotalPages()}
+          busy={grades.loading || createBusy() || editBusy() || deleteBusy()}
+          onPageChange={(nextPage) => setGradePage(nextPage)}
+        />
       </div>
 
       <Modal

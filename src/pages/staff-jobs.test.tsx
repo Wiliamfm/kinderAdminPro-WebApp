@@ -5,7 +5,7 @@ import StaffJobsPage from './staff-jobs';
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   isAuthUserAdmin: vi.fn(),
-  listEmployeeJobs: vi.fn(),
+  listEmployeeJobsPage: vi.fn(),
   createEmployeeJob: vi.fn(),
   updateEmployeeJob: vi.fn(),
   deleteEmployeeJob: vi.fn(),
@@ -21,7 +21,7 @@ vi.mock('../lib/pocketbase/auth', () => ({
 }));
 
 vi.mock('../lib/pocketbase/employee-jobs', () => ({
-  listEmployeeJobs: mocks.listEmployeeJobs,
+  listEmployeeJobsPage: mocks.listEmployeeJobsPage,
   createEmployeeJob: mocks.createEmployeeJob,
   updateEmployeeJob: mocks.updateEmployeeJob,
   deleteEmployeeJob: mocks.deleteEmployeeJob,
@@ -33,11 +33,19 @@ const jobsFixture = [
   { id: 'j2', name: 'Coordinador', salary: 1500 },
 ];
 
+const jobsPageFixture = {
+  items: jobsFixture,
+  page: 1,
+  perPage: 10,
+  totalItems: jobsFixture.length,
+  totalPages: 1,
+};
+
 describe('StaffJobsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.isAuthUserAdmin.mockReturnValue(true);
-    mocks.listEmployeeJobs.mockResolvedValue(jobsFixture);
+    mocks.listEmployeeJobsPage.mockResolvedValue(jobsPageFixture);
     mocks.createEmployeeJob.mockResolvedValue(jobsFixture[0]);
     mocks.updateEmployeeJob.mockResolvedValue(jobsFixture[0]);
     mocks.deleteEmployeeJob.mockResolvedValue(undefined);
@@ -61,16 +69,17 @@ describe('StaffJobsPage', () => {
     expect(await screen.findByRole('heading', { name: 'Crear cargo' })).toBeInTheDocument();
   });
 
-  it('sorts jobs by salary when header is clicked', async () => {
+  it('requests jobs sorted by salary when header is clicked', async () => {
     render(() => <StaffJobsPage />);
     await screen.findByText('Docente');
 
     fireEvent.click(screen.getByRole('button', { name: 'Salario' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Salario' }));
-
-    const rows = screen.getAllByRole('row').slice(1);
-    expect(rows[0]).toHaveTextContent('Coordinador');
-    expect(rows[1]).toHaveTextContent('Docente');
+    await waitFor(() => {
+      expect(mocks.listEmployeeJobsPage).toHaveBeenCalledWith(1, 10, {
+        sortField: 'salary',
+        sortDirection: 'asc',
+      });
+    });
   });
 
   it('creates a job', async () => {
@@ -129,5 +138,46 @@ describe('StaffJobsPage', () => {
     });
     expect(mocks.deleteEmployeeJob).not.toHaveBeenCalled();
     expect(await screen.findByText(/No se puede eliminar el cargo Docente/)).toBeInTheDocument();
+  });
+
+  it('supports jobs pagination next and previous', async () => {
+    mocks.listEmployeeJobsPage.mockImplementation(async (page: number) => {
+      if (page === 1) {
+        return {
+          items: [jobsFixture[0]],
+          page: 1,
+          perPage: 10,
+          totalItems: 11,
+          totalPages: 2,
+        };
+      }
+
+      return {
+        items: [jobsFixture[1]],
+        page: 2,
+        perPage: 10,
+        totalItems: 11,
+        totalPages: 2,
+      };
+    });
+
+    render(() => <StaffJobsPage />);
+    await screen.findByText('Docente');
+
+    fireEvent.click(screen.getByText('Siguiente'));
+    await waitFor(() => {
+      expect(mocks.listEmployeeJobsPage).toHaveBeenCalledWith(2, 10, {
+        sortField: 'name',
+        sortDirection: 'asc',
+      });
+    });
+
+    fireEvent.click(screen.getByText('Anterior'));
+    await waitFor(() => {
+      expect(mocks.listEmployeeJobsPage).toHaveBeenCalledWith(1, 10, {
+        sortField: 'name',
+        sortDirection: 'asc',
+      });
+    });
   });
 });

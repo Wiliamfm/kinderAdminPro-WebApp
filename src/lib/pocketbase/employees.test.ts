@@ -4,11 +4,13 @@ import {
   deactivateEmployee,
   getEmployeeById,
   listActiveEmployees,
+  listActiveEmployeesPage,
   updateEmployee,
 } from './employees';
 
 const hoisted = vi.hoisted(() => {
   const getFullList = vi.fn();
+  const getList = vi.fn();
   const getOne = vi.fn();
   const create = vi.fn();
   const update = vi.fn();
@@ -17,6 +19,7 @@ const hoisted = vi.hoisted(() => {
   const pb = {
     collection: vi.fn(() => ({
       getFullList,
+      getList,
       getOne,
       create,
       update,
@@ -25,6 +28,7 @@ const hoisted = vi.hoisted(() => {
 
   return {
     getFullList,
+    getList,
     getOne,
     create,
     update,
@@ -87,6 +91,53 @@ describe('employees pocketbase client', () => {
       jobName: 'Docente',
       jobSalary: 1000,
       active: true,
+    });
+  });
+
+  it('lists active employees page with server-side relation sorting', async () => {
+    hoisted.getList.mockResolvedValue({
+      items: [
+        {
+          id: 'e1',
+          name: 'Ana',
+          email: 'ana@test.com',
+          phone: '300',
+          address: 'Calle 1',
+          emergency_contact: 'Luis',
+          active: true,
+          user_id: 'u1',
+          job_id: 'j1',
+          expand: {
+            job_id: {
+              id: 'j1',
+              name: 'Docente',
+              salary: 1000,
+            },
+          },
+        },
+      ],
+      page: 2,
+      perPage: 10,
+      totalItems: 11,
+      totalPages: 2,
+    });
+
+    const result = await listActiveEmployeesPage(2, 10, {
+      sortField: 'jobSalary',
+      sortDirection: 'desc',
+    });
+
+    expect(hoisted.getList).toHaveBeenCalledWith(2, 10, {
+      sort: '-job_id.salary',
+      filter: 'active = true',
+      expand: 'job_id',
+    });
+    expect(result.page).toBe(2);
+    expect(result.totalPages).toBe(2);
+    expect(result.items[0]).toMatchObject({
+      id: 'e1',
+      jobName: 'Docente',
+      jobSalary: 1000,
     });
   });
 

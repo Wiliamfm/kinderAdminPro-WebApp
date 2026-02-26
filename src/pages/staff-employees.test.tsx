@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => {
   return {
     navigate: vi.fn(),
     isAuthUserAdmin: vi.fn(),
-    listActiveEmployees: vi.fn(),
+    listActiveEmployeesPage: vi.fn(),
     listEmployeeJobs: vi.fn(),
     createEmployee: vi.fn(),
     deactivateEmployee: vi.fn(),
@@ -33,7 +33,7 @@ vi.mock('../lib/pocketbase/auth', () => ({
 }));
 
 vi.mock('../lib/pocketbase/employees', () => ({
-  listActiveEmployees: mocks.listActiveEmployees,
+  listActiveEmployeesPage: mocks.listActiveEmployeesPage,
   createEmployee: mocks.createEmployee,
   deactivateEmployee: mocks.deactivateEmployee,
 }));
@@ -94,6 +94,13 @@ const emptyInvoicesPage = {
   totalItems: 0,
   totalPages: 1,
 };
+const employeePageFixture = {
+  items: [employee],
+  page: 1,
+  perPage: 10,
+  totalItems: 1,
+  totalPages: 1,
+};
 const defaultLeavesSort = {
   sortField: 'start_datetime',
   sortDirection: 'desc',
@@ -107,7 +114,7 @@ describe('StaffEmployeesPage features', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.isAuthUserAdmin.mockReturnValue(true);
-    mocks.listActiveEmployees.mockResolvedValue([employee]);
+    mocks.listActiveEmployeesPage.mockResolvedValue(employeePageFixture);
     mocks.listEmployeeJobs.mockResolvedValue([
       {
         id: 'j1',
@@ -196,26 +203,16 @@ describe('StaffEmployeesPage features', () => {
   });
 
   it('sorts employees table by salary when header is clicked', async () => {
-    mocks.listActiveEmployees.mockResolvedValue([
-      employee,
-      {
-        ...employee,
-        id: 'e2',
-        name: 'Bruno',
-        jobSalary: 3000,
-      },
-    ]);
-
     render(() => <StaffEmployeesPage />);
     await screen.findByText('Ana');
-    await screen.findByText('Bruno');
 
     fireEvent.click(screen.getByRole('button', { name: 'Salario' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Salario' }));
-
-    const rows = screen.getAllByRole('row').slice(1);
-    expect(rows[0]).toHaveTextContent('Bruno');
-    expect(rows[1]).toHaveTextContent('Ana');
+    await waitFor(() => {
+      expect(mocks.listActiveEmployeesPage).toHaveBeenCalledWith(1, 10, {
+        sortField: 'jobSalary',
+        sortDirection: 'asc',
+      });
+    });
   });
 
   it('hides admin actions for non-admin users', async () => {
@@ -485,12 +482,12 @@ describe('StaffEmployeesPage features', () => {
       expect(screen.getByText('Página 1 de 2')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('Siguiente'));
+    fireEvent.click(screen.getAllByText('Siguiente').at(-1)!);
     await waitFor(() => {
       expect(mocks.listEmployeeLeaves).toHaveBeenCalledWith('e1', 2, 10, defaultLeavesSort);
     });
 
-    fireEvent.click(screen.getByText('Anterior'));
+    fireEvent.click(screen.getAllByText('Anterior').at(-1)!);
     await waitFor(() => {
       expect(mocks.listEmployeeLeaves).toHaveBeenCalledWith('e1', 1, 10, defaultLeavesSort);
     });
@@ -655,12 +652,12 @@ describe('StaffEmployeesPage features', () => {
       expect(screen.getByText('Página 1 de 2')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('Siguiente'));
+    fireEvent.click(screen.getAllByText('Siguiente').at(-1)!);
     await waitFor(() => {
       expect(mocks.listEmployeeInvoices).toHaveBeenCalledWith('e1', 2, 10, defaultInvoicesSort);
     });
 
-    fireEvent.click(screen.getByText('Anterior'));
+    fireEvent.click(screen.getAllByText('Anterior').at(-1)!);
     await waitFor(() => {
       expect(mocks.listEmployeeInvoices).toHaveBeenCalledWith('e1', 1, 10, defaultInvoicesSort);
     });
@@ -673,6 +670,54 @@ describe('StaffEmployeesPage features', () => {
 
     await waitFor(() => {
       expect(mocks.listEmployeeInvoices).toHaveBeenCalledWith('e1', 1, 10, {
+        sortField: 'name',
+        sortDirection: 'asc',
+      });
+    });
+  });
+
+  it('supports employees pagination next and previous', async () => {
+    mocks.listActiveEmployeesPage.mockImplementation(async (page: number) => {
+      if (page === 1) {
+        return {
+          items: [employee],
+          page: 1,
+          perPage: 10,
+          totalItems: 11,
+          totalPages: 2,
+        };
+      }
+
+      return {
+        items: [
+          {
+            ...employee,
+            id: 'e2',
+            name: 'Bruno',
+            email: 'bruno@test.com',
+          },
+        ],
+        page: 2,
+        perPage: 10,
+        totalItems: 11,
+        totalPages: 2,
+      };
+    });
+
+    render(() => <StaffEmployeesPage />);
+    await screen.findByText('Ana');
+
+    fireEvent.click(screen.getByText('Siguiente'));
+    await waitFor(() => {
+      expect(mocks.listActiveEmployeesPage).toHaveBeenCalledWith(2, 10, {
+        sortField: 'name',
+        sortDirection: 'asc',
+      });
+    });
+
+    fireEvent.click(screen.getByText('Anterior'));
+    await waitFor(() => {
+      expect(mocks.listActiveEmployeesPage).toHaveBeenCalledWith(1, 10, {
         sortField: 'name',
         sortDirection: 'asc',
       });

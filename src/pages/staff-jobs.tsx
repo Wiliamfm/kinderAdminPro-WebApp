@@ -2,6 +2,7 @@ import { useNavigate } from '@solidjs/router';
 import { createEffect, createMemo, createResource, createSignal, For, Show } from 'solid-js';
 import InlineFieldAlert from '../components/InlineFieldAlert';
 import Modal from '../components/Modal';
+import PaginationControls from '../components/PaginationControls';
 import SortableHeaderCell from '../components/SortableHeaderCell';
 import {
   createInitialTouchedMap,
@@ -10,14 +11,16 @@ import {
   touchField,
   type FieldErrorMap,
 } from '../lib/forms/realtime-validation';
-import { sortRows, toggleSort, type SortState } from '../lib/table/sorting';
+import { toggleSort, type SortState } from '../lib/table/sorting';
+import { clampPage, DEFAULT_TABLE_PAGE_SIZE } from '../lib/table/pagination';
 import { isAuthUserAdmin } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
   countEmployeesByJobId,
   createEmployeeJob,
   deleteEmployeeJob,
-  listEmployeeJobs,
+  listEmployeeJobsPage,
+  type EmployeeJobListSortField,
   type EmployeeJobRecord,
   updateEmployeeJob,
 } from '../lib/pocketbase/employee-jobs';
@@ -87,25 +90,11 @@ function formatSalary(value: number | string): string {
   return '—';
 }
 
-function toSortableText(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function toSortableNumber(value: number | string): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value !== 'string') return null;
-
-  const parsed = Number(value.trim());
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-type JobSortKey = 'name' | 'salary';
+type JobSortKey = EmployeeJobListSortField;
 
 export default function StaffJobsPage() {
   const navigate = useNavigate();
-  const [jobs, { refetch }] = createResource(listEmployeeJobs);
+  const [jobPage, setJobPage] = createSignal(1);
 
   const [actionError, setActionError] = createSignal<string | null>(null);
 
@@ -127,6 +116,17 @@ export default function StaffJobsPage() {
     key: 'name',
     direction: 'asc',
   });
+  const [jobs, { refetch }] = createResource(
+    () => ({
+      page: jobPage(),
+      sortField: jobSort().key,
+      sortDirection: jobSort().direction,
+    }),
+    ({ page, sortField, sortDirection }) => listEmployeeJobsPage(page, DEFAULT_TABLE_PAGE_SIZE, {
+      sortField,
+      sortDirection,
+    }),
+  );
 
   createEffect(() => {
     if (!isAuthUserAdmin()) {
@@ -171,6 +171,10 @@ export default function StaffJobsPage() {
     try {
       await createEmployeeJob(buildPayload(createForm()));
       await refetch();
+      const totalPages = jobs()?.totalPages ?? 1;
+      if (jobPage() > totalPages) {
+        setJobPage(clampPage(jobPage(), totalPages));
+      }
       setCreateOpen(false);
       setCreateForm(emptyForm);
       setCreateTouched(createInitialTouchedMap(JOB_FIELDS));
@@ -206,6 +210,10 @@ export default function StaffJobsPage() {
     try {
       await updateEmployeeJob(target.id, buildPayload(editForm()));
       await refetch();
+      const totalPages = jobs()?.totalPages ?? 1;
+      if (jobPage() > totalPages) {
+        setJobPage(clampPage(jobPage(), totalPages));
+      }
       setEditTarget(null);
       setEditForm(emptyForm);
       setEditTouched(createInitialTouchedMap(JOB_FIELDS));
@@ -235,6 +243,10 @@ export default function StaffJobsPage() {
 
       await deleteEmployeeJob(target.id);
       await refetch();
+      const totalPages = jobs()?.totalPages ?? 1;
+      if (jobPage() > totalPages) {
+        setJobPage(clampPage(jobPage(), totalPages));
+      }
       setDeleteTarget(null);
     } catch (error) {
       setActionError(getErrorMessage(error));
@@ -243,10 +255,13 @@ export default function StaffJobsPage() {
     }
   };
 
-  const jobRows = createMemo(() => sortRows(jobs() ?? [], jobSort(), {
-    name: (job) => toSortableText(job.name),
-    salary: (job) => toSortableNumber(job.salary),
-  }));
+  const jobRows = () => jobs()?.items ?? [];
+  const jobCurrentPage = () => jobs()?.page ?? 1;
+  const jobTotalPages = () => jobs()?.totalPages ?? 1;
+  const handleJobSort = (key: JobSortKey) => {
+    setJobSort((current) => toggleSort(current, key));
+    setJobPage(1);
+  };
 
   return (
     <section class="min-h-screen bg-yellow-50 p-8 text-gray-800">
@@ -298,14 +313,14 @@ export default function StaffJobsPage() {
                   label="Nombre"
                   columnKey="name"
                   sort={jobSort()}
-                  onSort={(key) => setJobSort((current) => toggleSort(current, key))}
+                  onSort={handleJobSort}
                 />
                 <SortableHeaderCell
                   class="px-4 py-3 font-semibold"
                   label="Salario"
                   columnKey="salary"
                   sort={jobSort()}
-                  onSort={(key) => setJobSort((current) => toggleSort(current, key))}
+                  onSort={handleJobSort}
                 />
                 <th class="px-4 py-3 font-semibold">Acciones</th>
               </tr>
@@ -332,7 +347,7 @@ export default function StaffJobsPage() {
                   }
                 >
                   <Show
-                    when={(jobs() ?? []).length > 0}
+                    when={jobRows().length > 0}
                     fallback={
                       <tr>
                         <td class="px-4 py-4 text-gray-600" colSpan={3}>
@@ -376,6 +391,13 @@ export default function StaffJobsPage() {
             </tbody>
           </table>
         </div>
+        <PaginationControls
+          class="mt-3 flex items-center justify-between"
+          page={jobCurrentPage()}
+          totalPages={jobTotalPages()}
+          busy={jobs.loading || createBusy() || editBusy() || deleteBusy()}
+          onPageChange={(nextPage) => setJobPage(nextPage)}
+        />
       </div>
 
       <Modal
