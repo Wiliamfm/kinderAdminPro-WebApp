@@ -1,6 +1,6 @@
 # Architecture Reference
 
-Last updated: 2026-02-23
+Last updated: 2026-02-26
 
 ## Purpose
 Provide a stable technical reference for module responsibilities, data flow, and key design constraints.
@@ -22,6 +22,13 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - Feature modules wrap collection calls and expose typed functions.
 - UI pages call wrapper functions via `createResource` and action handlers.
 - Wrapper modules use mapper functions to keep camelCase TypeScript semantics while translating to PocketBase snake_case fields (for example `employeeId` <-> `employee_id`).
+
+## Temporal Data Standard
+- Canonical temporal format is RFC3339 datetime with timezone offset (for example `2026-02-26T14:30:00-05:00` or UTC `Z` form).
+- All temporal fields must use PocketBase `date` type and store offset-aware datetime values.
+- New temporal fields should use `*_datetime` naming. Legacy names may remain (for example `date_of_birth`) but still store offset-aware datetime values.
+- When UI uses `datetime-local`, wrapper/page logic must convert it before API calls.
+- Schema changes involving temporal fields require migration of existing offset-less/date-only values.
 
 ## Authorization Model
 - App login uses PocketBase `users` auth collection.
@@ -83,7 +90,7 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - row action to edit and prefill form.
 - Form behavior:
   - accepts `datetime-local` inputs,
-  - converts to ISO UTC before API calls,
+  - converts local input to offset-aware ISO datetime before API calls (persisted as UTC `Z`),
   - validates `end > start`,
   - blocks overlap using API check.
 - Edit mode:
@@ -106,6 +113,22 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - invoice list is filtered by `employee_id` and sorted by `-update_datetime`,
   - filename shown in history table comes from `invoices.name`,
   - displayed date column uses `update_datetime` fallback to `creation_datetime`.
+
+## Students Data Model
+- `students` collection stores enrollment student records with admin-only access.
+- Access rules:
+  - `listRule`, `viewRule`, `createRule`, `updateRule`, `deleteRule`: `@request.auth.is_admin = true`.
+- Fields:
+  - `name` (required text),
+  - `date_of_birth` (required `date`, datetime with timezone offset),
+  - `birth_place` (required text),
+  - `department` (required text),
+  - `document_id` (required text, unique index),
+  - `weight` (optional number, decimal allowed),
+  - `height` (optional number, decimal allowed),
+  - `blood_type` (required single select: `A+`, `A-`, `B+`, `B-`, `AB+`, `AB-`, `O+`, `O-`),
+  - `social_security` (optional text),
+  - `allergies` (optional text).
 
 ## Testing Architecture
 - Runner: Vitest (`vitest.config.ts`).

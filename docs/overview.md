@@ -1,6 +1,6 @@
 # Project Overview
 
-Last updated: 2026-02-23
+Last updated: 2026-02-26
 
 ## Purpose
 This application is a SolidJS frontend for staff and operational management workflows backed by PocketBase.
@@ -30,6 +30,10 @@ Primary functional areas exposed through routes:
   - edit existing leave,
   - validate date order and overlap,
   - paginate leave history.
+- Manage enrollment students data in PocketBase `students` collection:
+  - admin-only CRUD access,
+  - unique `document_id`,
+  - `date_of_birth` stored as datetime with timezone offset.
 - Store employee invoices in PocketBase:
   - `invoices` links each invoice to one employee (`employee_id`),
   - `invoices.name` stores the normalized original filename with a timestamp suffix (for example `factura_demo_20260223_1000.pdf`),
@@ -37,6 +41,11 @@ Primary functional areas exposed through routes:
   - invoice upload is available from a dedicated action icon in the employees table,
   - invoice history includes an edit action to upload a new file and replace the existing invoice file,
   - invoice history is shown in a modal with filename (`Nombre de archivo`) and date (`Fecha de registro`) columns, where date displays `update_datetime` and falls back to `creation_datetime`.
+
+## Temporal Data Standard
+- All temporal values must be modeled and exchanged as datetime with timezone offset (RFC3339/ISO 8601 style).
+- Date-only storage is not allowed for new or migrated schema fields.
+- UI inputs like `datetime-local` are accepted for capture, but must be converted to offset-aware datetime strings before persistence.
 
 ## Tech Stack
 - SolidJS + TypeScript + Vite
