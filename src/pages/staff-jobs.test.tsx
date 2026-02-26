@@ -75,6 +75,19 @@ describe('StaffJobsPage', () => {
     });
   });
 
+  it('shows realtime validation in create modal after touching name', async () => {
+    render(() => <StaffJobsPage />);
+    await screen.findByText('Docente');
+
+    fireEvent.click(screen.getByText('Nuevo cargo'));
+    fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'A' } });
+
+    expect(
+      await screen.findByText('El nombre del cargo debe tener al menos 2 caracteres.'),
+    ).toBeInTheDocument();
+    expect(mocks.createEmployeeJob).not.toHaveBeenCalled();
+  });
+
   it('edits a job', async () => {
     render(() => <StaffJobsPage />);
     await screen.findByText('Docente');

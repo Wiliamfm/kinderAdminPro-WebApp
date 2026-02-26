@@ -1,6 +1,14 @@
 import { useNavigate } from '@solidjs/router';
-import { createResource, createSignal, For, Show } from 'solid-js';
+import { createMemo, createResource, createSignal, For, Show } from 'solid-js';
+import InlineFieldAlert from '../components/InlineFieldAlert';
 import Modal from '../components/Modal';
+import {
+  createInitialTouchedMap,
+  hasAnyError,
+  touchAllFields,
+  touchField,
+  type FieldErrorMap,
+} from '../lib/forms/realtime-validation';
 import { isAuthUserAdmin } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
@@ -39,6 +47,22 @@ type EmployeeCreateForm = {
   address: string;
   emergency_contact: string;
 };
+
+const CREATE_EMPLOYEE_FIELDS = [
+  'name',
+  'jobId',
+  'email',
+  'phone',
+  'address',
+  'emergency_contact',
+] as const;
+type CreateEmployeeField = (typeof CREATE_EMPLOYEE_FIELDS)[number];
+
+const LEAVE_FIELDS = ['start_datetime', 'end_datetime'] as const;
+type LeaveField = (typeof LEAVE_FIELDS)[number];
+
+const INVOICE_FIELDS = ['file'] as const;
+type InvoiceField = (typeof INVOICE_FIELDS)[number];
 
 const PHONE_REGEX = /^[+\d\s()-]{7,20}$/;
 
@@ -104,6 +128,79 @@ const emptyCreateEmployeeForm: EmployeeCreateForm = {
   emergency_contact: '',
 };
 
+function validateCreateEmployeeForm(current: EmployeeCreateForm): FieldErrorMap<CreateEmployeeField> {
+  const errors: FieldErrorMap<CreateEmployeeField> = {};
+
+  if (current.name.trim().length === 0) errors.name = 'Nombre es obligatorio.';
+  if (current.jobId.trim().length === 0) errors.jobId = 'Cargo es obligatorio.';
+  if (current.email.trim().length === 0) errors.email = 'Correo es obligatorio.';
+  if (current.phone.trim().length === 0) errors.phone = 'Teléfono es obligatorio.';
+  if (current.address.trim().length === 0) errors.address = 'Dirección es obligatorio.';
+  if (current.emergency_contact.trim().length === 0) {
+    errors.emergency_contact = 'Contacto de emergencia es obligatorio.';
+  }
+
+  if (!errors.phone && !PHONE_REGEX.test(current.phone.trim())) {
+    errors.phone = 'El teléfono debe tener entre 7 y 20 caracteres válidos.';
+  }
+
+  if (!errors.name && current.name.trim().length < 3) {
+    errors.name = 'El nombre debe tener al menos 3 caracteres.';
+  }
+
+  if (!errors.address && current.address.trim().length < 5) {
+    errors.address = 'La dirección debe tener al menos 5 caracteres.';
+  }
+
+  if (!errors.emergency_contact && current.emergency_contact.trim().length < 3) {
+    errors.emergency_contact = 'El contacto de emergencia debe tener al menos 3 caracteres.';
+  }
+
+  return errors;
+}
+
+function toCreateEmployeeInput(current: EmployeeCreateForm): EmployeeCreateForm {
+  return {
+    name: current.name.trim(),
+    jobId: current.jobId.trim(),
+    email: current.email.trim(),
+    phone: current.phone.trim(),
+    address: current.address.trim(),
+    emergency_contact: current.emergency_contact.trim(),
+  };
+}
+
+function parseLocalDateTime(value: string): Date | null {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function validateLeaveForm(current: LeaveCreateInput): FieldErrorMap<LeaveField> {
+  const errors: FieldErrorMap<LeaveField> = {};
+  const startValue = current.start_datetime.trim();
+  const endValue = current.end_datetime.trim();
+
+  if (!startValue || !endValue) {
+    const message = 'Debes completar fecha y hora de inicio y fin.';
+    if (!startValue) errors.start_datetime = message;
+    if (!endValue) errors.end_datetime = message;
+    return errors;
+  }
+
+  const start = parseLocalDateTime(startValue);
+  const end = parseLocalDateTime(endValue);
+  if (!start || !end) {
+    errors.end_datetime = 'Las fechas ingresadas no son válidas.';
+    return errors;
+  }
+
+  if (end.getTime() <= start.getTime()) {
+    errors.end_datetime = 'La fecha de fin debe ser posterior a la fecha de inicio.';
+  }
+
+  return errors;
+}
+
 export default function StaffEmployeesPage() {
   const navigate = useNavigate();
   const canManageAdminActions = () => isAuthUserAdmin();
@@ -118,10 +215,15 @@ export default function StaffEmployeesPage() {
   const [createError, setCreateError] = createSignal<string | null>(null);
   const [createInviteWarning, setCreateInviteWarning] = createSignal<string | null>(null);
   const [createForm, setCreateForm] = createSignal<EmployeeCreateForm>(emptyCreateEmployeeForm);
+  const [createTouched, setCreateTouched] = createSignal(
+    createInitialTouchedMap(CREATE_EMPLOYEE_FIELDS),
+  );
   const [resendBusyEmployeeId, setResendBusyEmployeeId] = createSignal<string | null>(null);
   const [inviteNotice, setInviteNotice] = createSignal<string | null>(null);
   const [leaveTarget, setLeaveTarget] = createSignal<EmployeeRecord | null>(null);
   const [leaveForm, setLeaveForm] = createSignal<LeaveCreateInput>(emptyLeaveForm);
+  const [leaveTouched, setLeaveTouched] = createSignal(createInitialTouchedMap(LEAVE_FIELDS));
+  const [leaveAsyncError, setLeaveAsyncError] = createSignal<string | null>(null);
   const [leavePage, setLeavePage] = createSignal(1);
   const [leaveBusy, setLeaveBusy] = createSignal(false);
   const [leaveError, setLeaveError] = createSignal<string | null>(null);
@@ -131,6 +233,9 @@ export default function StaffEmployeesPage() {
   const [invoiceBusy, setInvoiceBusy] = createSignal(false);
   const [invoiceError, setInvoiceError] = createSignal<string | null>(null);
   const [invoiceFile, setInvoiceFile] = createSignal<File | null>(null);
+  const [invoiceTouched, setInvoiceTouched] = createSignal(
+    createInitialTouchedMap(INVOICE_FIELDS),
+  );
   const [editingInvoice, setEditingInvoice] = createSignal<InvoiceRecord | null>(null);
   let invoiceFileInputRef: HTMLInputElement | undefined;
 
@@ -164,6 +269,7 @@ export default function StaffEmployeesPage() {
     setCreateError(null);
     setCreateInviteWarning(null);
     setCreateForm(emptyCreateEmployeeForm);
+    setCreateTouched(createInitialTouchedMap(CREATE_EMPLOYEE_FIELDS));
   };
 
   const closeCreateEmployeeModal = () => {
@@ -172,6 +278,7 @@ export default function StaffEmployeesPage() {
     setCreateError(null);
     setCreateInviteWarning(null);
     setCreateForm(emptyCreateEmployeeForm);
+    setCreateTouched(createInitialTouchedMap(CREATE_EMPLOYEE_FIELDS));
   };
 
   const setCreateField = (field: keyof EmployeeCreateForm, value: string) => {
@@ -179,55 +286,13 @@ export default function StaffEmployeesPage() {
       ...current,
       [field]: value,
     }));
+    setCreateTouched((current) => touchField(current, field as CreateEmployeeField));
+    setCreateError(null);
   };
-
-  const validateCreateEmployeeForm = () => {
-    const current = createForm();
-
-    const requiredFields: Array<[string, string]> = [
-      ['Nombre', current.name],
-      ['Cargo', current.jobId],
-      ['Correo', current.email],
-      ['Teléfono', current.phone],
-      ['Dirección', current.address],
-      ['Contacto de emergencia', current.emergency_contact],
-    ];
-
-    const missing = requiredFields.find(([, value]) => value.trim().length === 0);
-    if (missing) {
-      setCreateError(`${missing[0]} es obligatorio.`);
-      return null;
-    }
-
-    if (!PHONE_REGEX.test(current.phone.trim())) {
-      setCreateError('El teléfono debe tener entre 7 y 20 caracteres válidos.');
-      return null;
-    }
-
-    if (current.name.trim().length < 3) {
-      setCreateError('El nombre debe tener al menos 3 caracteres.');
-      return null;
-    }
-
-    if (current.address.trim().length < 5) {
-      setCreateError('La dirección debe tener al menos 5 caracteres.');
-      return null;
-    }
-
-    if (current.emergency_contact.trim().length < 3) {
-      setCreateError('El contacto de emergencia debe tener al menos 3 caracteres.');
-      return null;
-    }
-
-    return {
-      name: current.name.trim(),
-      jobId: current.jobId.trim(),
-      email: current.email.trim(),
-      phone: current.phone.trim(),
-      address: current.address.trim(),
-      emergency_contact: current.emergency_contact.trim(),
-    };
-  };
+  const createFieldErrors = createMemo(() => validateCreateEmployeeForm(createForm()));
+  const createFieldError = (field: CreateEmployeeField) => (
+    createTouched()[field] ? createFieldErrors()[field] : undefined
+  );
 
   const submitCreateEmployee = async () => {
     if (!canManageAdminActions()) {
@@ -235,8 +300,9 @@ export default function StaffEmployeesPage() {
       return;
     }
 
-    const validated = validateCreateEmployeeForm();
-    if (!validated) return;
+    setCreateTouched((current) => touchAllFields(current));
+    if (hasAnyError(createFieldErrors())) return;
+    const validated = toCreateEmployeeInput(createForm());
 
     setCreateBusy(true);
     setCreateError(null);
@@ -266,6 +332,7 @@ export default function StaffEmployeesPage() {
       await refetch();
       setCreateModalOpen(false);
       setCreateForm(emptyCreateEmployeeForm);
+      setCreateTouched(createInitialTouchedMap(CREATE_EMPLOYEE_FIELDS));
     } catch (error) {
       setCreateError(getErrorMessage(error));
     } finally {
@@ -316,7 +383,9 @@ export default function StaffEmployeesPage() {
     setLeaveTarget(employee);
     setLeavePage(1);
     setLeaveError(null);
+    setLeaveAsyncError(null);
     setEditingLeaveId(null);
+    setLeaveTouched(createInitialTouchedMap(LEAVE_FIELDS));
     setLeaveForm({
       employeeId: employee.id,
       start_datetime: '',
@@ -329,6 +398,7 @@ export default function StaffEmployeesPage() {
     setInvoicePage(1);
     setInvoiceError(null);
     setInvoiceFile(null);
+    setInvoiceTouched(createInitialTouchedMap(INVOICE_FIELDS));
     setEditingInvoice(null);
     if (invoiceFileInputRef) invoiceFileInputRef.value = '';
   };
@@ -338,7 +408,9 @@ export default function StaffEmployeesPage() {
     setLeaveTarget(null);
     setLeavePage(1);
     setLeaveError(null);
+    setLeaveAsyncError(null);
     setEditingLeaveId(null);
+    setLeaveTouched(createInitialTouchedMap(LEAVE_FIELDS));
     setLeaveForm(emptyLeaveForm);
   };
 
@@ -348,6 +420,7 @@ export default function StaffEmployeesPage() {
     setInvoicePage(1);
     setInvoiceError(null);
     setInvoiceFile(null);
+    setInvoiceTouched(createInitialTouchedMap(INVOICE_FIELDS));
     setEditingInvoice(null);
     if (invoiceFileInputRef) invoiceFileInputRef.value = '';
   };
@@ -364,6 +437,8 @@ export default function StaffEmployeesPage() {
   const startEditLeave = (leave: LeaveRecord) => {
     setEditingLeaveId(leave.id);
     setLeaveError(null);
+    setLeaveAsyncError(null);
+    setLeaveTouched(createInitialTouchedMap(LEAVE_FIELDS));
     setLeaveForm((current) => ({
       ...current,
       start_datetime: toDateTimeLocalValue(leave.start_datetime),
@@ -376,79 +451,56 @@ export default function StaffEmployeesPage() {
       ...current,
       [field]: value,
     }));
+    setLeaveTouched((current) => touchField(current, field));
+    setLeaveError(null);
+    setLeaveAsyncError(null);
   };
-
-  const parseLocalDateTime = (value: string): Date | null => {
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  };
-
-  const validateLeaveForm = (): { start: Date; end: Date; target: LeaveCreateInput } | null => {
-    const employee = leaveTarget();
-    if (!employee) {
-      setLeaveError('No se encontró el empleado seleccionado.');
-      return null;
+  const leaveFieldErrors = createMemo(() => validateLeaveForm(leaveForm()));
+  const leaveFieldError = (field: LeaveField) => {
+    const clientError = leaveTouched()[field] ? leaveFieldErrors()[field] : undefined;
+    if (field === 'end_datetime' && !clientError && leaveTouched().end_datetime) {
+      return leaveAsyncError() ?? undefined;
     }
-
-    const startValue = leaveForm().start_datetime.trim();
-    const endValue = leaveForm().end_datetime.trim();
-
-    if (!startValue || !endValue) {
-      setLeaveError('Debes completar fecha y hora de inicio y fin.');
-      return null;
-    }
-
-    const start = parseLocalDateTime(startValue);
-    const end = parseLocalDateTime(endValue);
-    if (!start || !end) {
-      setLeaveError('Las fechas ingresadas no son válidas.');
-      return null;
-    }
-
-    if (end.getTime() <= start.getTime()) {
-      setLeaveError('La fecha de fin debe ser posterior a la fecha de inicio.');
-      return null;
-    }
-
-    return {
-      start,
-      end,
-      target: {
-        employeeId: employee.id,
-        start_datetime: start.toISOString(),
-        end_datetime: end.toISOString(),
-      },
-    };
+    return clientError;
   };
 
   const submitLeave = async () => {
     const target = leaveTarget();
     if (!target) return;
 
-    const validated = validateLeaveForm();
-    if (!validated) return;
+    setLeaveTouched((current) => touchAllFields(current));
+    if (hasAnyError(leaveFieldErrors())) return;
+    const start = parseLocalDateTime(leaveForm().start_datetime.trim());
+    const end = parseLocalDateTime(leaveForm().end_datetime.trim());
+    if (!start || !end) return;
 
     setLeaveBusy(true);
     setLeaveError(null);
+    setLeaveAsyncError(null);
 
     try {
+      const payload: LeaveCreateInput = {
+        employeeId: target.id,
+        start_datetime: start.toISOString(),
+        end_datetime: end.toISOString(),
+      };
       const currentEditingLeaveId = editingLeaveId();
       const overlap = await hasLeaveOverlap(
         target.id,
-        validated.target.start_datetime,
-        validated.target.end_datetime,
+        payload.start_datetime,
+        payload.end_datetime,
         currentEditingLeaveId ?? undefined,
       );
 
       if (overlap) {
-        setLeaveError('La licencia se cruza con otra licencia existente para este empleado.');
+        setLeaveAsyncError('La licencia se cruza con otra licencia existente para este empleado.');
         return;
       }
 
       if (currentEditingLeaveId) {
-        await updateEmployeeLeave(currentEditingLeaveId, validated.target);
+        await updateEmployeeLeave(currentEditingLeaveId, payload);
       } else {
-        await createEmployeeLeave(validated.target);
+        await createEmployeeLeave(payload);
       }
 
       setEditingLeaveId(null);
@@ -457,6 +509,8 @@ export default function StaffEmployeesPage() {
         start_datetime: '',
         end_datetime: '',
       }));
+      setLeaveTouched(createInitialTouchedMap(LEAVE_FIELDS));
+      setLeaveAsyncError(null);
 
       setLeavePage(1);
       await refetchLeaves();
@@ -475,25 +529,42 @@ export default function StaffEmployeesPage() {
   const validateInvoiceFile = (): File | null => {
     const file = invoiceFile();
     if (!file) {
-      setInvoiceError('Debes seleccionar un archivo PDF.');
       return null;
     }
 
     if (!isPdfFile(file)) {
-      setInvoiceError('Solo se permiten archivos PDF.');
       return null;
     }
 
     return file;
   };
+  const invoiceFieldErrors = createMemo(() => {
+    const errors: FieldErrorMap<InvoiceField> = {};
+    const file = invoiceFile();
+    if (!file) {
+      errors.file = 'Debes seleccionar un archivo PDF.';
+      return errors;
+    }
+
+    if (!isPdfFile(file)) {
+      errors.file = 'Solo se permiten archivos PDF.';
+    }
+
+    return errors;
+  });
+  const invoiceFileError = () => (invoiceTouched().file ? invoiceFieldErrors().file : undefined);
 
   const submitInvoice = async () => {
     const target = invoiceTarget();
     if (!target) return;
     const invoiceToEdit = editingInvoice();
 
+    setInvoiceTouched((current) => touchAllFields(current));
+    if (hasAnyError(invoiceFieldErrors())) return;
     const file = validateInvoiceFile();
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     setInvoiceBusy(true);
     setInvoiceError(null);
@@ -514,6 +585,7 @@ export default function StaffEmployeesPage() {
       }
 
       setInvoiceFile(null);
+      setInvoiceTouched(createInitialTouchedMap(INVOICE_FIELDS));
       setEditingInvoice(null);
       if (invoiceFileInputRef) invoiceFileInputRef.value = '';
       setInvoicePage(1);
@@ -539,6 +611,7 @@ export default function StaffEmployeesPage() {
     setEditingInvoice(invoice);
     setInvoiceError(null);
     setInvoiceFile(null);
+    setInvoiceTouched(createInitialTouchedMap(INVOICE_FIELDS));
     if (invoiceFileInputRef) invoiceFileInputRef.value = '';
   };
   const selectedCreateJob = () => {
@@ -709,19 +782,26 @@ export default function StaffEmployeesPage() {
                 <span class="text-sm text-gray-700">Nombre</span>
                 <input
                   class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  classList={{ 'field-input-invalid': !!createFieldError('name') }}
                   type="text"
                   value={createForm().name}
                   onInput={(event) => setCreateField('name', event.currentTarget.value)}
                   disabled={createBusy()}
+                  aria-invalid={!!createFieldError('name')}
+                  aria-describedby={createFieldError('name') ? 'create-employee-name-error' : undefined}
                 />
+                <InlineFieldAlert id="create-employee-name-error" message={createFieldError('name')} />
               </label>
               <label class="block">
                 <span class="text-sm text-gray-700">Cargo</span>
                 <select
                   class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  classList={{ 'field-input-invalid': !!createFieldError('jobId') }}
                   value={createForm().jobId}
                   onChange={(event) => setCreateField('jobId', event.currentTarget.value)}
                   disabled={createBusy()}
+                  aria-invalid={!!createFieldError('jobId')}
+                  aria-describedby={createFieldError('jobId') ? 'create-employee-job-error' : undefined}
                 >
                   <option value="">Selecciona un cargo</option>
                   <For each={jobs() ?? []}>
@@ -730,6 +810,7 @@ export default function StaffEmployeesPage() {
                     )}
                   </For>
                 </select>
+                <InlineFieldAlert id="create-employee-job-error" message={createFieldError('jobId')} />
               </label>
               <Show when={selectedCreateJob()}>
                 <p class="rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-gray-700 md:col-span-2">
@@ -740,40 +821,62 @@ export default function StaffEmployeesPage() {
                 <span class="text-sm text-gray-700">Correo</span>
                 <input
                   class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  classList={{ 'field-input-invalid': !!createFieldError('email') }}
                   type="email"
                   value={createForm().email}
                   onInput={(event) => setCreateField('email', event.currentTarget.value)}
                   disabled={createBusy()}
+                  aria-invalid={!!createFieldError('email')}
+                  aria-describedby={createFieldError('email') ? 'create-employee-email-error' : undefined}
                 />
+                <InlineFieldAlert id="create-employee-email-error" message={createFieldError('email')} />
               </label>
               <label class="block">
                 <span class="text-sm text-gray-700">Teléfono</span>
                 <input
                   class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  classList={{ 'field-input-invalid': !!createFieldError('phone') }}
                   type="text"
                   value={createForm().phone}
                   onInput={(event) => setCreateField('phone', event.currentTarget.value)}
                   disabled={createBusy()}
+                  aria-invalid={!!createFieldError('phone')}
+                  aria-describedby={createFieldError('phone') ? 'create-employee-phone-error' : undefined}
                 />
+                <InlineFieldAlert id="create-employee-phone-error" message={createFieldError('phone')} />
               </label>
               <label class="block">
                 <span class="text-sm text-gray-700">Dirección</span>
                 <input
                   class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  classList={{ 'field-input-invalid': !!createFieldError('address') }}
                   type="text"
                   value={createForm().address}
                   onInput={(event) => setCreateField('address', event.currentTarget.value)}
                   disabled={createBusy()}
+                  aria-invalid={!!createFieldError('address')}
+                  aria-describedby={createFieldError('address') ? 'create-employee-address-error' : undefined}
+                />
+                <InlineFieldAlert
+                  id="create-employee-address-error"
+                  message={createFieldError('address')}
                 />
               </label>
               <label class="block md:col-span-2">
                 <span class="text-sm text-gray-700">Contacto de emergencia</span>
                 <input
                   class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  classList={{ 'field-input-invalid': !!createFieldError('emergency_contact') }}
                   type="text"
                   value={createForm().emergency_contact}
                   onInput={(event) => setCreateField('emergency_contact', event.currentTarget.value)}
                   disabled={createBusy()}
+                  aria-invalid={!!createFieldError('emergency_contact')}
+                  aria-describedby={createFieldError('emergency_contact') ? 'create-employee-emergency-error' : undefined}
+                />
+                <InlineFieldAlert
+                  id="create-employee-emergency-error"
+                  message={createFieldError('emergency_contact')}
                 />
               </label>
             </div>
@@ -815,21 +918,29 @@ export default function StaffEmployeesPage() {
                 <span class="text-sm text-gray-700">Inicio de licencia</span>
                 <input
                   class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  classList={{ 'field-input-invalid': !!leaveFieldError('start_datetime') }}
                   type="datetime-local"
                   value={leaveForm().start_datetime}
                   onInput={(event) => updateLeaveField('start_datetime', event.currentTarget.value)}
                   disabled={leaveBusy()}
+                  aria-invalid={!!leaveFieldError('start_datetime')}
+                  aria-describedby={leaveFieldError('start_datetime') ? 'leave-start-error' : undefined}
                 />
+                <InlineFieldAlert id="leave-start-error" message={leaveFieldError('start_datetime')} />
               </label>
               <label class="block">
                 <span class="text-sm text-gray-700">Fin de licencia</span>
                 <input
                   class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  classList={{ 'field-input-invalid': !!leaveFieldError('end_datetime') }}
                   type="datetime-local"
                   value={leaveForm().end_datetime}
                   onInput={(event) => updateLeaveField('end_datetime', event.currentTarget.value)}
                   disabled={leaveBusy()}
+                  aria-invalid={!!leaveFieldError('end_datetime')}
+                  aria-describedby={leaveFieldError('end_datetime') ? 'leave-end-error' : undefined}
                 />
+                <InlineFieldAlert id="leave-end-error" message={leaveFieldError('end_datetime')} />
               </label>
             </div>
 
@@ -952,14 +1063,20 @@ export default function StaffEmployeesPage() {
               <input
                 ref={invoiceFileInputRef}
                 class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                classList={{ 'field-input-invalid': !!invoiceFileError() }}
                 type="file"
                 accept="application/pdf,.pdf"
                 disabled={invoiceBusy()}
+                aria-invalid={!!invoiceFileError()}
+                aria-describedby={invoiceFileError() ? 'invoice-file-error' : undefined}
                 onChange={(event) => {
                   const file = event.currentTarget.files?.[0] ?? null;
                   setInvoiceFile(file);
+                  setInvoiceTouched((current) => touchField(current, 'file'));
+                  setInvoiceError(null);
                 }}
               />
+              <InlineFieldAlert id="invoice-file-error" message={invoiceFileError()} />
             </label>
 
             <Show when={invoiceFile()}>

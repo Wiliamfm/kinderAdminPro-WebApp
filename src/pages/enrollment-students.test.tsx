@@ -134,6 +134,24 @@ describe('EnrollmentStudentsPage', () => {
     expect(mocks.createStudent).not.toHaveBeenCalled();
   });
 
+  it('shows realtime age validation after touching birth date', async () => {
+    render(() => <EnrollmentStudentsPage />);
+    await screen.findByText('Ana');
+
+    const tooYoung = new Date();
+    tooYoung.setFullYear(tooYoung.getFullYear() - 1);
+
+    fireEvent.click(screen.getByText('Nuevo estudiante'));
+    await screen.findByRole('heading', { name: 'Crear estudiante' });
+
+    fireEvent.input(screen.getByLabelText('Fecha de nacimiento'), {
+      target: { value: toDateTimeLocalValue(tooYoung) },
+    });
+
+    expect(await screen.findByText('El estudiante debe tener al menos 2 años.')).toBeInTheDocument();
+    expect(mocks.createStudent).not.toHaveBeenCalled();
+  });
+
   it('soft deletes a student from confirmation modal', async () => {
     render(() => <EnrollmentStudentsPage />);
     await screen.findByText('Ana');

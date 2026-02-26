@@ -17,6 +17,12 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - `src/lib/`: non-UI logic, auth guards, PocketBase API wrappers, helpers.
 - `src/test/`: global test setup.
 
+## Form Validation Pattern
+- Admin forms use touched-based realtime validation.
+- Shared helpers live in `src/lib/forms/realtime-validation.ts`.
+- Inline per-field alerts use `src/components/InlineFieldAlert.tsx` and are rendered under inputs/selects/file fields.
+- API/backend errors remain as form-level alert blocks (for example submit/network failures).
+
 ## Data Access Pattern
 - PocketBase SDK initialization and error normalization live in `src/lib/pocketbase/client.ts`.
 - Feature modules wrap collection calls and expose typed functions.

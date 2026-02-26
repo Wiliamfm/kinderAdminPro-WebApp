@@ -17,3 +17,21 @@
     border-color: var(--color-gray-200, currentcolor);
   }
 }
+
+@layer components {
+  .field-alert {
+    margin-top: 0.35rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-red-200);
+    background: var(--color-red-50);
+    padding: 0.35rem 0.6rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    color: var(--color-red-700);
+  }
+
+  .field-input-invalid {
+    border-color: var(--color-red-400);
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-red-400) 35%, transparent);
+  }
+}

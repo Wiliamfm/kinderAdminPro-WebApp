@@ -1,5 +1,13 @@
 import { useNavigate, useParams } from '@solidjs/router';
-import { createEffect, createResource, createSignal, For, Show } from 'solid-js';
+import { createEffect, createMemo, createResource, createSignal, For, Show } from 'solid-js';
+import InlineFieldAlert from '../components/InlineFieldAlert';
+import {
+  createInitialTouchedMap,
+  hasAnyError,
+  touchAllFields,
+  touchField,
+  type FieldErrorMap,
+} from '../lib/forms/realtime-validation';
 import { isAuthUserAdmin } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
@@ -35,6 +43,19 @@ const emptyForm: StudentForm = {
   social_security: '',
   allergies: '',
 };
+
+const STUDENT_VALIDATED_FIELDS = [
+  'name',
+  'date_of_birth',
+  'birth_place',
+  'department',
+  'document_id',
+  'weight',
+  'height',
+  'blood_type',
+] as const;
+
+type StudentValidatedField = (typeof STUDENT_VALIDATED_FIELDS)[number];
 
 function getErrorMessage(error: unknown): string {
   const normalized = error as PocketBaseRequestError | undefined;
@@ -78,11 +99,70 @@ function isAtLeastYearsOld(date: Date, minimumYears: number): boolean {
   return date.getTime() <= threshold.getTime();
 }
 
+function isValidatedField(field: keyof StudentForm): field is StudentValidatedField {
+  return (STUDENT_VALIDATED_FIELDS as readonly string[]).includes(field);
+}
+
+function validateStudentForm(form: StudentForm): FieldErrorMap<StudentValidatedField> {
+  const errors: FieldErrorMap<StudentValidatedField> = {};
+
+  if (form.name.trim().length === 0) errors.name = 'Nombre es obligatorio.';
+  if (form.date_of_birth.trim().length === 0) errors.date_of_birth = 'Fecha de nacimiento es obligatorio.';
+  if (form.birth_place.trim().length === 0) errors.birth_place = 'Lugar de nacimiento es obligatorio.';
+  if (form.department.trim().length === 0) errors.department = 'Departamento es obligatorio.';
+  if (form.document_id.trim().length === 0) errors.document_id = 'Documento es obligatorio.';
+  if (form.blood_type.trim().length === 0) errors.blood_type = 'Tipo de sangre es obligatorio.';
+
+  if (!errors.date_of_birth) {
+    const dateOfBirth = new Date(form.date_of_birth.trim());
+    if (Number.isNaN(dateOfBirth.getTime())) {
+      errors.date_of_birth = 'La fecha de nacimiento no es válida.';
+    } else if (!isAtLeastYearsOld(dateOfBirth, 2)) {
+      errors.date_of_birth = 'El estudiante debe tener al menos 2 años.';
+    }
+  }
+
+  const weight = parseOptionalNumber(form.weight);
+  if (Number.isNaN(weight)) {
+    errors.weight = 'El peso debe ser un número válido mayor o igual a 0.';
+  }
+
+  const height = parseOptionalNumber(form.height);
+  if (Number.isNaN(height)) {
+    errors.height = 'La altura debe ser un número válido mayor o igual a 0.';
+  }
+
+  if (!errors.blood_type && !BLOOD_TYPE_OPTIONS.includes(form.blood_type.trim())) {
+    errors.blood_type = 'Selecciona un tipo de sangre válido.';
+  }
+
+  return errors;
+}
+
+function toStudentUpdateInput(form: StudentForm): StudentUpdateInput {
+  const weight = parseOptionalNumber(form.weight);
+  const height = parseOptionalNumber(form.height);
+
+  return {
+    name: form.name.trim(),
+    date_of_birth: new Date(form.date_of_birth.trim()).toISOString(),
+    birth_place: form.birth_place.trim(),
+    department: form.department.trim(),
+    document_id: form.document_id.trim(),
+    weight: typeof weight === 'number' && Number.isFinite(weight) ? weight : null,
+    height: typeof height === 'number' && Number.isFinite(height) ? height : null,
+    blood_type: form.blood_type.trim(),
+    social_security: form.social_security.trim(),
+    allergies: form.allergies.trim(),
+  };
+}
+
 export default function EnrollmentStudentEditPage() {
   const params = useParams();
   const navigate = useNavigate();
   const [student] = createResource(() => params.id, getStudentById);
   const [form, setForm] = createSignal<StudentForm>(emptyForm);
+  const [touched, setTouched] = createSignal(createInitialTouchedMap(STUDENT_VALIDATED_FIELDS));
   const [formError, setFormError] = createSignal<string | null>(null);
   const [saveBusy, setSaveBusy] = createSignal(false);
 
@@ -108,81 +188,31 @@ export default function EnrollmentStudentEditPage() {
       social_security: current.social_security,
       allergies: current.allergies,
     });
+    setTouched(createInitialTouchedMap(STUDENT_VALIDATED_FIELDS));
+    setFormError(null);
   });
 
   const setField = (field: keyof StudentForm, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+    if (isValidatedField(field)) {
+      setTouched((current) => touchField(current, field));
+    }
+    setFormError(null);
   };
-
-  const validateForm = (): StudentUpdateInput | null => {
-    const current = form();
-
-    const requiredFields: Array<[string, string]> = [
-      ['Nombre', current.name],
-      ['Fecha de nacimiento', current.date_of_birth],
-      ['Lugar de nacimiento', current.birth_place],
-      ['Departamento', current.department],
-      ['Documento', current.document_id],
-      ['Tipo de sangre', current.blood_type],
-    ];
-
-    const missing = requiredFields.find(([, value]) => value.trim().length === 0);
-    if (missing) {
-      setFormError(`${missing[0]} es obligatorio.`);
-      return null;
-    }
-
-    const dateOfBirth = new Date(current.date_of_birth.trim());
-    if (Number.isNaN(dateOfBirth.getTime())) {
-      setFormError('La fecha de nacimiento no es válida.');
-      return null;
-    }
-    if (!isAtLeastYearsOld(dateOfBirth, 2)) {
-      setFormError('El estudiante debe tener al menos 2 años.');
-      return null;
-    }
-
-    const weight = parseOptionalNumber(current.weight);
-    if (Number.isNaN(weight)) {
-      setFormError('El peso debe ser un número válido mayor o igual a 0.');
-      return null;
-    }
-
-    const height = parseOptionalNumber(current.height);
-    if (Number.isNaN(height)) {
-      setFormError('La altura debe ser un número válido mayor o igual a 0.');
-      return null;
-    }
-
-    if (!BLOOD_TYPE_OPTIONS.includes(current.blood_type.trim())) {
-      setFormError('Selecciona un tipo de sangre válido.');
-      return null;
-    }
-
-    return {
-      name: current.name.trim(),
-      date_of_birth: dateOfBirth.toISOString(),
-      birth_place: current.birth_place.trim(),
-      department: current.department.trim(),
-      document_id: current.document_id.trim(),
-      weight,
-      height,
-      blood_type: current.blood_type.trim(),
-      social_security: current.social_security.trim(),
-      allergies: current.allergies.trim(),
-    };
-  };
+  const fieldErrors = createMemo(() => validateStudentForm(form()));
+  const fieldError = (field: StudentValidatedField) => (touched()[field] ? fieldErrors()[field] : undefined);
 
   const onSubmit = async (event: SubmitEvent) => {
     event.preventDefault();
-    setFormError(null);
 
-    const validated = validateForm();
-    if (!validated) return;
+    setTouched((current) => touchAllFields(current));
+    if (hasAnyError(fieldErrors())) return;
+
+    setFormError(null);
 
     setSaveBusy(true);
     try {
-      await updateStudent(params.id, validated);
+      await updateStudent(params.id, toStudentUpdateInput(form()));
       navigate('/enrollment-management/students', { replace: true });
     } catch (error) {
       setFormError(getErrorMessage(error));
@@ -214,9 +244,13 @@ export default function EnrollmentStudentEditPage() {
               <input
                 type="text"
                 class="w-full rounded-lg border border-yellow-300 px-3 py-2"
+                classList={{ 'field-input-invalid': !!fieldError('name') }}
                 value={form().name}
                 onInput={(event) => setField('name', event.currentTarget.value)}
+                aria-invalid={!!fieldError('name')}
+                aria-describedby={fieldError('name') ? 'edit-student-name-error' : undefined}
               />
+              <InlineFieldAlert id="edit-student-name-error" message={fieldError('name')} />
             </label>
 
             <label class="text-sm">
@@ -224,8 +258,15 @@ export default function EnrollmentStudentEditPage() {
               <input
                 type="datetime-local"
                 class="w-full rounded-lg border border-yellow-300 px-3 py-2"
+                classList={{ 'field-input-invalid': !!fieldError('date_of_birth') }}
                 value={form().date_of_birth}
                 onInput={(event) => setField('date_of_birth', event.currentTarget.value)}
+                aria-invalid={!!fieldError('date_of_birth')}
+                aria-describedby={fieldError('date_of_birth') ? 'edit-student-birthdate-error' : undefined}
+              />
+              <InlineFieldAlert
+                id="edit-student-birthdate-error"
+                message={fieldError('date_of_birth')}
               />
             </label>
 
@@ -234,9 +275,13 @@ export default function EnrollmentStudentEditPage() {
               <input
                 type="text"
                 class="w-full rounded-lg border border-yellow-300 px-3 py-2"
+                classList={{ 'field-input-invalid': !!fieldError('birth_place') }}
                 value={form().birth_place}
                 onInput={(event) => setField('birth_place', event.currentTarget.value)}
+                aria-invalid={!!fieldError('birth_place')}
+                aria-describedby={fieldError('birth_place') ? 'edit-student-birthplace-error' : undefined}
               />
+              <InlineFieldAlert id="edit-student-birthplace-error" message={fieldError('birth_place')} />
             </label>
 
             <label class="text-sm">
@@ -244,9 +289,13 @@ export default function EnrollmentStudentEditPage() {
               <input
                 type="text"
                 class="w-full rounded-lg border border-yellow-300 px-3 py-2"
+                classList={{ 'field-input-invalid': !!fieldError('department') }}
                 value={form().department}
                 onInput={(event) => setField('department', event.currentTarget.value)}
+                aria-invalid={!!fieldError('department')}
+                aria-describedby={fieldError('department') ? 'edit-student-department-error' : undefined}
               />
+              <InlineFieldAlert id="edit-student-department-error" message={fieldError('department')} />
             </label>
 
             <label class="text-sm">
@@ -254,17 +303,24 @@ export default function EnrollmentStudentEditPage() {
               <input
                 type="text"
                 class="w-full rounded-lg border border-yellow-300 px-3 py-2"
+                classList={{ 'field-input-invalid': !!fieldError('document_id') }}
                 value={form().document_id}
                 onInput={(event) => setField('document_id', event.currentTarget.value)}
+                aria-invalid={!!fieldError('document_id')}
+                aria-describedby={fieldError('document_id') ? 'edit-student-document-error' : undefined}
               />
+              <InlineFieldAlert id="edit-student-document-error" message={fieldError('document_id')} />
             </label>
 
             <label class="text-sm">
               <span class="mb-1 block font-medium text-gray-700">Tipo de sangre</span>
               <select
                 class="w-full rounded-lg border border-yellow-300 px-3 py-2"
+                classList={{ 'field-input-invalid': !!fieldError('blood_type') }}
                 value={form().blood_type}
                 onChange={(event) => setField('blood_type', event.currentTarget.value)}
+                aria-invalid={!!fieldError('blood_type')}
+                aria-describedby={fieldError('blood_type') ? 'edit-student-blood-error' : undefined}
               >
                 <option value="">Selecciona un tipo</option>
                 <For each={BLOOD_TYPE_OPTIONS}>
@@ -273,6 +329,7 @@ export default function EnrollmentStudentEditPage() {
                   )}
                 </For>
               </select>
+              <InlineFieldAlert id="edit-student-blood-error" message={fieldError('blood_type')} />
             </label>
 
             <label class="text-sm">
@@ -282,9 +339,13 @@ export default function EnrollmentStudentEditPage() {
                 min="0"
                 step="0.01"
                 class="w-full rounded-lg border border-yellow-300 px-3 py-2"
+                classList={{ 'field-input-invalid': !!fieldError('weight') }}
                 value={form().weight}
                 onInput={(event) => setField('weight', event.currentTarget.value)}
+                aria-invalid={!!fieldError('weight')}
+                aria-describedby={fieldError('weight') ? 'edit-student-weight-error' : undefined}
               />
+              <InlineFieldAlert id="edit-student-weight-error" message={fieldError('weight')} />
             </label>
 
             <label class="text-sm">
@@ -294,9 +355,13 @@ export default function EnrollmentStudentEditPage() {
                 min="0"
                 step="0.01"
                 class="w-full rounded-lg border border-yellow-300 px-3 py-2"
+                classList={{ 'field-input-invalid': !!fieldError('height') }}
                 value={form().height}
                 onInput={(event) => setField('height', event.currentTarget.value)}
+                aria-invalid={!!fieldError('height')}
+                aria-describedby={fieldError('height') ? 'edit-student-height-error' : undefined}
               />
+              <InlineFieldAlert id="edit-student-height-error" message={fieldError('height')} />
             </label>
 
             <label class="text-sm">

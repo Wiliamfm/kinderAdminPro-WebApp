@@ -1,5 +1,13 @@
 import { useNavigate, useParams } from '@solidjs/router';
 import { createEffect, createMemo, createResource, createSignal, Show } from 'solid-js';
+import InlineFieldAlert from '../components/InlineFieldAlert';
+import {
+  createInitialTouchedMap,
+  hasAnyError,
+  touchAllFields,
+  touchField,
+  type FieldErrorMap,
+} from '../lib/forms/realtime-validation';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import { listEmployeeJobs } from '../lib/pocketbase/employee-jobs';
 import {
@@ -46,12 +54,38 @@ const emptyForm: EmployeeUpdateInput = {
   emergency_contact: '',
 };
 
+const REQUIRED_FIELDS = [
+  'name',
+  'jobId',
+  'email',
+  'phone',
+  'address',
+  'emergency_contact',
+] as const;
+type RequiredField = (typeof REQUIRED_FIELDS)[number];
+
+function validateForm(current: EmployeeUpdateInput): FieldErrorMap<RequiredField> {
+  const errors: FieldErrorMap<RequiredField> = {};
+
+  if (current.name.trim().length === 0) errors.name = 'Nombre es obligatorio.';
+  if (current.jobId.trim().length === 0) errors.jobId = 'Cargo es obligatorio.';
+  if (current.email.trim().length === 0) errors.email = 'Correo es obligatorio.';
+  if (current.phone.trim().length === 0) errors.phone = 'Teléfono es obligatorio.';
+  if (current.address.trim().length === 0) errors.address = 'Dirección es obligatorio.';
+  if (current.emergency_contact.trim().length === 0) {
+    errors.emergency_contact = 'Contacto de emergencia es obligatorio.';
+  }
+
+  return errors;
+}
+
 export default function StaffEmployeeEditPage() {
   const params = useParams();
   const navigate = useNavigate();
   const [employee] = createResource(() => params.id, getEmployeeById);
   const [jobs] = createResource(listEmployeeJobs);
   const [form, setForm] = createSignal<EmployeeUpdateInput>(emptyForm);
+  const [touched, setTouched] = createSignal(createInitialTouchedMap(REQUIRED_FIELDS));
   const [formError, setFormError] = createSignal<string | null>(null);
   const [saveBusy, setSaveBusy] = createSignal(false);
 
@@ -67,42 +101,36 @@ export default function StaffEmployeeEditPage() {
       address: current.address,
       emergency_contact: current.emergency_contact,
     });
+    setTouched(createInitialTouchedMap(REQUIRED_FIELDS));
+    setFormError(null);
   });
 
   const setField = (field: keyof EmployeeUpdateInput, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+    setTouched((current) => touchField(current, field as RequiredField));
+    setFormError(null);
   };
 
   const selectedJob = createMemo(() => {
     const jobId = form().jobId;
     return (jobs() ?? []).find((job) => job.id === jobId) ?? null;
   });
+  const fieldErrors = createMemo(() => validateForm(form()));
+  const fieldError = (field: RequiredField) => (touched()[field] ? fieldErrors()[field] : undefined);
 
   const onSubmit = async (event: SubmitEvent) => {
     event.preventDefault();
+
+    setTouched((current) => touchAllFields(current));
+    if (hasAnyError(fieldErrors())) return;
+
     setFormError(null);
-
-    const current = form();
-    const requiredFields: Array<[string, string]> = [
-      ['Nombre', current.name],
-      ['Cargo', current.jobId],
-      ['Correo', current.email],
-      ['Teléfono', current.phone],
-      ['Dirección', current.address],
-      ['Contacto de emergencia', current.emergency_contact],
-    ];
-
-    const missing = requiredFields.find(([, value]) => value.trim().length === 0);
-    if (missing) {
-      setFormError(`${missing[0]} es obligatorio.`);
-      return;
-    }
 
     setSaveBusy(true);
     try {
       await updateEmployee(params.id, {
-        ...current,
-        email: current.email.trim(),
+        ...form(),
+        email: form().email.trim(),
       });
       navigate('/staff-management/employees', { replace: true });
     } catch (error) {
@@ -135,23 +163,31 @@ export default function StaffEmployeeEditPage() {
               <input
                 type="text"
                 class="w-full rounded-lg border border-yellow-300 px-3 py-2"
+                classList={{ 'field-input-invalid': !!fieldError('name') }}
                 value={form().name}
                 onInput={(event) => setField('name', event.currentTarget.value)}
+                aria-invalid={!!fieldError('name')}
+                aria-describedby={fieldError('name') ? 'employee-name-error' : undefined}
               />
+              <InlineFieldAlert id="employee-name-error" message={fieldError('name')} />
             </label>
 
             <label class="text-sm">
               <span class="mb-1 block font-medium text-gray-700">Cargo</span>
               <select
                 class="w-full rounded-lg border border-yellow-300 px-3 py-2"
+                classList={{ 'field-input-invalid': !!fieldError('jobId') }}
                 value={form().jobId}
                 onChange={(event) => setField('jobId', event.currentTarget.value)}
+                aria-invalid={!!fieldError('jobId')}
+                aria-describedby={fieldError('jobId') ? 'employee-job-error' : undefined}
               >
                 <option value="">Selecciona un cargo</option>
                 {jobs()?.map((job) => (
                   <option value={job.id}>{job.name}</option>
                 ))}
               </select>
+              <InlineFieldAlert id="employee-job-error" message={fieldError('jobId')} />
             </label>
 
             <Show when={selectedJob()}>
@@ -165,9 +201,13 @@ export default function StaffEmployeeEditPage() {
               <input
                 type="email"
                 class="w-full rounded-lg border border-yellow-300 px-3 py-2"
+                classList={{ 'field-input-invalid': !!fieldError('email') }}
                 value={form().email}
                 onInput={(event) => setField('email', event.currentTarget.value)}
+                aria-invalid={!!fieldError('email')}
+                aria-describedby={fieldError('email') ? 'employee-email-error' : undefined}
               />
+              <InlineFieldAlert id="employee-email-error" message={fieldError('email')} />
             </label>
 
             <label class="text-sm">
@@ -175,9 +215,13 @@ export default function StaffEmployeeEditPage() {
               <input
                 type="text"
                 class="w-full rounded-lg border border-yellow-300 px-3 py-2"
+                classList={{ 'field-input-invalid': !!fieldError('phone') }}
                 value={form().phone}
                 onInput={(event) => setField('phone', event.currentTarget.value)}
+                aria-invalid={!!fieldError('phone')}
+                aria-describedby={fieldError('phone') ? 'employee-phone-error' : undefined}
               />
+              <InlineFieldAlert id="employee-phone-error" message={fieldError('phone')} />
             </label>
 
             <label class="text-sm">
@@ -185,9 +229,13 @@ export default function StaffEmployeeEditPage() {
               <input
                 type="text"
                 class="w-full rounded-lg border border-yellow-300 px-3 py-2"
+                classList={{ 'field-input-invalid': !!fieldError('address') }}
                 value={form().address}
                 onInput={(event) => setField('address', event.currentTarget.value)}
+                aria-invalid={!!fieldError('address')}
+                aria-describedby={fieldError('address') ? 'employee-address-error' : undefined}
               />
+              <InlineFieldAlert id="employee-address-error" message={fieldError('address')} />
             </label>
 
             <label class="text-sm">
@@ -195,8 +243,15 @@ export default function StaffEmployeeEditPage() {
               <input
                 type="text"
                 class="w-full rounded-lg border border-yellow-300 px-3 py-2"
+                classList={{ 'field-input-invalid': !!fieldError('emergency_contact') }}
                 value={form().emergency_contact}
                 onInput={(event) => setField('emergency_contact', event.currentTarget.value)}
+                aria-invalid={!!fieldError('emergency_contact')}
+                aria-describedby={fieldError('emergency_contact') ? 'employee-emergency-error' : undefined}
+              />
+              <InlineFieldAlert
+                id="employee-emergency-error"
+                message={fieldError('emergency_contact')}
               />
             </label>
 

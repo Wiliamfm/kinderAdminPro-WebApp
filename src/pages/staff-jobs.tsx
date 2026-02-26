@@ -1,6 +1,14 @@
 import { useNavigate } from '@solidjs/router';
-import { createEffect, createResource, createSignal, For, Show } from 'solid-js';
+import { createEffect, createMemo, createResource, createSignal, For, Show } from 'solid-js';
+import InlineFieldAlert from '../components/InlineFieldAlert';
 import Modal from '../components/Modal';
+import {
+  createInitialTouchedMap,
+  hasAnyError,
+  touchAllFields,
+  touchField,
+  type FieldErrorMap,
+} from '../lib/forms/realtime-validation';
 import { isAuthUserAdmin } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
@@ -17,10 +25,36 @@ type JobForm = {
   salary: string;
 };
 
+const JOB_FIELDS = ['name', 'salary'] as const;
+type JobField = (typeof JOB_FIELDS)[number];
+
 const emptyForm: JobForm = {
   name: '',
   salary: '0',
 };
+
+function validateForm(form: JobForm): FieldErrorMap<JobField> {
+  const errors: FieldErrorMap<JobField> = {};
+  const name = form.name.trim();
+  const salary = Number(form.salary);
+
+  if (name.length < 2) {
+    errors.name = 'El nombre del cargo debe tener al menos 2 caracteres.';
+  }
+
+  if (!Number.isFinite(salary) || !Number.isInteger(salary) || salary < 0) {
+    errors.salary = 'El salario debe ser un número entero válido mayor o igual a 0.';
+  }
+
+  return errors;
+}
+
+function buildPayload(form: JobForm) {
+  return {
+    name: form.name.trim(),
+    salary: Number(form.salary),
+  };
+}
 
 function getErrorMessage(error: unknown): string {
   const normalized = error as PocketBaseRequestError | undefined;
@@ -59,11 +93,13 @@ export default function StaffJobsPage() {
 
   const [createOpen, setCreateOpen] = createSignal(false);
   const [createForm, setCreateForm] = createSignal<JobForm>(emptyForm);
+  const [createTouched, setCreateTouched] = createSignal(createInitialTouchedMap(JOB_FIELDS));
   const [createBusy, setCreateBusy] = createSignal(false);
   const [createError, setCreateError] = createSignal<string | null>(null);
 
   const [editTarget, setEditTarget] = createSignal<EmployeeJobRecord | null>(null);
   const [editForm, setEditForm] = createSignal<JobForm>(emptyForm);
+  const [editTouched, setEditTouched] = createSignal(createInitialTouchedMap(JOB_FIELDS));
   const [editBusy, setEditBusy] = createSignal(false);
   const [editError, setEditError] = createSignal<string | null>(null);
 
@@ -81,6 +117,8 @@ export default function StaffJobsPage() {
       ...current,
       [field]: value,
     }));
+    setCreateTouched((current) => touchField(current, field as JobField));
+    setCreateError(null);
   };
 
   const setEditField = (field: keyof JobForm, value: string) => {
@@ -88,38 +126,32 @@ export default function StaffJobsPage() {
       ...current,
       [field]: value,
     }));
+    setEditTouched((current) => touchField(current, field as JobField));
+    setEditError(null);
   };
 
-  const validateForm = (form: JobForm, setError: (value: string | null) => void) => {
-    const name = form.name.trim();
-    const salary = Number(form.salary);
-
-    if (name.length < 2) {
-      setError('El nombre del cargo debe tener al menos 2 caracteres.');
-      return null;
-    }
-
-    if (!Number.isFinite(salary) || !Number.isInteger(salary) || salary < 0) {
-      setError('El salario debe ser un número entero válido mayor o igual a 0.');
-      return null;
-    }
-
-    return { name, salary };
-  };
+  const createFieldErrors = createMemo(() => validateForm(createForm()));
+  const editFieldErrors = createMemo(() => validateForm(editForm()));
+  const createNameError = () => (createTouched().name ? createFieldErrors().name : undefined);
+  const createSalaryError = () => (createTouched().salary ? createFieldErrors().salary : undefined);
+  const editNameError = () => (editTouched().name ? editFieldErrors().name : undefined);
+  const editSalaryError = () => (editTouched().salary ? editFieldErrors().salary : undefined);
 
   const submitCreate = async () => {
-    const validated = validateForm(createForm(), setCreateError);
-    if (!validated) return;
+    const touched = touchAllFields(createTouched());
+    setCreateTouched(touched);
+    if (hasAnyError(createFieldErrors())) return;
 
     setCreateBusy(true);
     setCreateError(null);
     setActionError(null);
 
     try {
-      await createEmployeeJob(validated);
+      await createEmployeeJob(buildPayload(createForm()));
       await refetch();
       setCreateOpen(false);
       setCreateForm(emptyForm);
+      setCreateTouched(createInitialTouchedMap(JOB_FIELDS));
     } catch (error) {
       setCreateError(getErrorMessage(error));
     } finally {
@@ -133,6 +165,7 @@ export default function StaffJobsPage() {
       name: job.name,
       salary: String(job.salary),
     });
+    setEditTouched(createInitialTouchedMap(JOB_FIELDS));
     setEditError(null);
   };
 
@@ -140,18 +173,20 @@ export default function StaffJobsPage() {
     const target = editTarget();
     if (!target) return;
 
-    const validated = validateForm(editForm(), setEditError);
-    if (!validated) return;
+    const touched = touchAllFields(editTouched());
+    setEditTouched(touched);
+    if (hasAnyError(editFieldErrors())) return;
 
     setEditBusy(true);
     setEditError(null);
     setActionError(null);
 
     try {
-      await updateEmployeeJob(target.id, validated);
+      await updateEmployeeJob(target.id, buildPayload(editForm()));
       await refetch();
       setEditTarget(null);
       setEditForm(emptyForm);
+      setEditTouched(createInitialTouchedMap(JOB_FIELDS));
     } catch (error) {
       setEditError(getErrorMessage(error));
     } finally {
@@ -213,6 +248,7 @@ export default function StaffJobsPage() {
             onClick={() => {
               setCreateOpen(true);
               setCreateForm(emptyForm);
+              setCreateTouched(createInitialTouchedMap(JOB_FIELDS));
               setCreateError(null);
             }}
           >
@@ -320,10 +356,14 @@ export default function StaffJobsPage() {
             <input
               type="text"
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              classList={{ 'field-input-invalid': !!createNameError() }}
               value={createForm().name}
               onInput={(event) => setCreateField('name', event.currentTarget.value)}
               disabled={createBusy()}
+              aria-invalid={!!createNameError()}
+              aria-describedby={createNameError() ? 'create-job-name-error' : undefined}
             />
+            <InlineFieldAlert id="create-job-name-error" message={createNameError()} />
           </label>
 
           <label class="block">
@@ -333,10 +373,14 @@ export default function StaffJobsPage() {
               min="0"
               step="1"
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              classList={{ 'field-input-invalid': !!createSalaryError() }}
               value={createForm().salary}
               onInput={(event) => setCreateField('salary', event.currentTarget.value)}
               disabled={createBusy()}
+              aria-invalid={!!createSalaryError()}
+              aria-describedby={createSalaryError() ? 'create-job-salary-error' : undefined}
             />
+            <InlineFieldAlert id="create-job-salary-error" message={createSalaryError()} />
           </label>
 
           <Show when={createError()}>
@@ -364,10 +408,14 @@ export default function StaffJobsPage() {
             <input
               type="text"
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              classList={{ 'field-input-invalid': !!editNameError() }}
               value={editForm().name}
               onInput={(event) => setEditField('name', event.currentTarget.value)}
               disabled={editBusy()}
+              aria-invalid={!!editNameError()}
+              aria-describedby={editNameError() ? 'edit-job-name-error' : undefined}
             />
+            <InlineFieldAlert id="edit-job-name-error" message={editNameError()} />
           </label>
 
           <label class="block">
@@ -377,10 +425,14 @@ export default function StaffJobsPage() {
               min="0"
               step="1"
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              classList={{ 'field-input-invalid': !!editSalaryError() }}
               value={editForm().salary}
               onInput={(event) => setEditField('salary', event.currentTarget.value)}
               disabled={editBusy()}
+              aria-invalid={!!editSalaryError()}
+              aria-describedby={editSalaryError() ? 'edit-job-salary-error' : undefined}
             />
+            <InlineFieldAlert id="edit-job-salary-error" message={editSalaryError()} />
           </label>
 
           <Show when={editError()}>

@@ -97,6 +97,19 @@ describe('AppUsersPage', () => {
     expect(mocks.listAppUsers).toHaveBeenCalledTimes(2);
   });
 
+  it('shows realtime validation for invalid name while editing', async () => {
+    render(() => <AppUsersPage />);
+    await screen.findByText('Ana Admin');
+
+    fireEvent.click(screen.getByLabelText('Editar usuario Ana Admin'));
+    await screen.findByRole('heading', { name: 'Editar usuario' });
+
+    fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'A' } });
+
+    expect(await screen.findByText('El nombre debe tener al menos 2 caracteres.')).toBeInTheDocument();
+    expect(mocks.updateAppUser).not.toHaveBeenCalled();
+  });
+
   it('requests own email change when editing current user email', async () => {
     render(() => <AppUsersPage />);
     await screen.findByText('Ana Admin');

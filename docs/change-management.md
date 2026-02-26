@@ -29,6 +29,7 @@ Use this checklist for every non-trivial change:
   - `bun run build`
 - If backend schema/rules changed, verify collection configuration in PocketBase.
 - If temporal fields changed, verify offset-aware datetime values are persisted and rendered correctly.
+- If form validation UX changed, update or add UI tests for realtime inline field alerts and submit blocking behavior.
 
 4. Documentation
 - Update `docs/architecture.md` if responsibilities or data flow changed.

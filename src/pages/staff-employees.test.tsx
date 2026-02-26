@@ -276,6 +276,19 @@ describe('StaffEmployeesPage features', () => {
     expect(mocks.createEmployee).not.toHaveBeenCalled();
   });
 
+  it('shows realtime phone validation in create employee modal', async () => {
+    render(() => <StaffEmployeesPage />);
+    await screen.findByText('Ana');
+
+    fireEvent.click(screen.getByText('Nuevo empleado'));
+    fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: 'abc' } });
+
+    expect(
+      await screen.findByText('El teléfono debe tener entre 7 y 20 caracteres válidos.'),
+    ).toBeInTheDocument();
+    expect(mocks.createEmployeeUser).not.toHaveBeenCalled();
+  });
+
   it('opens leaves modal with form and table', async () => {
     await openLeavesModal();
 
@@ -479,6 +492,17 @@ describe('StaffEmployeesPage features', () => {
     expect(await screen.findByText('Solo se permiten archivos PDF.')).toBeInTheDocument();
     expect(mocks.createInvoiceFile).not.toHaveBeenCalled();
     expect(mocks.createInvoice).not.toHaveBeenCalled();
+  });
+
+  it('shows realtime invoice file validation when selecting non-pdf file', async () => {
+    await openInvoiceModal();
+
+    const input = screen.getByLabelText('Archivo de factura (PDF)') as HTMLInputElement;
+    const file = new File(['text'], 'invoice.txt', { type: 'text/plain' });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(await screen.findByText('Solo se permiten archivos PDF.')).toBeInTheDocument();
+    expect(mocks.createInvoiceFile).not.toHaveBeenCalled();
   });
 
   it('uploads invoice file and creates invoice record', async () => {

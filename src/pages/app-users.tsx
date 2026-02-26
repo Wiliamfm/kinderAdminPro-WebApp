@@ -1,6 +1,14 @@
 import { useNavigate } from '@solidjs/router';
-import { createEffect, createResource, createSignal, For, Show } from 'solid-js';
+import { createEffect, createMemo, createResource, createSignal, For, Show } from 'solid-js';
+import InlineFieldAlert from '../components/InlineFieldAlert';
 import Modal from '../components/Modal';
+import {
+  createInitialTouchedMap,
+  hasAnyError,
+  touchAllFields,
+  touchField,
+  type FieldErrorMap,
+} from '../lib/forms/realtime-validation';
 import { isAuthUserAdmin } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
@@ -18,11 +26,38 @@ type UserEditForm = {
   isAdmin: boolean;
 };
 
+const EDIT_FIELDS = ['name', 'email'] as const;
+type EditField = (typeof EDIT_FIELDS)[number];
+
 const emptyEditForm: UserEditForm = {
   name: '',
   email: '',
   isAdmin: false,
 };
+
+function validateEditForm(current: UserEditForm): FieldErrorMap<EditField> {
+  const errors: FieldErrorMap<EditField> = {};
+  const name = current.name.trim();
+  const email = current.email.trim();
+
+  if (name.length < 2) {
+    errors.name = 'El nombre debe tener al menos 2 caracteres.';
+  }
+
+  if (!email.includes('@')) {
+    errors.email = 'Ingresa un correo válido.';
+  }
+
+  return errors;
+}
+
+function buildUpdatePayload(current: UserEditForm): UserEditForm {
+  return {
+    name: current.name.trim(),
+    email: current.email.trim(),
+    isAdmin: current.isAdmin,
+  };
+}
 
 function getErrorMessage(error: unknown): string {
   const normalized = error as PocketBaseRequestError | undefined;
@@ -52,6 +87,7 @@ export default function AppUsersPage() {
 
   const [editTarget, setEditTarget] = createSignal<AppUserRecord | null>(null);
   const [editForm, setEditForm] = createSignal<UserEditForm>(emptyEditForm);
+  const [editTouched, setEditTouched] = createSignal(createInitialTouchedMap(EDIT_FIELDS));
   const [editBusy, setEditBusy] = createSignal(false);
   const [editError, setEditError] = createSignal<string | null>(null);
 
@@ -74,6 +110,7 @@ export default function AppUsersPage() {
       email: user.email,
       isAdmin: user.isAdmin,
     });
+    setEditTouched(createInitialTouchedMap(EDIT_FIELDS));
     setEditError(null);
     setActionError(null);
   };
@@ -82,6 +119,7 @@ export default function AppUsersPage() {
     if (editBusy()) return;
     setEditTarget(null);
     setEditForm(emptyEditForm);
+    setEditTouched(createInitialTouchedMap(EDIT_FIELDS));
     setEditError(null);
   };
 
@@ -90,36 +128,24 @@ export default function AppUsersPage() {
       ...current,
       [field]: value,
     }));
+    if (field === 'name' || field === 'email') {
+      setEditTouched((current) => touchField(current, field));
+    }
+    setEditError(null);
   };
 
-  const validateEditForm = (): UserEditForm | null => {
-    const current = editForm();
-    const name = current.name.trim();
-    const email = current.email.trim();
-
-    if (name.length < 2) {
-      setEditError('El nombre debe tener al menos 2 caracteres.');
-      return null;
-    }
-
-    if (!email.includes('@')) {
-      setEditError('Ingresa un correo válido.');
-      return null;
-    }
-
-    return {
-      name,
-      email,
-      isAdmin: current.isAdmin,
-    };
-  };
+  const editFieldErrors = createMemo(() => validateEditForm(editForm()));
+  const editNameError = () => (editTouched().name ? editFieldErrors().name : undefined);
+  const editEmailError = () => (editTouched().email ? editFieldErrors().email : undefined);
 
   const submitEdit = async () => {
     const target = editTarget();
     if (!target) return;
 
-    const validated = validateEditForm();
-    if (!validated) return;
+    const touched = touchAllFields(editTouched());
+    setEditTouched(touched);
+    if (hasAnyError(editFieldErrors())) return;
+    const validated = buildUpdatePayload(editForm());
 
     setEditBusy(true);
     setEditError(null);
@@ -150,6 +176,7 @@ export default function AppUsersPage() {
       await refetch();
       setEditTarget(null);
       setEditForm(emptyEditForm);
+      setEditTouched(createInitialTouchedMap(EDIT_FIELDS));
       setEditError(null);
     } catch (error) {
       setEditError(getErrorMessage(error));
@@ -326,9 +353,13 @@ export default function AppUsersPage() {
             id="edit-user-name"
             type="text"
             class="w-full rounded-lg border border-yellow-300 px-3 py-2 text-sm"
+            classList={{ 'field-input-invalid': !!editNameError() }}
             value={editForm().name}
             onInput={(event) => setEditField('name', event.currentTarget.value)}
+            aria-invalid={!!editNameError()}
+            aria-describedby={editNameError() ? 'edit-user-name-error' : undefined}
           />
+          <InlineFieldAlert id="edit-user-name-error" message={editNameError()} />
 
           <label class="block text-sm text-gray-700" for="edit-user-email">
             Correo
@@ -337,10 +368,14 @@ export default function AppUsersPage() {
             id="edit-user-email"
             type="email"
             class="w-full rounded-lg border border-yellow-300 px-3 py-2 text-sm"
+            classList={{ 'field-input-invalid': !!editEmailError() }}
             value={editForm().email}
             onInput={(event) => setEditField('email', event.currentTarget.value)}
             disabled={!isEditingSelf()}
+            aria-invalid={!!editEmailError()}
+            aria-describedby={editEmailError() ? 'edit-user-email-error' : undefined}
           />
+          <InlineFieldAlert id="edit-user-email-error" message={editEmailError()} />
           <Show when={!isEditingSelf()}>
             <p class="text-xs text-gray-500">
               El correo de otros usuarios se gestiona desde PocketBase Admin.
