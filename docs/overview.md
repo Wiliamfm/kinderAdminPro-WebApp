@@ -12,6 +12,7 @@ Primary functional areas exposed through routes:
 - Home and backend health (`/`)
 - Staff management (`/staff-management`, `/staff-management/employees`, `/staff-management/employees/:id`, `/staff-management/jobs`, `/staff-management/app-users`)
 - Enrollment management (`/enrollment-management`)
+- Enrollment students (`/enrollment-management/students`, `/enrollment-management/students/:id`)
 - Reports (`/reports`)
 - Event management (`/event-management`)
 
@@ -33,7 +34,11 @@ Primary functional areas exposed through routes:
 - Manage enrollment students data in PocketBase `students` collection:
   - admin-only CRUD access,
   - unique `document_id`,
-  - `date_of_birth` stored as datetime with timezone offset.
+  - `date_of_birth` stored as datetime with timezone offset,
+  - list active students in an admin-only table,
+  - create student records from modal form,
+  - edit records in dedicated route,
+  - soft delete via `active = false`.
 - Store employee invoices in PocketBase:
   - `invoices` links each invoice to one employee (`employee_id`),
   - `invoices.name` stores the normalized original filename with a timestamp suffix (for example `factura_demo_20260223_1000.pdf`),

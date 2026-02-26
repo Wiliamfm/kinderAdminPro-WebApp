@@ -128,7 +128,15 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - `height` (optional number, decimal allowed),
   - `blood_type` (required single select: `A+`, `A-`, `B+`, `B-`, `AB+`, `AB-`, `O+`, `O-`),
   - `social_security` (optional text),
-  - `allergies` (optional text).
+  - `allergies` (optional text),
+  - `active` (optional bool used for soft delete, where active list filters `active = true`).
+- Frontend modules:
+  - list/create/soft-delete page: `src/pages/enrollment-students.tsx`,
+  - edit page: `src/pages/enrollment-student-edit.tsx`,
+  - wrapper/API access: `src/lib/pocketbase/students.ts`.
+- Routing:
+  - `/enrollment-management/students`,
+  - `/enrollment-management/students/:id`.
 
 ## Testing Architecture
 - Runner: Vitest (`vitest.config.ts`).

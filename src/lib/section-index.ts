@@ -38,6 +38,7 @@ export const sectionIndexByPage: Record<string, SectionIndexEntry> = {
       {
         label: 'Gestion de Estudiantes',
         href: '/enrollment-management/students',
+        requiresAdmin: true,
       },
       {
         label: 'Gestion de Tutores',

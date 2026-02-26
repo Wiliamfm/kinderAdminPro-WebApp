@@ -12,6 +12,8 @@ import StaffEmployeeEditPage from './pages/staff-employee-edit';
 import AuthSetPasswordPage from './pages/auth-set-password';
 import AppUsersPage from './pages/app-users';
 import StaffJobsPage from './pages/staff-jobs';
+import EnrollmentStudentsPage from './pages/enrollment-students';
+import EnrollmentStudentEditPage from './pages/enrollment-student-edit';
 
 export const routes: RouteDefinition[] = [
   {
@@ -49,6 +51,14 @@ export const routes: RouteDefinition[] = [
   {
     path: '/enrollment-management',
     component: EnrollmentManagementPage,
+  },
+  {
+    path: '/enrollment-management/students',
+    component: EnrollmentStudentsPage,
+  },
+  {
+    path: '/enrollment-management/students/:id',
+    component: EnrollmentStudentEditPage,
   },
   {
     path: '/reports',
