@@ -34,7 +34,29 @@ export const sectionIndexByPage: Record<string, SectionIndexEntry> = {
     title: 'Gestión de matrícula',
     description:
       'En esta sección podrás gestionar las tareas generales relacionadas con el proceso de matrícula.',
-    links: [{ label: 'Volver al inicio', href: '/' }],
+    links: [
+      {
+        label: 'Gestion de Estudiantes',
+        href: '/enrollment-management/students',
+      },
+      {
+        label: 'Gestion de Tutores',
+        href: '/enrollment-management/tutors',
+      },
+      {
+        label: 'Gestion de Solicitudes',
+        href: '/enrollment-management/requests',
+      },
+      {
+        label: 'Gestion de Grados',
+        href: '/enrollment-management/grades',
+      },
+      {
+        label: 'Gestion de semestres',
+        href: '/enrollment-management/semesters',
+      },
+      { label: 'Volver al inicio', href: '/' },
+    ],
   },
   events: {
     title: 'Gestión de eventos',
