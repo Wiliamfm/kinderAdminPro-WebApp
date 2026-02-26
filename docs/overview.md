@@ -33,7 +33,7 @@ Primary functional areas exposed through routes:
   - paginate leave history.
 - Manage enrollment students data in PocketBase `students` collection:
   - admin-only CRUD access,
-  - unique `document_id`,
+  - numeric-only unique `document_id`,
   - `date_of_birth` stored as datetime with timezone offset,
   - list active students in an admin-only table,
   - create student records from modal form,

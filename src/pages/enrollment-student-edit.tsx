@@ -30,6 +30,7 @@ type StudentForm = {
 };
 
 const BLOOD_TYPE_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+const DOCUMENT_ID_REGEX = /^\d+$/;
 
 const emptyForm: StudentForm = {
   name: '',
@@ -99,6 +100,10 @@ function isAtLeastYearsOld(date: Date, minimumYears: number): boolean {
   return date.getTime() <= threshold.getTime();
 }
 
+function sanitizeNumericValue(value: string): string {
+  return value.replace(/\D+/g, '');
+}
+
 function isValidatedField(field: keyof StudentForm): field is StudentValidatedField {
   return (STUDENT_VALIDATED_FIELDS as readonly string[]).includes(field);
 }
@@ -111,6 +116,9 @@ function validateStudentForm(form: StudentForm): FieldErrorMap<StudentValidatedF
   if (form.birth_place.trim().length === 0) errors.birth_place = 'Lugar de nacimiento es obligatorio.';
   if (form.department.trim().length === 0) errors.department = 'Departamento es obligatorio.';
   if (form.document_id.trim().length === 0) errors.document_id = 'Documento es obligatorio.';
+  if (!errors.document_id && !DOCUMENT_ID_REGEX.test(form.document_id.trim())) {
+    errors.document_id = 'Documento debe contener solo números.';
+  }
   if (form.blood_type.trim().length === 0) errors.blood_type = 'Tipo de sangre es obligatorio.';
 
   if (!errors.date_of_birth) {
@@ -193,7 +201,8 @@ export default function EnrollmentStudentEditPage() {
   });
 
   const setField = (field: keyof StudentForm, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    const normalizedValue = field === 'document_id' ? sanitizeNumericValue(value) : value;
+    setForm((prev) => ({ ...prev, [field]: normalizedValue }));
     if (isValidatedField(field)) {
       setTouched((current) => touchField(current, field));
     }
@@ -304,6 +313,8 @@ export default function EnrollmentStudentEditPage() {
                 type="text"
                 class="w-full rounded-lg border border-yellow-300 px-3 py-2"
                 classList={{ 'field-input-invalid': !!fieldError('document_id') }}
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={form().document_id}
                 onInput={(event) => setField('document_id', event.currentTarget.value)}
                 aria-invalid={!!fieldError('document_id')}

@@ -31,7 +31,7 @@ const studentsFixture = [
     date_of_birth: '2015-06-15T13:30:00.000Z',
     birth_place: 'Bogota',
     department: 'Cundinamarca',
-    document_id: 'DOC-1',
+    document_id: '1001',
     weight: 20.5,
     height: 115,
     blood_type: 'O+',
@@ -90,7 +90,7 @@ describe('EnrollmentStudentsPage', () => {
     fireEvent.input(screen.getByLabelText('Fecha de nacimiento'), { target: { value: '2016-01-10T08:30' } });
     fireEvent.input(screen.getByLabelText('Lugar de nacimiento'), { target: { value: 'Bogota' } });
     fireEvent.input(screen.getByLabelText('Departamento'), { target: { value: 'Cundinamarca' } });
-    fireEvent.input(screen.getByLabelText('Documento'), { target: { value: 'DOC-2' } });
+    fireEvent.input(screen.getByLabelText('Documento'), { target: { value: '1002' } });
     fireEvent.change(screen.getByLabelText('Tipo de sangre'), { target: { value: 'A+' } });
 
     fireEvent.click(screen.getAllByText('Crear estudiante')[1]);
@@ -101,7 +101,7 @@ describe('EnrollmentStudentsPage', () => {
           name: 'Luis',
           birth_place: 'Bogota',
           department: 'Cundinamarca',
-          document_id: 'DOC-2',
+          document_id: '1002',
           blood_type: 'A+',
           date_of_birth: expect.stringMatching(/Z$/),
         }),
@@ -125,7 +125,7 @@ describe('EnrollmentStudentsPage', () => {
     });
     fireEvent.input(screen.getByLabelText('Lugar de nacimiento'), { target: { value: 'Bogota' } });
     fireEvent.input(screen.getByLabelText('Departamento'), { target: { value: 'Cundinamarca' } });
-    fireEvent.input(screen.getByLabelText('Documento'), { target: { value: 'DOC-NEW' } });
+    fireEvent.input(screen.getByLabelText('Documento'), { target: { value: '9003' } });
     fireEvent.change(screen.getByLabelText('Tipo de sangre'), { target: { value: 'A+' } });
 
     fireEvent.click(screen.getAllByText('Crear estudiante')[1]);
@@ -150,6 +150,19 @@ describe('EnrollmentStudentsPage', () => {
 
     expect(await screen.findByText('El estudiante debe tener al menos 2 años.')).toBeInTheDocument();
     expect(mocks.createStudent).not.toHaveBeenCalled();
+  });
+
+  it('accepts only numeric input in documento field', async () => {
+    render(() => <EnrollmentStudentsPage />);
+    await screen.findByText('Ana');
+
+    fireEvent.click(screen.getByText('Nuevo estudiante'));
+    await screen.findByRole('heading', { name: 'Crear estudiante' });
+
+    const documentInput = screen.getByLabelText('Documento') as HTMLInputElement;
+    fireEvent.input(documentInput, { target: { value: 'DOC-123A' } });
+
+    expect(documentInput.value).toBe('123');
   });
 
   it('soft deletes a student from confirmation modal', async () => {

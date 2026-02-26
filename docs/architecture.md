@@ -129,7 +129,7 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - `date_of_birth` (required `date`, datetime with timezone offset),
   - `birth_place` (required text),
   - `department` (required text),
-  - `document_id` (required text, unique index),
+  - `document_id` (required text, digits only, unique index),
   - `weight` (optional number, decimal allowed),
   - `height` (optional number, decimal allowed),
   - `blood_type` (required single select: `A+`, `A-`, `B+`, `B-`, `AB+`, `AB-`, `O+`, `O-`),

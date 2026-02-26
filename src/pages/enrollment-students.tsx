@@ -33,6 +33,7 @@ type StudentForm = {
 };
 
 const BLOOD_TYPE_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+const DOCUMENT_ID_REGEX = /^\d+$/;
 
 const emptyForm: StudentForm = {
   name: '',
@@ -110,6 +111,10 @@ function isAtLeastYearsOld(date: Date, minimumYears: number): boolean {
   return date.getTime() <= threshold.getTime();
 }
 
+function sanitizeNumericValue(value: string): string {
+  return value.replace(/\D+/g, '');
+}
+
 function isValidatedField(field: keyof StudentForm): field is StudentValidatedField {
   return (STUDENT_VALIDATED_FIELDS as readonly string[]).includes(field);
 }
@@ -122,6 +127,9 @@ function validateStudentForm(form: StudentForm): FieldErrorMap<StudentValidatedF
   if (form.birth_place.trim().length === 0) errors.birth_place = 'Lugar de nacimiento es obligatorio.';
   if (form.department.trim().length === 0) errors.department = 'Departamento es obligatorio.';
   if (form.document_id.trim().length === 0) errors.document_id = 'Documento es obligatorio.';
+  if (!errors.document_id && !DOCUMENT_ID_REGEX.test(form.document_id.trim())) {
+    errors.document_id = 'Documento debe contener solo números.';
+  }
   if (form.blood_type.trim().length === 0) errors.blood_type = 'Tipo de sangre es obligatorio.';
 
   if (!errors.date_of_birth) {
@@ -194,9 +202,10 @@ export default function EnrollmentStudentsPage() {
   });
 
   const setCreateField = (field: keyof StudentForm, value: string) => {
+    const normalizedValue = field === 'document_id' ? sanitizeNumericValue(value) : value;
     setCreateForm((current) => ({
       ...current,
-      [field]: value,
+      [field]: normalizedValue,
     }));
     if (isValidatedField(field)) {
       setCreateTouched((current) => touchField(current, field));
@@ -475,6 +484,8 @@ export default function EnrollmentStudentsPage() {
                 class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                 classList={{ 'field-input-invalid': !!fieldError('document_id') }}
                 type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={createForm().document_id}
                 onInput={(event) => setCreateField('document_id', event.currentTarget.value)}
                 disabled={createBusy()}

@@ -30,7 +30,7 @@ const studentFixture = {
   date_of_birth: '2015-06-15T13:30:00.000Z',
   birth_place: 'Bogota',
   department: 'Cundinamarca',
-  document_id: 'DOC-1',
+  document_id: '1001',
   weight: 20.5,
   height: 115,
   blood_type: 'O+',
@@ -72,7 +72,7 @@ describe('EnrollmentStudentEditPage', () => {
 
     expect(await screen.findByDisplayValue('Ana')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Bogota')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('DOC-1')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('1001')).toBeInTheDocument();
   });
 
   it('updates student and navigates back to list', async () => {
@@ -83,7 +83,7 @@ describe('EnrollmentStudentEditPage', () => {
     fireEvent.input(screen.getByLabelText('Fecha de nacimiento'), { target: { value: '2015-06-15T08:30' } });
     fireEvent.input(screen.getByLabelText('Lugar de nacimiento'), { target: { value: 'Bogota' } });
     fireEvent.input(screen.getByLabelText('Departamento'), { target: { value: 'Cundinamarca' } });
-    fireEvent.input(screen.getByLabelText('Documento'), { target: { value: 'DOC-1' } });
+    fireEvent.input(screen.getByLabelText('Documento'), { target: { value: '1001' } });
     fireEvent.change(screen.getByLabelText('Tipo de sangre'), { target: { value: 'O+' } });
     fireEvent.input(screen.getByLabelText('Alergias'), { target: { value: 'Polen' } });
 
@@ -94,7 +94,7 @@ describe('EnrollmentStudentEditPage', () => {
         's1',
         expect.objectContaining({
           name: 'Ana Maria',
-          document_id: 'DOC-1',
+          document_id: '1001',
           allergies: 'Polen',
           date_of_birth: expect.stringMatching(/Z$/),
         }),
@@ -136,5 +136,15 @@ describe('EnrollmentStudentEditPage', () => {
 
     expect(await screen.findByText('El estudiante debe tener al menos 2 años.')).toBeInTheDocument();
     expect(mocks.updateStudent).not.toHaveBeenCalled();
+  });
+
+  it('accepts only numeric input in documento field', async () => {
+    render(() => <EnrollmentStudentEditPage />);
+    await screen.findByDisplayValue('Ana');
+
+    const documentInput = screen.getByLabelText('Documento') as HTMLInputElement;
+    fireEvent.input(documentInput, { target: { value: 'AB-45X' } });
+
+    expect(documentInput.value).toBe('45');
   });
 });
