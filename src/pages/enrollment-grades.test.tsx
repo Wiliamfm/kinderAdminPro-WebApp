@@ -61,6 +61,18 @@ describe('EnrollmentGradesPage', () => {
     expect(await screen.findByRole('heading', { name: 'Crear grado' })).toBeInTheDocument();
   });
 
+  it('sorts grades by capacity when header is clicked', async () => {
+    render(() => <EnrollmentGradesPage />);
+    await screen.findByText('Primero A');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Capacidad' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Capacidad' }));
+
+    const rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0]).toHaveTextContent('Segundo A');
+    expect(rows[1]).toHaveTextContent('Primero A');
+  });
+
   it('creates a grade', async () => {
     render(() => <EnrollmentGradesPage />);
     await screen.findByText('Primero A');

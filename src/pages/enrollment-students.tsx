@@ -2,6 +2,7 @@ import { useNavigate } from '@solidjs/router';
 import { createEffect, createMemo, createResource, createSignal, For, Show } from 'solid-js';
 import InlineFieldAlert from '../components/InlineFieldAlert';
 import Modal from '../components/Modal';
+import SortableHeaderCell from '../components/SortableHeaderCell';
 import {
   createInitialTouchedMap,
   hasAnyError,
@@ -9,6 +10,7 @@ import {
   touchField,
   type FieldErrorMap,
 } from '../lib/forms/realtime-validation';
+import { sortRows, toggleSort, type SortState } from '../lib/table/sorting';
 import { isAuthUserAdmin } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import { listGrades } from '../lib/pocketbase/grades';
@@ -99,6 +101,32 @@ function formatNumber(value: number | null): string {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
   return String(value);
 }
+
+function toSortableText(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function toSortableDateTime(value: unknown): number | null {
+  if (typeof value !== 'string') return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.getTime();
+}
+
+type StudentSortKey =
+  | 'name'
+  | 'grade_name'
+  | 'date_of_birth'
+  | 'birth_place'
+  | 'department'
+  | 'document_id'
+  | 'weight'
+  | 'height'
+  | 'blood_type'
+  | 'social_security'
+  | 'allergies';
 
 function parseOptionalNumber(value: string): number | null {
   const trimmed = value.trim();
@@ -204,6 +232,10 @@ export default function EnrollmentStudentsPage() {
   const [deleteTarget, setDeleteTarget] = createSignal<StudentRecord | null>(null);
   const [deleteBusy, setDeleteBusy] = createSignal(false);
   const [actionError, setActionError] = createSignal<string | null>(null);
+  const [studentSort, setStudentSort] = createSignal<SortState<StudentSortKey>>({
+    key: 'name',
+    direction: 'asc',
+  });
 
   createEffect(() => {
     if (!isAuthUserAdmin()) {
@@ -280,6 +312,20 @@ export default function EnrollmentStudentsPage() {
     }
   };
 
+  const studentRows = createMemo(() => sortRows(students() ?? [], studentSort(), {
+    name: (student) => toSortableText(student.name),
+    grade_name: (student) => toSortableText(student.grade_name),
+    date_of_birth: (student) => toSortableDateTime(student.date_of_birth),
+    birth_place: (student) => toSortableText(student.birth_place),
+    department: (student) => toSortableText(student.department),
+    document_id: (student) => toSortableText(student.document_id),
+    weight: (student) => student.weight,
+    height: (student) => student.height,
+    blood_type: (student) => toSortableText(student.blood_type),
+    social_security: (student) => toSortableText(student.social_security),
+    allergies: (student) => toSortableText(student.allergies),
+  }));
+
   return (
     <section class="min-h-screen bg-yellow-50 text-gray-800 p-4 sm:p-6 lg:p-8">
       <div class="mx-auto max-w-[1280px] rounded-xl border border-yellow-300 bg-white p-4 sm:p-6">
@@ -324,17 +370,83 @@ export default function EnrollmentStudentsPage() {
           <table class="min-w-[1400px] w-full text-left text-sm">
             <thead class="bg-yellow-100 text-gray-700">
               <tr>
-                <th class="px-4 py-3 font-semibold">Nombre</th>
-                <th class="px-4 py-3 font-semibold">Grado</th>
-                <th class="px-4 py-3 font-semibold">Fecha de nacimiento</th>
-                <th class="px-4 py-3 font-semibold">Lugar de nacimiento</th>
-                <th class="px-4 py-3 font-semibold">Departamento</th>
-                <th class="px-4 py-3 font-semibold">Documento</th>
-                <th class="px-4 py-3 font-semibold">Peso</th>
-                <th class="px-4 py-3 font-semibold">Altura</th>
-                <th class="px-4 py-3 font-semibold">Tipo de sangre</th>
-                <th class="px-4 py-3 font-semibold">Seguridad social</th>
-                <th class="px-4 py-3 font-semibold">Alergias</th>
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Nombre"
+                  columnKey="name"
+                  sort={studentSort()}
+                  onSort={(key) => setStudentSort((current) => toggleSort(current, key))}
+                />
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Grado"
+                  columnKey="grade_name"
+                  sort={studentSort()}
+                  onSort={(key) => setStudentSort((current) => toggleSort(current, key))}
+                />
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Fecha de nacimiento"
+                  columnKey="date_of_birth"
+                  sort={studentSort()}
+                  onSort={(key) => setStudentSort((current) => toggleSort(current, key))}
+                />
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Lugar de nacimiento"
+                  columnKey="birth_place"
+                  sort={studentSort()}
+                  onSort={(key) => setStudentSort((current) => toggleSort(current, key))}
+                />
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Departamento"
+                  columnKey="department"
+                  sort={studentSort()}
+                  onSort={(key) => setStudentSort((current) => toggleSort(current, key))}
+                />
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Documento"
+                  columnKey="document_id"
+                  sort={studentSort()}
+                  onSort={(key) => setStudentSort((current) => toggleSort(current, key))}
+                />
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Peso"
+                  columnKey="weight"
+                  sort={studentSort()}
+                  onSort={(key) => setStudentSort((current) => toggleSort(current, key))}
+                />
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Altura"
+                  columnKey="height"
+                  sort={studentSort()}
+                  onSort={(key) => setStudentSort((current) => toggleSort(current, key))}
+                />
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Tipo de sangre"
+                  columnKey="blood_type"
+                  sort={studentSort()}
+                  onSort={(key) => setStudentSort((current) => toggleSort(current, key))}
+                />
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Seguridad social"
+                  columnKey="social_security"
+                  sort={studentSort()}
+                  onSort={(key) => setStudentSort((current) => toggleSort(current, key))}
+                />
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Alergias"
+                  columnKey="allergies"
+                  sort={studentSort()}
+                  onSort={(key) => setStudentSort((current) => toggleSort(current, key))}
+                />
                 <th class="px-4 py-3 font-semibold">Acciones</th>
               </tr>
             </thead>
@@ -363,7 +475,7 @@ export default function EnrollmentStudentsPage() {
                       </tr>
                     }
                   >
-                    <For each={students() ?? []}>
+                    <For each={studentRows()}>
                       {(student) => (
                         <tr class="border-t border-yellow-100 align-top">
                           <td class="px-4 py-3">{formatText(student.name)}</td>

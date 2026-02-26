@@ -74,6 +74,27 @@ describe('invoices pocketbase client', () => {
     });
   });
 
+  it('supports explicit list sorting options', async () => {
+    hoisted.filter.mockReturnValue('employee_id = "e1"');
+    hoisted.getList.mockResolvedValue({
+      items: [],
+      page: 1,
+      perPage: 10,
+      totalItems: 0,
+      totalPages: 1,
+    });
+
+    await listEmployeeInvoices('e1', 1, 10, {
+      sortField: 'name',
+      sortDirection: 'asc',
+    });
+
+    expect(hoisted.getList).toHaveBeenCalledWith(1, 10, {
+      sort: 'name',
+      filter: 'employee_id = "e1"',
+    });
+  });
+
   it('creates invoice with generated name and normalizes it using db timestamp', async () => {
     hoisted.create.mockResolvedValue({
       id: 'inv-2',

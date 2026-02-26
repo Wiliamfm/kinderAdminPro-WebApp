@@ -61,6 +61,18 @@ describe('StaffJobsPage', () => {
     expect(await screen.findByRole('heading', { name: 'Crear cargo' })).toBeInTheDocument();
   });
 
+  it('sorts jobs by salary when header is clicked', async () => {
+    render(() => <StaffJobsPage />);
+    await screen.findByText('Docente');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Salario' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Salario' }));
+
+    const rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0]).toHaveTextContent('Coordinador');
+    expect(rows[1]).toHaveTextContent('Docente');
+  });
+
   it('creates a job', async () => {
     render(() => <StaffJobsPage />);
     await screen.findByText('Docente');

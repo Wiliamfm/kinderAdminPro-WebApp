@@ -2,6 +2,7 @@ import { useNavigate } from '@solidjs/router';
 import { createEffect, createMemo, createResource, createSignal, For, Show } from 'solid-js';
 import InlineFieldAlert from '../components/InlineFieldAlert';
 import Modal from '../components/Modal';
+import SortableHeaderCell from '../components/SortableHeaderCell';
 import {
   createInitialTouchedMap,
   hasAnyError,
@@ -9,6 +10,7 @@ import {
   touchField,
   type FieldErrorMap,
 } from '../lib/forms/realtime-validation';
+import { sortRows, toggleSort, type SortState } from '../lib/table/sorting';
 import { isAuthUserAdmin } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
@@ -78,6 +80,14 @@ function formatText(value: unknown): string {
   return trimmed.length > 0 ? trimmed : '—';
 }
 
+function toSortableText(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+type UserSortKey = 'name' | 'isAdmin' | 'email';
+
 export default function AppUsersPage() {
   const navigate = useNavigate();
   const [users, { refetch }] = createResource(async () => {
@@ -94,6 +104,10 @@ export default function AppUsersPage() {
   const [deleteTarget, setDeleteTarget] = createSignal<AppUserRecord | null>(null);
   const [deleteBusy, setDeleteBusy] = createSignal(false);
   const [actionError, setActionError] = createSignal<string | null>(null);
+  const [userSort, setUserSort] = createSignal<SortState<UserSortKey>>({
+    key: 'name',
+    direction: 'asc',
+  });
 
   const authUserId = () => getAuthUserId();
 
@@ -220,6 +234,11 @@ export default function AppUsersPage() {
   };
 
   const userRows = () => users() ?? [];
+  const sortedUserRows = createMemo(() => sortRows(userRows(), userSort(), {
+    name: (user) => toSortableText(user.name),
+    isAdmin: (user) => user.isAdmin,
+    email: (user) => toSortableText(user.email),
+  }));
   const isEditingSelf = () => editTarget()?.id === authUserId();
 
   return (
@@ -252,9 +271,27 @@ export default function AppUsersPage() {
           <table class="min-w-full border-collapse text-sm">
             <thead>
               <tr class="border-b border-yellow-200 text-left">
-                <th class="px-3 py-2 font-medium text-gray-700">Nombre</th>
-                <th class="px-3 py-2 font-medium text-gray-700">Admin</th>
-                <th class="px-3 py-2 font-medium text-gray-700">Correo</th>
+                <SortableHeaderCell
+                  class="px-3 py-2 font-medium text-gray-700"
+                  label="Nombre"
+                  columnKey="name"
+                  sort={userSort()}
+                  onSort={(key) => setUserSort((current) => toggleSort(current, key))}
+                />
+                <SortableHeaderCell
+                  class="px-3 py-2 font-medium text-gray-700"
+                  label="Admin"
+                  columnKey="isAdmin"
+                  sort={userSort()}
+                  onSort={(key) => setUserSort((current) => toggleSort(current, key))}
+                />
+                <SortableHeaderCell
+                  class="px-3 py-2 font-medium text-gray-700"
+                  label="Correo"
+                  columnKey="email"
+                  sort={userSort()}
+                  onSort={(key) => setUserSort((current) => toggleSort(current, key))}
+                />
                 <th class="px-3 py-2 font-medium text-gray-700">Acciones</th>
               </tr>
             </thead>
@@ -270,7 +307,7 @@ export default function AppUsersPage() {
                     </tr>
                   }
                 >
-                  <For each={userRows()}>
+                  <For each={sortedUserRows()}>
                     {(user) => {
                       const isSelf = () => user.id === authUserId();
 

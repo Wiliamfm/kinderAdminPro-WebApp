@@ -76,6 +76,27 @@ describe('leaves pocketbase client', () => {
     });
   });
 
+  it('supports explicit list sorting options', async () => {
+    hoisted.filter.mockReturnValue('employee_id = "e1"');
+    hoisted.getList.mockResolvedValue({
+      items: [],
+      page: 1,
+      perPage: 10,
+      totalItems: 0,
+      totalPages: 1,
+    });
+
+    await listEmployeeLeaves('e1', 1, 10, {
+      sortField: 'end_datetime',
+      sortDirection: 'asc',
+    });
+
+    expect(hoisted.getList).toHaveBeenCalledWith(1, 10, {
+      sort: 'end_datetime',
+      filter: 'employee_id = "e1"',
+    });
+  });
+
   it('creates a leave record', async () => {
     hoisted.create.mockResolvedValue({
       id: 'l2',

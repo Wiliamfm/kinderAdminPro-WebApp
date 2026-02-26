@@ -94,6 +94,14 @@ const emptyInvoicesPage = {
   totalItems: 0,
   totalPages: 1,
 };
+const defaultLeavesSort = {
+  sortField: 'start_datetime',
+  sortDirection: 'desc',
+};
+const defaultInvoicesSort = {
+  sortField: 'update_datetime',
+  sortDirection: 'desc',
+};
 
 describe('StaffEmployeesPage features', () => {
   beforeEach(() => {
@@ -185,6 +193,29 @@ describe('StaffEmployeesPage features', () => {
     await screen.findByText('Ana');
     expect(screen.getByLabelText('Gestionar licencias de Ana')).toBeInTheDocument();
     expect(screen.getByLabelText('Subir factura de Ana')).toBeInTheDocument();
+  });
+
+  it('sorts employees table by salary when header is clicked', async () => {
+    mocks.listActiveEmployees.mockResolvedValue([
+      employee,
+      {
+        ...employee,
+        id: 'e2',
+        name: 'Bruno',
+        jobSalary: 3000,
+      },
+    ]);
+
+    render(() => <StaffEmployeesPage />);
+    await screen.findByText('Ana');
+    await screen.findByText('Bruno');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Salario' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Salario' }));
+
+    const rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0]).toHaveTextContent('Bruno');
+    expect(rows[1]).toHaveTextContent('Ana');
   });
 
   it('hides admin actions for non-admin users', async () => {
@@ -355,7 +386,7 @@ describe('StaffEmployeesPage features', () => {
     expect(endInput.value).toBe('');
 
     const lastCall = mocks.listEmployeeLeaves.mock.calls.at(-1);
-    expect(lastCall).toEqual(['e1', 1, 10]);
+    expect(lastCall).toEqual(['e1', 1, 10, defaultLeavesSort]);
   });
 
   it('prefills form when editing a leave row', async () => {
@@ -456,12 +487,25 @@ describe('StaffEmployeesPage features', () => {
 
     fireEvent.click(screen.getByText('Siguiente'));
     await waitFor(() => {
-      expect(mocks.listEmployeeLeaves).toHaveBeenCalledWith('e1', 2, 10);
+      expect(mocks.listEmployeeLeaves).toHaveBeenCalledWith('e1', 2, 10, defaultLeavesSort);
     });
 
     fireEvent.click(screen.getByText('Anterior'));
     await waitFor(() => {
-      expect(mocks.listEmployeeLeaves).toHaveBeenCalledWith('e1', 1, 10);
+      expect(mocks.listEmployeeLeaves).toHaveBeenCalledWith('e1', 1, 10, defaultLeavesSort);
+    });
+  });
+
+  it('requests leaves sorted by selected header across pages', async () => {
+    await openLeavesModal();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fin' }));
+
+    await waitFor(() => {
+      expect(mocks.listEmployeeLeaves).toHaveBeenCalledWith('e1', 1, 10, {
+        sortField: 'end_datetime',
+        sortDirection: 'asc',
+      });
     });
   });
 
@@ -613,12 +657,25 @@ describe('StaffEmployeesPage features', () => {
 
     fireEvent.click(screen.getByText('Siguiente'));
     await waitFor(() => {
-      expect(mocks.listEmployeeInvoices).toHaveBeenCalledWith('e1', 2, 10);
+      expect(mocks.listEmployeeInvoices).toHaveBeenCalledWith('e1', 2, 10, defaultInvoicesSort);
     });
 
     fireEvent.click(screen.getByText('Anterior'));
     await waitFor(() => {
-      expect(mocks.listEmployeeInvoices).toHaveBeenCalledWith('e1', 1, 10);
+      expect(mocks.listEmployeeInvoices).toHaveBeenCalledWith('e1', 1, 10, defaultInvoicesSort);
+    });
+  });
+
+  it('requests invoices sorted by selected header across pages', async () => {
+    await openInvoiceModal();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Nombre de archivo' }));
+
+    await waitFor(() => {
+      expect(mocks.listEmployeeInvoices).toHaveBeenCalledWith('e1', 1, 10, {
+        sortField: 'name',
+        sortDirection: 'asc',
+      });
     });
   });
 });

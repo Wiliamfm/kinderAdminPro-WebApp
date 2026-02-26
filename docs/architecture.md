@@ -17,6 +17,12 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - `src/lib/`: non-UI logic, auth guards, PocketBase API wrappers, helpers.
 - `src/test/`: global test setup.
 
+## Table Sorting Standard
+- All data columns in page tables and modal tables are sortable via clickable headers.
+- Action columns are intentionally not sortable.
+- Sort toggle behavior is `asc`/`desc`; selecting a different column starts in `asc`.
+- For paginated data (`leaves`, `invoices`), sorting is handled server-side so order remains consistent across pages.
+
 ## Form Validation Pattern
 - Admin forms use touched-based realtime validation.
 - Shared helpers live in `src/lib/forms/realtime-validation.ts`.

@@ -2,6 +2,7 @@ import { useNavigate } from '@solidjs/router';
 import { createMemo, createResource, createSignal, For, Show } from 'solid-js';
 import InlineFieldAlert from '../components/InlineFieldAlert';
 import Modal from '../components/Modal';
+import SortableHeaderCell from '../components/SortableHeaderCell';
 import {
   createInitialTouchedMap,
   hasAnyError,
@@ -9,6 +10,7 @@ import {
   touchField,
   type FieldErrorMap,
 } from '../lib/forms/realtime-validation';
+import { sortRows, toggleSort, type SortState } from '../lib/table/sorting';
 import { isAuthUserAdmin } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
@@ -25,12 +27,14 @@ import {
   updateEmployeeLeave,
   type LeaveCreateInput,
   type LeaveRecord,
+  type LeaveSortField,
 } from '../lib/pocketbase/leaves';
 import {
   createInvoice,
   listEmployeeInvoices,
   updateInvoice,
   type InvoiceRecord,
+  type InvoiceSortField,
 } from '../lib/pocketbase/invoices';
 import { createInvoiceFile } from '../lib/pocketbase/invoice-files';
 import {
@@ -99,6 +103,20 @@ function formatDateTime(value: unknown): string {
   }).format(parsed);
 }
 
+function toSortableText(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function toSortableNumber(value: number | string): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value !== 'string') return null;
+
+  const parsed = Number(value.trim());
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function getErrorMessage(error: unknown): string {
   const normalized = error as PocketBaseRequestError | undefined;
   if (normalized && typeof normalized.message === 'string') {
@@ -127,6 +145,23 @@ const emptyCreateEmployeeForm: EmployeeCreateForm = {
   address: '',
   emergency_contact: '',
 };
+const DEFAULT_LEAVE_SORT: SortState<LeaveSortField> = {
+  key: 'start_datetime',
+  direction: 'desc',
+};
+const DEFAULT_INVOICE_SORT: SortState<InvoiceSortField> = {
+  key: 'update_datetime',
+  direction: 'desc',
+};
+
+type EmployeeSortKey =
+  | 'name'
+  | 'jobSalary'
+  | 'jobName'
+  | 'email'
+  | 'phone'
+  | 'address'
+  | 'emergency_contact';
 
 function validateCreateEmployeeForm(current: EmployeeCreateForm): FieldErrorMap<CreateEmployeeField> {
   const errors: FieldErrorMap<CreateEmployeeField> = {};
@@ -210,6 +245,10 @@ export default function StaffEmployeesPage() {
   const [deleteTarget, setDeleteTarget] = createSignal<EmployeeRecord | null>(null);
   const [deleteBusy, setDeleteBusy] = createSignal(false);
   const [actionError, setActionError] = createSignal<string | null>(null);
+  const [employeeSort, setEmployeeSort] = createSignal<SortState<EmployeeSortKey>>({
+    key: 'name',
+    direction: 'asc',
+  });
   const [createModalOpen, setCreateModalOpen] = createSignal(false);
   const [createBusy, setCreateBusy] = createSignal(false);
   const [createError, setCreateError] = createSignal<string | null>(null);
@@ -227,11 +266,13 @@ export default function StaffEmployeesPage() {
   const [leavePage, setLeavePage] = createSignal(1);
   const [leaveBusy, setLeaveBusy] = createSignal(false);
   const [leaveError, setLeaveError] = createSignal<string | null>(null);
+  const [leaveSort, setLeaveSort] = createSignal<SortState<LeaveSortField>>(DEFAULT_LEAVE_SORT);
   const [editingLeaveId, setEditingLeaveId] = createSignal<string | null>(null);
   const [invoiceTarget, setInvoiceTarget] = createSignal<EmployeeRecord | null>(null);
   const [invoicePage, setInvoicePage] = createSignal(1);
   const [invoiceBusy, setInvoiceBusy] = createSignal(false);
   const [invoiceError, setInvoiceError] = createSignal<string | null>(null);
+  const [invoiceSort, setInvoiceSort] = createSignal<SortState<InvoiceSortField>>(DEFAULT_INVOICE_SORT);
   const [invoiceFile, setInvoiceFile] = createSignal<File | null>(null);
   const [invoiceTouched, setInvoiceTouched] = createSignal(
     createInitialTouchedMap(INVOICE_FIELDS),
@@ -247,9 +288,19 @@ export default function StaffEmployeesPage() {
       return {
         employeeId: target.id,
         page: leavePage(),
+        sortField: leaveSort().key,
+        sortDirection: leaveSort().direction,
       };
     },
-    ({ employeeId, page }) => listEmployeeLeaves(employeeId, page, LEAVES_PAGE_SIZE),
+    ({ employeeId, page, sortField, sortDirection }) => listEmployeeLeaves(
+      employeeId,
+      page,
+      LEAVES_PAGE_SIZE,
+      {
+        sortField,
+        sortDirection,
+      },
+    ),
   );
   const [invoices, { refetch: refetchInvoices }] = createResource(
     () => {
@@ -259,9 +310,19 @@ export default function StaffEmployeesPage() {
       return {
         employeeId: target.id,
         page: invoicePage(),
+        sortField: invoiceSort().key,
+        sortDirection: invoiceSort().direction,
       };
     },
-    ({ employeeId, page }) => listEmployeeInvoices(employeeId, page, INVOICES_PAGE_SIZE),
+    ({ employeeId, page, sortField, sortDirection }) => listEmployeeInvoices(
+      employeeId,
+      page,
+      INVOICES_PAGE_SIZE,
+      {
+        sortField,
+        sortDirection,
+      },
+    ),
   );
 
   const openCreateEmployeeModal = () => {
@@ -382,6 +443,7 @@ export default function StaffEmployeesPage() {
   const openLeavesModal = (employee: EmployeeRecord) => {
     setLeaveTarget(employee);
     setLeavePage(1);
+    setLeaveSort(DEFAULT_LEAVE_SORT);
     setLeaveError(null);
     setLeaveAsyncError(null);
     setEditingLeaveId(null);
@@ -396,6 +458,7 @@ export default function StaffEmployeesPage() {
   const openInvoiceModal = (employee: EmployeeRecord) => {
     setInvoiceTarget(employee);
     setInvoicePage(1);
+    setInvoiceSort(DEFAULT_INVOICE_SORT);
     setInvoiceError(null);
     setInvoiceFile(null);
     setInvoiceTouched(createInitialTouchedMap(INVOICE_FIELDS));
@@ -407,6 +470,7 @@ export default function StaffEmployeesPage() {
     if (leaveBusy()) return;
     setLeaveTarget(null);
     setLeavePage(1);
+    setLeaveSort(DEFAULT_LEAVE_SORT);
     setLeaveError(null);
     setLeaveAsyncError(null);
     setEditingLeaveId(null);
@@ -418,6 +482,7 @@ export default function StaffEmployeesPage() {
     if (invoiceBusy()) return;
     setInvoiceTarget(null);
     setInvoicePage(1);
+    setInvoiceSort(DEFAULT_INVOICE_SORT);
     setInvoiceError(null);
     setInvoiceFile(null);
     setInvoiceTouched(createInitialTouchedMap(INVOICE_FIELDS));
@@ -618,6 +683,23 @@ export default function StaffEmployeesPage() {
     const jobId = createForm().jobId;
     return (jobs() ?? []).find((job) => job.id === jobId) ?? null;
   };
+  const employeeRows = createMemo(() => sortRows(employees() ?? [], employeeSort(), {
+    name: (employee) => toSortableText(employee.name),
+    jobSalary: (employee) => toSortableNumber(employee.jobSalary),
+    jobName: (employee) => toSortableText(employee.jobName),
+    email: (employee) => toSortableText(employee.email),
+    phone: (employee) => toSortableText(employee.phone),
+    address: (employee) => toSortableText(employee.address),
+    emergency_contact: (employee) => toSortableText(employee.emergency_contact),
+  }));
+  const handleLeaveSort = (key: LeaveSortField) => {
+    setLeaveSort((current) => toggleSort(current, key));
+    setLeavePage(1);
+  };
+  const handleInvoiceSort = (key: InvoiceSortField) => {
+    setInvoiceSort((current) => toggleSort(current, key));
+    setInvoicePage(1);
+  };
 
   return (
     <section class="min-h-screen bg-yellow-50 p-8 text-gray-800">
@@ -661,13 +743,55 @@ export default function StaffEmployeesPage() {
           <table class="min-w-[980px] w-full text-left text-sm">
             <thead class="bg-yellow-100 text-gray-700">
               <tr>
-                <th class="px-4 py-3 font-semibold">Nombre</th>
-                <th class="px-4 py-3 font-semibold">Salario</th>
-                <th class="px-4 py-3 font-semibold">Cargo</th>
-                <th class="px-4 py-3 font-semibold">Correo</th>
-                <th class="px-4 py-3 font-semibold">Teléfono</th>
-                <th class="px-4 py-3 font-semibold">Dirección</th>
-                <th class="px-4 py-3 font-semibold">Contacto de emergencia</th>
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Nombre"
+                  columnKey="name"
+                  sort={employeeSort()}
+                  onSort={(key) => setEmployeeSort((current) => toggleSort(current, key))}
+                />
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Salario"
+                  columnKey="jobSalary"
+                  sort={employeeSort()}
+                  onSort={(key) => setEmployeeSort((current) => toggleSort(current, key))}
+                />
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Cargo"
+                  columnKey="jobName"
+                  sort={employeeSort()}
+                  onSort={(key) => setEmployeeSort((current) => toggleSort(current, key))}
+                />
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Correo"
+                  columnKey="email"
+                  sort={employeeSort()}
+                  onSort={(key) => setEmployeeSort((current) => toggleSort(current, key))}
+                />
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Teléfono"
+                  columnKey="phone"
+                  sort={employeeSort()}
+                  onSort={(key) => setEmployeeSort((current) => toggleSort(current, key))}
+                />
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Dirección"
+                  columnKey="address"
+                  sort={employeeSort()}
+                  onSort={(key) => setEmployeeSort((current) => toggleSort(current, key))}
+                />
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Contacto de emergencia"
+                  columnKey="emergency_contact"
+                  sort={employeeSort()}
+                  onSort={(key) => setEmployeeSort((current) => toggleSort(current, key))}
+                />
                 <th class="px-4 py-3 font-semibold">Acciones</th>
               </tr>
             </thead>
@@ -689,7 +813,7 @@ export default function StaffEmployeesPage() {
                     </tr>
                   }
                 >
-                  <For each={employees() ?? []}>
+                  <For each={employeeRows()}>
                     {(employee) => (
                       <tr class="border-t border-yellow-100 align-top">
                         <td class="px-4 py-3">{formatText(employee.name)}</td>
@@ -958,8 +1082,20 @@ export default function StaffEmployeesPage() {
               <table class="min-w-[640px] w-full text-left text-sm">
                 <thead class="bg-yellow-100 text-gray-700">
                   <tr>
-                    <th class="px-4 py-3 font-semibold">Inicio</th>
-                    <th class="px-4 py-3 font-semibold">Fin</th>
+                    <SortableHeaderCell
+                      class="px-4 py-3 font-semibold"
+                      label="Inicio"
+                      columnKey="start_datetime"
+                      sort={leaveSort()}
+                      onSort={handleLeaveSort}
+                    />
+                    <SortableHeaderCell
+                      class="px-4 py-3 font-semibold"
+                      label="Fin"
+                      columnKey="end_datetime"
+                      sort={leaveSort()}
+                      onSort={handleLeaveSort}
+                    />
                     <th class="px-4 py-3 font-semibold">Acciones</th>
                   </tr>
                 </thead>
@@ -1111,8 +1247,20 @@ export default function StaffEmployeesPage() {
               <table class="min-w-[640px] w-full text-left text-sm">
                 <thead class="bg-yellow-100 text-gray-700">
                   <tr>
-                    <th class="px-4 py-3 font-semibold">Nombre de archivo</th>
-                    <th class="px-4 py-3 font-semibold">Fecha de registro</th>
+                    <SortableHeaderCell
+                      class="px-4 py-3 font-semibold"
+                      label="Nombre de archivo"
+                      columnKey="name"
+                      sort={invoiceSort()}
+                      onSort={handleInvoiceSort}
+                    />
+                    <SortableHeaderCell
+                      class="px-4 py-3 font-semibold"
+                      label="Fecha de registro"
+                      columnKey="update_datetime"
+                      sort={invoiceSort()}
+                      onSort={handleInvoiceSort}
+                    />
                     <th class="px-4 py-3 font-semibold">Acción</th>
                   </tr>
                 </thead>

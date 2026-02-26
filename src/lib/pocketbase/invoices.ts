@@ -42,6 +42,13 @@ export type InvoiceUpdateInput = {
   originalFileName: string;
 };
 
+export type InvoiceSortField = 'name' | 'update_datetime';
+export type InvoiceSortDirection = 'asc' | 'desc';
+export type InvoiceListOptions = {
+  sortField?: InvoiceSortField;
+  sortDirection?: InvoiceSortDirection;
+};
+
 export type PaginatedInvoicesResult = {
   items: InvoiceRecord[];
   page: number;
@@ -142,14 +149,25 @@ function mapInvoiceUpdatePayload(input: InvoiceUpdateInput): PbInvoiceUpdatePayl
   };
 }
 
+function buildSortExpression(
+  sortField: InvoiceSortField,
+  sortDirection: InvoiceSortDirection,
+): string {
+  return sortDirection === 'desc' ? `-${sortField}` : sortField;
+}
+
 export async function listEmployeeInvoices(
   employeeId: string,
   page: number,
   perPage: number,
+  options: InvoiceListOptions = {},
 ): Promise<PaginatedInvoicesResult> {
   try {
+    const sortField = options.sortField ?? 'update_datetime';
+    const sortDirection = options.sortDirection ?? 'desc';
+
     const result = await pb.collection('invoices').getList(page, perPage, {
-      sort: '-update_datetime',
+      sort: buildSortExpression(sortField, sortDirection),
       filter: pb.filter('employee_id = {:employeeId}', { employeeId }),
     });
 

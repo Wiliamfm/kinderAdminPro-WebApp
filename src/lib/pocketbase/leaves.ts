@@ -26,6 +26,13 @@ export type LeaveCreateInput = {
   end_datetime: string;
 };
 
+export type LeaveSortField = 'start_datetime' | 'end_datetime';
+export type LeaveSortDirection = 'asc' | 'desc';
+export type LeaveListOptions = {
+  sortField?: LeaveSortField;
+  sortDirection?: LeaveSortDirection;
+};
+
 export type PaginatedLeavesResult = {
   items: LeaveRecord[];
   page: number;
@@ -57,14 +64,25 @@ function mapLeavePayload(payload: LeaveCreateInput): PbLeavePayload {
   };
 }
 
+function buildSortExpression(
+  sortField: LeaveSortField,
+  sortDirection: LeaveSortDirection,
+): string {
+  return sortDirection === 'desc' ? `-${sortField}` : sortField;
+}
+
 export async function listEmployeeLeaves(
   employeeId: string,
   page: number,
   perPage: number,
+  options: LeaveListOptions = {},
 ): Promise<PaginatedLeavesResult> {
   try {
+    const sortField = options.sortField ?? 'start_datetime';
+    const sortDirection = options.sortDirection ?? 'desc';
+
     const result = await pb.collection('leaves').getList(page, perPage, {
-      sort: '-start_datetime',
+      sort: buildSortExpression(sortField, sortDirection),
       filter: pb.filter('employee_id = {:employeeId}', { employeeId }),
     });
 

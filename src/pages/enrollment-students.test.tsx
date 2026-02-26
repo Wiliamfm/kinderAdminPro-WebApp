@@ -91,6 +91,29 @@ describe('EnrollmentStudentsPage', () => {
     expect(screen.getByLabelText('Eliminar estudiante Ana')).toBeInTheDocument();
   });
 
+  it('sorts students by document column when header is clicked', async () => {
+    mocks.listActiveStudents.mockResolvedValue([
+      studentsFixture[0],
+      {
+        ...studentsFixture[0],
+        id: 's2',
+        name: 'Bruno',
+        document_id: '9999',
+      },
+    ]);
+
+    render(() => <EnrollmentStudentsPage />);
+    await screen.findByText('Ana');
+    await screen.findByText('Bruno');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Documento' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Documento' }));
+
+    const rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0]).toHaveTextContent('Bruno');
+    expect(rows[1]).toHaveTextContent('Ana');
+  });
+
   it('creates a student from modal', async () => {
     render(() => <EnrollmentStudentsPage />);
     await screen.findByText('Ana');

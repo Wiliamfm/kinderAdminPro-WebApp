@@ -66,6 +66,19 @@ describe('AppUsersPage', () => {
     expect(screen.getByLabelText('Editar usuario Ana Admin')).toBeInTheDocument();
   });
 
+  it('sorts users by admin column when header is clicked', async () => {
+    render(() => <AppUsersPage />);
+    await screen.findByText('Ana Admin');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Admin' }));
+    let rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0]).toHaveTextContent('Luis User');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Admin' }));
+    rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0]).toHaveTextContent('Ana Admin');
+  });
+
   it('redirects non-admin users to staff management', async () => {
     mocks.isAuthUserAdmin.mockReturnValue(false);
     render(() => <AppUsersPage />);

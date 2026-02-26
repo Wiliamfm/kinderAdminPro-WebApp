@@ -2,6 +2,7 @@ import { useNavigate } from '@solidjs/router';
 import { createEffect, createMemo, createResource, createSignal, For, Show } from 'solid-js';
 import InlineFieldAlert from '../components/InlineFieldAlert';
 import Modal from '../components/Modal';
+import SortableHeaderCell from '../components/SortableHeaderCell';
 import {
   createInitialTouchedMap,
   hasAnyError,
@@ -9,6 +10,7 @@ import {
   touchField,
   type FieldErrorMap,
 } from '../lib/forms/realtime-validation';
+import { sortRows, toggleSort, type SortState } from '../lib/table/sorting';
 import { isAuthUserAdmin } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
@@ -81,6 +83,22 @@ function formatCapacity(value: number | string): string {
   return '—';
 }
 
+function toSortableText(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function toSortableNumber(value: number | string): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value !== 'string') return null;
+
+  const parsed = Number(value.trim());
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+type GradeSortKey = 'name' | 'capacity';
+
 export default function EnrollmentGradesPage() {
   const navigate = useNavigate();
   const [grades, { refetch }] = createResource(listGrades);
@@ -101,6 +119,10 @@ export default function EnrollmentGradesPage() {
 
   const [deleteTarget, setDeleteTarget] = createSignal<GradeRecord | null>(null);
   const [deleteBusy, setDeleteBusy] = createSignal(false);
+  const [gradeSort, setGradeSort] = createSignal<SortState<GradeSortKey>>({
+    key: 'name',
+    direction: 'asc',
+  });
 
   createEffect(() => {
     if (!isAuthUserAdmin()) {
@@ -217,6 +239,11 @@ export default function EnrollmentGradesPage() {
     }
   };
 
+  const gradeRows = createMemo(() => sortRows(grades() ?? [], gradeSort(), {
+    name: (grade) => toSortableText(grade.name),
+    capacity: (grade) => toSortableNumber(grade.capacity),
+  }));
+
   return (
     <section class="min-h-screen bg-yellow-50 p-4 sm:p-6 lg:p-8 text-gray-800">
       <div class="mx-auto max-w-5xl rounded-xl border border-yellow-300 bg-white p-4 sm:p-6">
@@ -262,8 +289,20 @@ export default function EnrollmentGradesPage() {
           <table class="min-w-[640px] w-full text-left text-sm">
             <thead class="bg-yellow-100 text-gray-700">
               <tr>
-                <th class="px-4 py-3 font-semibold">Nombre</th>
-                <th class="px-4 py-3 font-semibold">Capacidad</th>
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Nombre"
+                  columnKey="name"
+                  sort={gradeSort()}
+                  onSort={(key) => setGradeSort((current) => toggleSort(current, key))}
+                />
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Capacidad"
+                  columnKey="capacity"
+                  sort={gradeSort()}
+                  onSort={(key) => setGradeSort((current) => toggleSort(current, key))}
+                />
                 <th class="px-4 py-3 font-semibold">Acciones</th>
               </tr>
             </thead>
@@ -298,7 +337,7 @@ export default function EnrollmentGradesPage() {
                       </tr>
                     }
                   >
-                    <For each={grades() ?? []}>
+                    <For each={gradeRows()}>
                       {(grade) => (
                         <tr class="border-t border-yellow-100 align-top">
                           <td class="px-4 py-3">{grade.name}</td>

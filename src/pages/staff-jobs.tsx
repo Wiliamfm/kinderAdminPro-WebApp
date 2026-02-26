@@ -2,6 +2,7 @@ import { useNavigate } from '@solidjs/router';
 import { createEffect, createMemo, createResource, createSignal, For, Show } from 'solid-js';
 import InlineFieldAlert from '../components/InlineFieldAlert';
 import Modal from '../components/Modal';
+import SortableHeaderCell from '../components/SortableHeaderCell';
 import {
   createInitialTouchedMap,
   hasAnyError,
@@ -9,6 +10,7 @@ import {
   touchField,
   type FieldErrorMap,
 } from '../lib/forms/realtime-validation';
+import { sortRows, toggleSort, type SortState } from '../lib/table/sorting';
 import { isAuthUserAdmin } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
@@ -85,6 +87,22 @@ function formatSalary(value: number | string): string {
   return '—';
 }
 
+function toSortableText(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function toSortableNumber(value: number | string): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value !== 'string') return null;
+
+  const parsed = Number(value.trim());
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+type JobSortKey = 'name' | 'salary';
+
 export default function StaffJobsPage() {
   const navigate = useNavigate();
   const [jobs, { refetch }] = createResource(listEmployeeJobs);
@@ -105,6 +123,10 @@ export default function StaffJobsPage() {
 
   const [deleteTarget, setDeleteTarget] = createSignal<EmployeeJobRecord | null>(null);
   const [deleteBusy, setDeleteBusy] = createSignal(false);
+  const [jobSort, setJobSort] = createSignal<SortState<JobSortKey>>({
+    key: 'name',
+    direction: 'asc',
+  });
 
   createEffect(() => {
     if (!isAuthUserAdmin()) {
@@ -221,6 +243,11 @@ export default function StaffJobsPage() {
     }
   };
 
+  const jobRows = createMemo(() => sortRows(jobs() ?? [], jobSort(), {
+    name: (job) => toSortableText(job.name),
+    salary: (job) => toSortableNumber(job.salary),
+  }));
+
   return (
     <section class="min-h-screen bg-yellow-50 p-8 text-gray-800">
       <div class="mx-auto max-w-5xl rounded-xl border border-yellow-300 bg-white p-6">
@@ -266,8 +293,20 @@ export default function StaffJobsPage() {
           <table class="min-w-[640px] w-full text-left text-sm">
             <thead class="bg-yellow-100 text-gray-700">
               <tr>
-                <th class="px-4 py-3 font-semibold">Nombre</th>
-                <th class="px-4 py-3 font-semibold">Salario</th>
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Nombre"
+                  columnKey="name"
+                  sort={jobSort()}
+                  onSort={(key) => setJobSort((current) => toggleSort(current, key))}
+                />
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Salario"
+                  columnKey="salary"
+                  sort={jobSort()}
+                  onSort={(key) => setJobSort((current) => toggleSort(current, key))}
+                />
                 <th class="px-4 py-3 font-semibold">Acciones</th>
               </tr>
             </thead>
@@ -302,7 +341,7 @@ export default function StaffJobsPage() {
                       </tr>
                     }
                   >
-                    <For each={jobs() ?? []}>
+                    <For each={jobRows()}>
                       {(job) => (
                         <tr class="border-t border-yellow-100 align-top">
                           <td class="px-4 py-3">{job.name}</td>
