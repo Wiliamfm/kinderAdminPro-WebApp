@@ -10,6 +10,7 @@ import {
 } from '../lib/forms/realtime-validation';
 import { isAuthUserAdmin } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
+import { listGrades } from '../lib/pocketbase/grades';
 import {
   getStudentById,
   updateStudent,
@@ -18,6 +19,7 @@ import {
 
 type StudentForm = {
   name: string;
+  grade_id: string;
   date_of_birth: string;
   birth_place: string;
   department: string;
@@ -34,6 +36,7 @@ const DOCUMENT_ID_REGEX = /^\d+$/;
 
 const emptyForm: StudentForm = {
   name: '',
+  grade_id: '',
   date_of_birth: '',
   birth_place: '',
   department: '',
@@ -47,6 +50,7 @@ const emptyForm: StudentForm = {
 
 const STUDENT_VALIDATED_FIELDS = [
   'name',
+  'grade_id',
   'date_of_birth',
   'birth_place',
   'department',
@@ -112,6 +116,7 @@ function validateStudentForm(form: StudentForm): FieldErrorMap<StudentValidatedF
   const errors: FieldErrorMap<StudentValidatedField> = {};
 
   if (form.name.trim().length === 0) errors.name = 'Nombre es obligatorio.';
+  if (form.grade_id.trim().length === 0) errors.grade_id = 'Grado es obligatorio.';
   if (form.date_of_birth.trim().length === 0) errors.date_of_birth = 'Fecha de nacimiento es obligatorio.';
   if (form.birth_place.trim().length === 0) errors.birth_place = 'Lugar de nacimiento es obligatorio.';
   if (form.department.trim().length === 0) errors.department = 'Departamento es obligatorio.';
@@ -153,6 +158,7 @@ function toStudentUpdateInput(form: StudentForm): StudentUpdateInput {
 
   return {
     name: form.name.trim(),
+    grade_id: form.grade_id.trim(),
     date_of_birth: new Date(form.date_of_birth.trim()).toISOString(),
     birth_place: form.birth_place.trim(),
     department: form.department.trim(),
@@ -169,6 +175,10 @@ export default function EnrollmentStudentEditPage() {
   const params = useParams();
   const navigate = useNavigate();
   const [student] = createResource(() => params.id, getStudentById);
+  const [grades] = createResource(async () => {
+    if (!isAuthUserAdmin()) return [];
+    return listGrades();
+  });
   const [form, setForm] = createSignal<StudentForm>(emptyForm);
   const [touched, setTouched] = createSignal(createInitialTouchedMap(STUDENT_VALIDATED_FIELDS));
   const [formError, setFormError] = createSignal<string | null>(null);
@@ -182,10 +192,11 @@ export default function EnrollmentStudentEditPage() {
 
   createEffect(() => {
     const current = student();
-    if (!current) return;
+    if (!current || grades.loading) return;
 
     setForm({
       name: current.name,
+      grade_id: current.grade_id,
       date_of_birth: toDateTimeLocalValue(current.date_of_birth),
       birth_place: current.birth_place,
       department: current.department,
@@ -245,6 +256,11 @@ export default function EnrollmentStudentEditPage() {
             {getErrorMessage(student.error)}
           </div>
         </Show>
+        <Show when={grades.error}>
+          <div class="mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {getErrorMessage(grades.error)}
+          </div>
+        </Show>
 
         <Show when={!student.loading && student()}>
           <form class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2" onSubmit={onSubmit}>
@@ -260,6 +276,29 @@ export default function EnrollmentStudentEditPage() {
                 aria-describedby={fieldError('name') ? 'edit-student-name-error' : undefined}
               />
               <InlineFieldAlert id="edit-student-name-error" message={fieldError('name')} />
+            </label>
+
+            <label class="text-sm">
+              <span class="mb-1 block font-medium text-gray-700">Grado</span>
+              <select
+                class="w-full rounded-lg border border-yellow-300 px-3 py-2"
+                classList={{ 'field-input-invalid': !!fieldError('grade_id') }}
+                value={form().grade_id}
+                onChange={(event) => setField('grade_id', event.currentTarget.value)}
+                disabled={saveBusy() || grades.loading}
+                aria-invalid={!!fieldError('grade_id')}
+                aria-describedby={fieldError('grade_id') ? 'edit-student-grade-error' : undefined}
+              >
+                <option value="">
+                  {grades.loading ? 'Cargando grados...' : 'Selecciona un grado'}
+                </option>
+                <For each={grades() ?? []}>
+                  {(grade) => (
+                    <option value={grade.id}>{grade.name}</option>
+                  )}
+                </For>
+              </select>
+              <InlineFieldAlert id="edit-student-grade-error" message={fieldError('grade_id')} />
             </label>
 
             <label class="text-sm">

@@ -11,6 +11,7 @@ import {
 } from '../lib/forms/realtime-validation';
 import { isAuthUserAdmin } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
+import { listGrades } from '../lib/pocketbase/grades';
 import {
   createStudent,
   deactivateStudent,
@@ -21,6 +22,7 @@ import {
 
 type StudentForm = {
   name: string;
+  grade_id: string;
   date_of_birth: string;
   birth_place: string;
   department: string;
@@ -37,6 +39,7 @@ const DOCUMENT_ID_REGEX = /^\d+$/;
 
 const emptyForm: StudentForm = {
   name: '',
+  grade_id: '',
   date_of_birth: '',
   birth_place: '',
   department: '',
@@ -50,6 +53,7 @@ const emptyForm: StudentForm = {
 
 const STUDENT_VALIDATED_FIELDS = [
   'name',
+  'grade_id',
   'date_of_birth',
   'birth_place',
   'department',
@@ -123,6 +127,7 @@ function validateStudentForm(form: StudentForm): FieldErrorMap<StudentValidatedF
   const errors: FieldErrorMap<StudentValidatedField> = {};
 
   if (form.name.trim().length === 0) errors.name = 'Nombre es obligatorio.';
+  if (form.grade_id.trim().length === 0) errors.grade_id = 'Grado es obligatorio.';
   if (form.date_of_birth.trim().length === 0) errors.date_of_birth = 'Fecha de nacimiento es obligatorio.';
   if (form.birth_place.trim().length === 0) errors.birth_place = 'Lugar de nacimiento es obligatorio.';
   if (form.department.trim().length === 0) errors.department = 'Departamento es obligatorio.';
@@ -164,6 +169,7 @@ function toStudentCreateInput(form: StudentForm): StudentCreateInput {
 
   return {
     name: form.name.trim(),
+    grade_id: form.grade_id.trim(),
     date_of_birth: new Date(form.date_of_birth.trim()).toISOString(),
     birth_place: form.birth_place.trim(),
     department: form.department.trim(),
@@ -181,6 +187,10 @@ export default function EnrollmentStudentsPage() {
   const [students, { refetch }] = createResource(async () => {
     if (!isAuthUserAdmin()) return [];
     return listActiveStudents();
+  });
+  const [grades] = createResource(async () => {
+    if (!isAuthUserAdmin()) return [];
+    return listGrades();
   });
 
   const [createOpen, setCreateOpen] = createSignal(false);
@@ -315,6 +325,7 @@ export default function EnrollmentStudentsPage() {
             <thead class="bg-yellow-100 text-gray-700">
               <tr>
                 <th class="px-4 py-3 font-semibold">Nombre</th>
+                <th class="px-4 py-3 font-semibold">Grado</th>
                 <th class="px-4 py-3 font-semibold">Fecha de nacimiento</th>
                 <th class="px-4 py-3 font-semibold">Lugar de nacimiento</th>
                 <th class="px-4 py-3 font-semibold">Departamento</th>
@@ -330,14 +341,14 @@ export default function EnrollmentStudentsPage() {
             <tbody>
               <Show when={!students.loading} fallback={
                 <tr>
-                  <td class="px-4 py-4 text-gray-600" colSpan={11}>
+                  <td class="px-4 py-4 text-gray-600" colSpan={12}>
                     Cargando estudiantes...
                   </td>
                 </tr>
               }>
                 <Show when={!students.error} fallback={
                   <tr>
-                    <td class="px-4 py-4 text-red-700" colSpan={11}>
+                    <td class="px-4 py-4 text-red-700" colSpan={12}>
                       {getErrorMessage(students.error)}
                     </td>
                   </tr>
@@ -346,7 +357,7 @@ export default function EnrollmentStudentsPage() {
                     when={(students() ?? []).length > 0}
                     fallback={
                       <tr>
-                        <td class="px-4 py-4 text-gray-600" colSpan={11}>
+                        <td class="px-4 py-4 text-gray-600" colSpan={12}>
                           No hay estudiantes registrados.
                         </td>
                       </tr>
@@ -356,6 +367,7 @@ export default function EnrollmentStudentsPage() {
                       {(student) => (
                         <tr class="border-t border-yellow-100 align-top">
                           <td class="px-4 py-3">{formatText(student.name)}</td>
+                          <td class="px-4 py-3">{formatText(student.grade_name)}</td>
                           <td class="px-4 py-3">{formatDateTime(student.date_of_birth)}</td>
                           <td class="px-4 py-3">{formatText(student.birth_place)}</td>
                           <td class="px-4 py-3">{formatText(student.department)}</td>
@@ -422,6 +434,29 @@ export default function EnrollmentStudentsPage() {
                 aria-describedby={fieldError('name') ? 'create-student-name-error' : undefined}
               />
               <InlineFieldAlert id="create-student-name-error" message={fieldError('name')} />
+            </label>
+
+            <label class="block">
+              <span class="text-sm text-gray-700">Grado</span>
+              <select
+                class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                classList={{ 'field-input-invalid': !!fieldError('grade_id') }}
+                value={createForm().grade_id}
+                onChange={(event) => setCreateField('grade_id', event.currentTarget.value)}
+                disabled={createBusy() || grades.loading}
+                aria-invalid={!!fieldError('grade_id')}
+                aria-describedby={fieldError('grade_id') ? 'create-student-grade-error' : undefined}
+              >
+                <option value="">
+                  {grades.loading ? 'Cargando grados...' : 'Selecciona un grado'}
+                </option>
+                <For each={grades() ?? []}>
+                  {(grade) => (
+                    <option value={grade.id}>{grade.name}</option>
+                  )}
+                </For>
+              </select>
+              <InlineFieldAlert id="create-student-grade-error" message={fieldError('grade_id')} />
             </label>
 
             <label class="block">

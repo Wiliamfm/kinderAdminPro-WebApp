@@ -5,6 +5,7 @@ import { lazy } from 'solid-js';
 import Login from './pages/login';
 import StaffManagementPage from './pages/staff-management';
 import EnrollmentManagementPage from './pages/enrollment-management';
+import EnrollmentGradesPage from './pages/enrollment-grades';
 import ReportsPage from './pages/reports';
 import EventManagementPage from './pages/event-management';
 import StaffEmployeesPage from './pages/staff-employees';
@@ -59,6 +60,10 @@ export const routes: RouteDefinition[] = [
   {
     path: '/enrollment-management/students/:id',
     component: EnrollmentStudentEditPage,
+  },
+  {
+    path: '/enrollment-management/grades',
+    component: EnrollmentGradesPage,
   },
   {
     path: '/reports',

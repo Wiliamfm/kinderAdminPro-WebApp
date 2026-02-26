@@ -126,6 +126,7 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - `listRule`, `viewRule`, `createRule`, `updateRule`, `deleteRule`: `@request.auth.is_admin = true`.
 - Fields:
   - `name` (required text),
+  - `grade_id` (required relation to `grades`, one student belongs to one grade),
   - `date_of_birth` (required `date`, datetime with timezone offset),
   - `birth_place` (required text),
   - `department` (required text),
@@ -143,6 +144,22 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - Routing:
   - `/enrollment-management/students`,
   - `/enrollment-management/students/:id`.
+
+## Grades Data Model
+- `grades` collection stores enrollment grades with admin-only access.
+- Access rules:
+  - `listRule`, `viewRule`, `createRule`, `updateRule`, `deleteRule`: `@request.auth.is_admin = true`.
+- Fields:
+  - `name` (required text, unique index),
+  - `capacity` (required integer number greater than 0).
+- Relation behavior:
+  - `students.grade_id` defines a one-to-many relation (`grades` -> many `students`),
+  - grade deletion is blocked at UI level when active students are linked to the target grade.
+- Frontend modules:
+  - list/create/edit/delete page: `src/pages/enrollment-grades.tsx`,
+  - wrapper/API access: `src/lib/pocketbase/grades.ts`.
+- Routing:
+  - `/enrollment-management/grades`.
 
 ## Testing Architecture
 - Runner: Vitest (`vitest.config.ts`).

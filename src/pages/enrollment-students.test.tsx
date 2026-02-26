@@ -5,6 +5,7 @@ import EnrollmentStudentsPage from './enrollment-students';
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   isAuthUserAdmin: vi.fn(),
+  listGrades: vi.fn(),
   listActiveStudents: vi.fn(),
   createStudent: vi.fn(),
   deactivateStudent: vi.fn(),
@@ -23,11 +24,20 @@ vi.mock('../lib/pocketbase/students', () => ({
   createStudent: mocks.createStudent,
   deactivateStudent: mocks.deactivateStudent,
 }));
+vi.mock('../lib/pocketbase/grades', () => ({
+  listGrades: mocks.listGrades,
+}));
+
+const gradesFixture = [
+  { id: 'g1', name: 'Primero A', capacity: 30 },
+];
 
 const studentsFixture = [
   {
     id: 's1',
     name: 'Ana',
+    grade_id: 'g1',
+    grade_name: 'Primero A',
     date_of_birth: '2015-06-15T13:30:00.000Z',
     birth_place: 'Bogota',
     department: 'Cundinamarca',
@@ -55,6 +65,7 @@ describe('EnrollmentStudentsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.isAuthUserAdmin.mockReturnValue(true);
+    mocks.listGrades.mockResolvedValue(gradesFixture);
     mocks.listActiveStudents.mockResolvedValue(studentsFixture);
     mocks.createStudent.mockResolvedValue(studentsFixture[0]);
     mocks.deactivateStudent.mockResolvedValue(undefined);
@@ -74,6 +85,7 @@ describe('EnrollmentStudentsPage', () => {
     render(() => <EnrollmentStudentsPage />);
 
     expect(await screen.findByText('Ana')).toBeInTheDocument();
+    expect(screen.getByText('Primero A')).toBeInTheDocument();
     expect(screen.getByText('Documento')).toBeInTheDocument();
     expect(screen.getByLabelText('Editar estudiante Ana')).toBeInTheDocument();
     expect(screen.getByLabelText('Eliminar estudiante Ana')).toBeInTheDocument();
@@ -91,6 +103,7 @@ describe('EnrollmentStudentsPage', () => {
     fireEvent.input(screen.getByLabelText('Lugar de nacimiento'), { target: { value: 'Bogota' } });
     fireEvent.input(screen.getByLabelText('Departamento'), { target: { value: 'Cundinamarca' } });
     fireEvent.input(screen.getByLabelText('Documento'), { target: { value: '1002' } });
+    fireEvent.change(screen.getByLabelText('Grado'), { target: { value: 'g1' } });
     fireEvent.change(screen.getByLabelText('Tipo de sangre'), { target: { value: 'A+' } });
 
     fireEvent.click(screen.getAllByText('Crear estudiante')[1]);
@@ -102,6 +115,7 @@ describe('EnrollmentStudentsPage', () => {
           birth_place: 'Bogota',
           department: 'Cundinamarca',
           document_id: '1002',
+          grade_id: 'g1',
           blood_type: 'A+',
           date_of_birth: expect.stringMatching(/Z$/),
         }),

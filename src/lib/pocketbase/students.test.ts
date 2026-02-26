@@ -48,6 +48,7 @@ describe('students pocketbase client', () => {
       {
         id: 's1',
         name: 'Ana',
+        grade_id: 'g1',
         date_of_birth: '2015-06-15 13:30:00.000Z',
         birth_place: 'Bogota',
         department: 'Cundinamarca',
@@ -58,10 +59,17 @@ describe('students pocketbase client', () => {
         social_security: 'SSN-1',
         allergies: 'Ninguna',
         active: true,
+        expand: {
+          grade_id: {
+            id: 'g1',
+            name: 'Primero A',
+          },
+        },
       },
       {
         id: 's2',
         name: 'Luis',
+        grade_id: 'g2',
         date_of_birth: '2016-01-10 09:00:00.000Z',
         birth_place: 'Medellin',
         department: 'Antioquia',
@@ -72,16 +80,24 @@ describe('students pocketbase client', () => {
         social_security: '',
         allergies: '',
         active: false,
+        expand: {
+          grade_id: {
+            id: 'g2',
+            name: 'Segundo A',
+          },
+        },
       },
     ]);
 
     const result = await listActiveStudents();
 
-    expect(hoisted.getFullList).toHaveBeenCalledWith({ sort: 'name' });
+    expect(hoisted.getFullList).toHaveBeenCalledWith({ sort: 'name', expand: 'grade_id' });
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
       id: 's1',
       name: 'Ana',
+      grade_id: 'g1',
+      grade_name: 'Primero A',
       document_id: 'DOC-1',
       active: true,
     });
@@ -91,6 +107,7 @@ describe('students pocketbase client', () => {
     hoisted.getOne.mockResolvedValue({
       id: 's1',
       name: 'Ana',
+      grade_id: 'g1',
       date_of_birth: '2015-06-15 13:30:00.000Z',
       birth_place: 'Bogota',
       department: 'Cundinamarca',
@@ -101,19 +118,27 @@ describe('students pocketbase client', () => {
       social_security: 'SSN-1',
       allergies: 'Ninguna',
       active: true,
+      expand: {
+        grade_id: {
+          id: 'g1',
+          name: 'Primero A',
+        },
+      },
     });
 
     const result = await getStudentById('s1');
 
-    expect(hoisted.getOne).toHaveBeenCalledWith('s1');
+    expect(hoisted.getOne).toHaveBeenCalledWith('s1', { expand: 'grade_id' });
     expect(result.id).toBe('s1');
     expect(result.name).toBe('Ana');
+    expect(result.grade_name).toBe('Primero A');
   });
 
   it('creates student with active=true', async () => {
     hoisted.create.mockResolvedValue({
       id: 's3',
       name: 'Sofia',
+      grade_id: 'g1',
       date_of_birth: '2016-07-01 15:00:00.000Z',
       birth_place: 'Bogota',
       department: 'Cundinamarca',
@@ -124,10 +149,17 @@ describe('students pocketbase client', () => {
       social_security: '',
       allergies: '',
       active: true,
+      expand: {
+        grade_id: {
+          id: 'g1',
+          name: 'Primero A',
+        },
+      },
     });
 
     await createStudent({
       name: 'Sofia',
+      grade_id: 'g1',
       date_of_birth: '2016-07-01T10:00:00-05:00',
       birth_place: 'Bogota',
       department: 'Cundinamarca',
@@ -139,25 +171,32 @@ describe('students pocketbase client', () => {
       allergies: '',
     });
 
-    expect(hoisted.create).toHaveBeenCalledWith({
-      name: 'Sofia',
-      date_of_birth: '2016-07-01T10:00:00-05:00',
-      birth_place: 'Bogota',
-      department: 'Cundinamarca',
-      document_id: 'DOC-3',
-      weight: null,
-      height: null,
-      blood_type: 'B+',
-      social_security: '',
-      allergies: '',
-      active: true,
-    });
+    expect(hoisted.create).toHaveBeenCalledWith(
+      {
+        name: 'Sofia',
+        grade_id: 'g1',
+        date_of_birth: '2016-07-01T10:00:00-05:00',
+        birth_place: 'Bogota',
+        department: 'Cundinamarca',
+        document_id: 'DOC-3',
+        weight: null,
+        height: null,
+        blood_type: 'B+',
+        social_security: '',
+        allergies: '',
+        active: true,
+      },
+      {
+        expand: 'grade_id',
+      },
+    );
   });
 
   it('updates and deactivates students', async () => {
     hoisted.update.mockResolvedValue({
       id: 's1',
       name: 'Ana Maria',
+      grade_id: 'g2',
       date_of_birth: '2015-06-15 13:30:00.000Z',
       birth_place: 'Bogota',
       department: 'Cundinamarca',
@@ -168,10 +207,17 @@ describe('students pocketbase client', () => {
       social_security: 'SSN-1',
       allergies: 'Polen',
       active: true,
+      expand: {
+        grade_id: {
+          id: 'g2',
+          name: 'Segundo A',
+        },
+      },
     });
 
     const updated = await updateStudent('s1', {
       name: 'Ana Maria',
+      grade_id: 'g2',
       date_of_birth: '2015-06-15T08:30:00-05:00',
       birth_place: 'Bogota',
       department: 'Cundinamarca',
@@ -183,19 +229,27 @@ describe('students pocketbase client', () => {
       allergies: 'Polen',
     });
 
-    expect(hoisted.update).toHaveBeenCalledWith('s1', {
-      name: 'Ana Maria',
-      date_of_birth: '2015-06-15T08:30:00-05:00',
-      birth_place: 'Bogota',
-      department: 'Cundinamarca',
-      document_id: 'DOC-1',
-      weight: 21,
-      height: 116,
-      blood_type: 'O+',
-      social_security: 'SSN-1',
-      allergies: 'Polen',
-    });
+    expect(hoisted.update).toHaveBeenCalledWith(
+      's1',
+      {
+        name: 'Ana Maria',
+        grade_id: 'g2',
+        date_of_birth: '2015-06-15T08:30:00-05:00',
+        birth_place: 'Bogota',
+        department: 'Cundinamarca',
+        document_id: 'DOC-1',
+        weight: 21,
+        height: 116,
+        blood_type: 'O+',
+        social_security: 'SSN-1',
+        allergies: 'Polen',
+      },
+      {
+        expand: 'grade_id',
+      },
+    );
     expect(updated.name).toBe('Ana Maria');
+    expect(updated.grade_name).toBe('Segundo A');
 
     await deactivateStudent('s1');
     expect(hoisted.update).toHaveBeenLastCalledWith('s1', { active: false });

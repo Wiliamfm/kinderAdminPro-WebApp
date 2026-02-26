@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   params: { id: 's1' },
   isAuthUserAdmin: vi.fn(),
+  listGrades: vi.fn(),
   getStudentById: vi.fn(),
   updateStudent: vi.fn(),
 }));
@@ -23,10 +24,19 @@ vi.mock('../lib/pocketbase/students', () => ({
   getStudentById: mocks.getStudentById,
   updateStudent: mocks.updateStudent,
 }));
+vi.mock('../lib/pocketbase/grades', () => ({
+  listGrades: mocks.listGrades,
+}));
+
+const gradesFixture = [
+  { id: 'g1', name: 'Primero A', capacity: 30 },
+];
 
 const studentFixture = {
   id: 's1',
   name: 'Ana',
+  grade_id: 'g1',
+  grade_name: 'Primero A',
   date_of_birth: '2015-06-15T13:30:00.000Z',
   birth_place: 'Bogota',
   department: 'Cundinamarca',
@@ -54,6 +64,7 @@ describe('EnrollmentStudentEditPage', () => {
     vi.clearAllMocks();
     mocks.params.id = 's1';
     mocks.isAuthUserAdmin.mockReturnValue(true);
+    mocks.listGrades.mockResolvedValue(gradesFixture);
     mocks.getStudentById.mockResolvedValue(studentFixture);
     mocks.updateStudent.mockResolvedValue(studentFixture);
   });
@@ -71,6 +82,10 @@ describe('EnrollmentStudentEditPage', () => {
     render(() => <EnrollmentStudentEditPage />);
 
     expect(await screen.findByDisplayValue('Ana')).toBeInTheDocument();
+    const gradeSelect = screen.getByLabelText('Grado') as HTMLSelectElement;
+    await waitFor(() => {
+      expect(gradeSelect.value).toBe('g1');
+    });
     expect(screen.getByDisplayValue('Bogota')).toBeInTheDocument();
     expect(screen.getByDisplayValue('1001')).toBeInTheDocument();
   });
@@ -78,12 +93,17 @@ describe('EnrollmentStudentEditPage', () => {
   it('updates student and navigates back to list', async () => {
     render(() => <EnrollmentStudentEditPage />);
     await screen.findByDisplayValue('Ana');
+    const gradeSelect = screen.getByLabelText('Grado') as HTMLSelectElement;
+    await waitFor(() => {
+      expect(gradeSelect.value).toBe('g1');
+    });
 
     fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'Ana Maria' } });
     fireEvent.input(screen.getByLabelText('Fecha de nacimiento'), { target: { value: '2015-06-15T08:30' } });
     fireEvent.input(screen.getByLabelText('Lugar de nacimiento'), { target: { value: 'Bogota' } });
     fireEvent.input(screen.getByLabelText('Departamento'), { target: { value: 'Cundinamarca' } });
     fireEvent.input(screen.getByLabelText('Documento'), { target: { value: '1001' } });
+    fireEvent.change(gradeSelect, { target: { value: 'g1' } });
     fireEvent.change(screen.getByLabelText('Tipo de sangre'), { target: { value: 'O+' } });
     fireEvent.input(screen.getByLabelText('Alergias'), { target: { value: 'Polen' } });
 
@@ -95,6 +115,7 @@ describe('EnrollmentStudentEditPage', () => {
         expect.objectContaining({
           name: 'Ana Maria',
           document_id: '1001',
+          grade_id: 'g1',
           allergies: 'Polen',
           date_of_birth: expect.stringMatching(/Z$/),
         }),

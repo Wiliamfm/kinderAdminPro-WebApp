@@ -51,6 +51,7 @@ export const sectionIndexByPage: Record<string, SectionIndexEntry> = {
       {
         label: 'Gestion de Grados',
         href: '/enrollment-management/grades',
+        requiresAdmin: true,
       },
       {
         label: 'Gestion de semestres',
