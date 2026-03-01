@@ -15,6 +15,7 @@ Primary functional areas exposed through routes:
 - Enrollment students (`/enrollment-management/students`, `/enrollment-management/students/:id`)
 - Enrollment grades (`/enrollment-management/grades`)
 - Enrollment semesters (`/enrollment-management/semesters`, `/enrollment-management/semesters/:id`)
+- Enrollment bulletins (`/enrollment-management/bulletins`)
 - Reports (`/reports`)
 - Event management (`/event-management`)
 
@@ -66,6 +67,15 @@ Primary functional areas exposed through routes:
   - `end_date` must be at least 1 day after `start_date`,
   - when `is_current = true`, date range must include today,
   - setting `is_current = true` automatically unsets the previously current semester.
+- Manage enrollment bulletins data in PocketBase:
+  - `bulletin_categories` collection stores bulletin categories with required `name` (unique) and `description`,
+  - `bulletin_categories` includes backend-managed `created_at` and `updated_at` autodate fields,
+  - `bulletins` collection stores student bulletin entries with required `category_id`, `grade_id`, `description`,
+  - `bulletins` stores audit fields `created_by` and `updated_by` as relations to `users`,
+  - `bulletins` includes backend-managed `created_at` and `updated_at` autodate fields,
+  - list and create/edit/delete workflows are admin-only and available in `/enrollment-management/bulletins`,
+  - bulletin deletion is soft delete via `is_deleted = true`,
+  - category deletion is hard delete and blocked when linked bulletins exist.
 - Store employee invoices in PocketBase:
   - `invoices` links each invoice to one employee (`employee_id`),
   - `invoices` links each invoice to one semester (`semester_id`, required relation to `semesters`),

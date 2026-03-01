@@ -240,6 +240,38 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - `/enrollment-management/semesters`,
   - `/enrollment-management/semesters/:id`.
 
+## Bulletins Data Model
+- `bulletin_categories` collection stores bulletin categories with admin-only access.
+- Access rules:
+  - `listRule`, `viewRule`, `createRule`, `updateRule`, `deleteRule`: `@request.auth.is_admin = true`.
+- `bulletin_categories` fields:
+  - `name` (required text, unique index),
+  - `description` (required text),
+  - `created_at` (autodate, set on create),
+  - `updated_at` (autodate, set on create and update).
+- Indexes:
+  - `CREATE UNIQUE INDEX idx_bulletin_categories_name ON bulletin_categories (name)`.
+- `bulletins` collection stores student academic-history bulletin records with admin-only access.
+- Access rules:
+  - `listRule`, `viewRule`, `createRule`, `updateRule`, `deleteRule`: `@request.auth.is_admin = true`.
+- `bulletins` fields:
+  - `category_id` (required relation to `bulletin_categories`, `maxSelect = 1`),
+  - `grade_id` (required relation to `grades`, `maxSelect = 1`),
+  - `description` (required text),
+  - `created_by` (required relation to `users`, `maxSelect = 1`),
+  - `updated_by` (required relation to `users`, `maxSelect = 1`),
+  - `created_at` (autodate, set on create),
+  - `updated_at` (autodate, set on create and update),
+  - `is_deleted` (bool used for soft delete, where active list filters `is_deleted != true`).
+- Frontend modules:
+  - list/create/edit/delete page: `src/pages/enrollment-bulletins.tsx`,
+  - wrappers/API access: `src/lib/pocketbase/bulletin-categories.ts` and `src/lib/pocketbase/bulletins.ts`.
+- Deletion behavior:
+  - `bulletins` delete action is soft delete (`is_deleted = true`),
+  - `bulletin_categories` delete action is hard delete and blocked in UI when linked bulletins exist.
+- Routing:
+  - `/enrollment-management/bulletins`.
+
 ## Testing Architecture
 - Runner: Vitest (`vitest.config.ts`).
 - UI tests: `src/pages/*.test.tsx`.

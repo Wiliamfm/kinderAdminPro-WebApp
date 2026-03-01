@@ -19,6 +19,7 @@ import EnrollmentTutorsPage from './pages/enrollment-tutors';
 import EnrollmentTutorEditPage from './pages/enrollment-tutor-edit';
 import EnrollmentSemestersPage from './pages/enrollment-semesters';
 import EnrollmentSemesterEditPage from './pages/enrollment-semester-edit';
+import EnrollmentBulletinsPage from './pages/enrollment-bulletins';
 
 export const routes: RouteDefinition[] = [
   {
@@ -84,6 +85,10 @@ export const routes: RouteDefinition[] = [
   {
     path: '/enrollment-management/semesters/:id',
     component: EnrollmentSemesterEditPage,
+  },
+  {
+    path: '/enrollment-management/bulletins',
+    component: EnrollmentBulletinsPage,
   },
   {
     path: '/reports',
