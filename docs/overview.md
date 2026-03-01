@@ -49,7 +49,9 @@ Primary functional areas exposed through routes:
   - optional duplicated `email`,
   - `students_fathers` collection models n:n student-parent links,
   - each link requires `student_id`, `father_id`, and `relationship` (`father`, `mother`, `other`),
+  - each link stores `created_at` as auto-created datetime with timezone offset,
   - duplicate `student_id` + `father_id` pairs are blocked by unique index,
+  - relation reads are ordered by `created_at,id`,
   - student and tutor create/edit flows require at least one linked counterpart.
 - Manage enrollment grades data in PocketBase `grades` collection:
   - admin-only CRUD access,

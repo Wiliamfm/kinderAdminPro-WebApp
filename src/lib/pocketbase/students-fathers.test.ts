@@ -76,7 +76,7 @@ describe('students_fathers pocketbase client', () => {
     expect(hoisted.getFullList).toHaveBeenCalledWith({
       filter: 'student_id = "s1"',
       expand: 'student_id,father_id',
-      sort: 'id',
+      sort: 'created_at,id',
       requestKey: 'students-fathers-links-student-s1',
     });
     expect(result[0]).toMatchObject({
@@ -110,6 +110,13 @@ describe('students_fathers pocketbase client', () => {
     ]);
 
     const map = await listFatherNamesByStudentIds(['s1']);
+
+    expect(hoisted.getFullList).toHaveBeenCalledWith({
+      filter: 'student_id = "s1"',
+      expand: 'father_id',
+      sort: 'created_at,id',
+      fields: 'id,student_id,father_id,expand.father_id.full_name,expand.father_id.is_active',
+    });
     expect(map).toEqual({ s1: ['Carlos'] });
   });
 
@@ -134,6 +141,13 @@ describe('students_fathers pocketbase client', () => {
     ]);
 
     const map = await listStudentNamesByFatherIds(['f1']);
+
+    expect(hoisted.getFullList).toHaveBeenCalledWith({
+      filter: 'father_id = "f1"',
+      expand: 'student_id',
+      sort: 'created_at,id',
+      fields: 'id,father_id,student_id,expand.student_id.name,expand.student_id.active',
+    });
     expect(map).toEqual({ f1: ['Ana'] });
   });
 
@@ -181,6 +195,11 @@ describe('students_fathers pocketbase client', () => {
       { fatherId: 'f3', relationship: 'father' },
     ]);
 
+    expect(hoisted.getFullList).toHaveBeenCalledWith({
+      filter: 'student_id = "s1"',
+      sort: 'created_at,id',
+      fields: 'id,father_id,relationship',
+    });
     expect(hoisted.update).toHaveBeenCalledWith('l1', { relationship: 'mother' });
     expect(hoisted.create).toHaveBeenCalledWith({
       student_id: 's1',
@@ -201,6 +220,11 @@ describe('students_fathers pocketbase client', () => {
       { studentId: 's3', relationship: 'father' },
     ]);
 
+    expect(hoisted.getFullList).toHaveBeenCalledWith({
+      filter: 'father_id = "f1"',
+      sort: 'created_at,id',
+      fields: 'id,student_id,relationship',
+    });
     expect(hoisted.update).toHaveBeenCalledWith('l1', { relationship: 'mother' });
     expect(hoisted.create).toHaveBeenCalledWith({
       student_id: 's3',
@@ -217,6 +241,7 @@ describe('students_fathers pocketbase client', () => {
 
     expect(hoisted.getList).toHaveBeenCalledWith(1, 1, {
       filter: 'father_id = "f1"',
+      sort: 'created_at,id',
     });
     expect(total).toBe(3);
   });
@@ -228,6 +253,7 @@ describe('students_fathers pocketbase client', () => {
 
     expect(hoisted.getList).toHaveBeenCalledWith(1, 1, {
       filter: 'student_id = "s1"',
+      sort: 'created_at,id',
     });
     expect(total).toBe(2);
   });

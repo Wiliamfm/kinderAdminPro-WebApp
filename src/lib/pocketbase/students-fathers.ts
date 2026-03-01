@@ -25,6 +25,8 @@ export type FatherStudentLinkInput = {
   relationship: StudentFatherRelationship;
 };
 
+const STUDENTS_FATHERS_SORT = 'created_at,id';
+
 function toStringValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -172,7 +174,7 @@ export async function listLinksByStudentId(studentId: string): Promise<StudentFa
     const records = await pb.collection('students_fathers').getFullList({
       filter: `student_id = "${escapeFilterValue(normalizedStudentId)}"`,
       expand: 'student_id,father_id',
-      sort: 'id',
+      sort: STUDENTS_FATHERS_SORT,
       requestKey: `students-fathers-links-student-${normalizedStudentId}`,
     });
 
@@ -201,7 +203,7 @@ export async function listLinksByFatherId(fatherId: string): Promise<StudentFath
     const records = await pb.collection('students_fathers').getFullList({
       filter: `father_id = "${escapeFilterValue(normalizedFatherId)}"`,
       expand: 'student_id,father_id',
-      sort: 'id',
+      sort: STUDENTS_FATHERS_SORT,
       requestKey: `students-fathers-links-father-${normalizedFatherId}`,
     });
 
@@ -284,6 +286,7 @@ export async function replaceLinksForStudent(
 
     const existing = await pb.collection('students_fathers').getFullList<ExistingStudentLink>({
       filter: `student_id = "${escapeFilterValue(normalizedStudentId)}"`,
+      sort: STUDENTS_FATHERS_SORT,
       fields: 'id,father_id,relationship',
     });
     const existingByFatherId = new Map<string, ExistingStudentLink>();
@@ -329,6 +332,7 @@ export async function replaceLinksForFather(
 
     const existing = await pb.collection('students_fathers').getFullList<ExistingFatherLink>({
       filter: `father_id = "${escapeFilterValue(normalizedFatherId)}"`,
+      sort: STUDENTS_FATHERS_SORT,
       fields: 'id,student_id,relationship',
     });
     const existingByStudentId = new Map<string, ExistingFatherLink>();
@@ -371,6 +375,7 @@ export async function countLinksByFatherId(fatherId: string): Promise<number> {
 
     const result = await pb.collection('students_fathers').getList(1, 1, {
       filter: `father_id = "${escapeFilterValue(normalizedFatherId)}"`,
+      sort: STUDENTS_FATHERS_SORT,
     });
 
     return result.totalItems;
@@ -386,6 +391,7 @@ export async function countLinksByStudentId(studentId: string): Promise<number> 
 
     const result = await pb.collection('students_fathers').getList(1, 1, {
       filter: `student_id = "${escapeFilterValue(normalizedStudentId)}"`,
+      sort: STUDENTS_FATHERS_SORT,
     });
 
     return result.totalItems;
@@ -405,6 +411,7 @@ export async function listFatherNamesByStudentIds(
     const records = await pb.collection('students_fathers').getFullList({
       filter,
       expand: 'father_id',
+      sort: STUDENTS_FATHERS_SORT,
       fields: 'id,student_id,father_id,expand.father_id.full_name,expand.father_id.is_active',
     });
 
@@ -441,6 +448,7 @@ export async function listStudentNamesByFatherIds(
     const records = await pb.collection('students_fathers').getFullList({
       filter,
       expand: 'student_id',
+      sort: STUDENTS_FATHERS_SORT,
       fields: 'id,father_id,student_id,expand.student_id.name,expand.student_id.active',
     });
 

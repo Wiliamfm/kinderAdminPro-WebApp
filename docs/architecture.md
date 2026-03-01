@@ -183,12 +183,15 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - Fields:
   - `student_id` (required relation to `students`, `maxSelect = 1`),
   - `father_id` (required relation to `fathers`, `maxSelect = 1`),
-  - `relationship` (required single select: `father`, `mother`, `other`).
+  - `relationship` (required single select: `father`, `mother`, `other`),
+  - `created_at` (autodate, set on create, not updated on edit).
 - Indexes:
   - `CREATE UNIQUE INDEX idx_students_fathers_student_father ON students_fathers (student_id, father_id)`,
-  - `CREATE INDEX idx_students_fathers_father_id ON students_fathers (father_id)`.
+  - `CREATE INDEX idx_students_fathers_father_id ON students_fathers (father_id)`,
+  - `CREATE INDEX idx_students_fathers_created_at ON students_fathers (created_at)`.
 - Frontend usage:
   - relation management helpers live in `src/lib/pocketbase/students-fathers.ts`,
+  - all `students_fathers` reads use `sort: created_at,id`,
   - student and tutor create/edit forms use repeatable link rows (`counterpart + relationship`),
   - both flows enforce at least one linked counterpart on create and edit.
 
