@@ -17,6 +17,7 @@ Primary functional areas exposed through routes:
 - Enrollment semesters (`/enrollment-management/semesters`, `/enrollment-management/semesters/:id`)
 - Enrollment bulletins (`/enrollment-management/bulletins`)
 - Reports (`/reports`)
+- Reports students (`/reports/students`)
 - Event management (`/event-management`)
 
 ## Core Workflows
@@ -76,6 +77,15 @@ Primary functional areas exposed through routes:
   - list and create/edit/delete workflows are admin-only and available in `/enrollment-management/bulletins`,
   - bulletin deletion is soft delete via `is_deleted = true`,
   - category deletion is hard delete and blocked when linked bulletins exist.
+- Manage student report notes in PocketBase:
+  - `bulletins_students` collection stores the relation between bulletin, student, grade, and semester,
+  - required relations: `bulletin_id`, `student_id`, `grade_id`, `semester_id`,
+  - required integer `note` greater than `0` plus optional `comments`,
+  - admin-only list/create/update/delete access,
+  - audit fields `created_by` and `updated_by` are stored as `users` relations,
+  - backend-managed `created_at` and `updated_at` autodate fields are exposed in UI,
+  - deletion is soft delete via `is_deleted = true`,
+  - workflow is available in `/reports/students` with sortable and paginated table plus create/edit/delete modals.
 - Store employee invoices in PocketBase:
   - `invoices` links each invoice to one employee (`employee_id`),
   - `invoices` links each invoice to one semester (`semester_id`, required relation to `semesters`),

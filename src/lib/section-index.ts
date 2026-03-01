@@ -77,6 +77,13 @@ export const sectionIndexByPage: Record<string, SectionIndexEntry> = {
     title: 'Informes',
     description:
       'En esta sección podrás revisar y navegar por los informes administrativos disponibles.',
-    links: [{ label: 'Volver al inicio', href: '/' }],
+    links: [
+      {
+        label: 'Estudiantes',
+        href: '/reports/students',
+        requiresAdmin: true,
+      },
+      { label: 'Volver al inicio', href: '/' },
+    ],
   },
 };

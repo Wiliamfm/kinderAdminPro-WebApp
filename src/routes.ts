@@ -20,6 +20,7 @@ import EnrollmentTutorEditPage from './pages/enrollment-tutor-edit';
 import EnrollmentSemestersPage from './pages/enrollment-semesters';
 import EnrollmentSemesterEditPage from './pages/enrollment-semester-edit';
 import EnrollmentBulletinsPage from './pages/enrollment-bulletins';
+import ReportsStudentsPage from './pages/reports-students';
 
 export const routes: RouteDefinition[] = [
   {
@@ -93,6 +94,10 @@ export const routes: RouteDefinition[] = [
   {
     path: '/reports',
     component: ReportsPage,
+  },
+  {
+    path: '/reports/students',
+    component: ReportsStudentsPage,
   },
   {
     path: '/event-management',

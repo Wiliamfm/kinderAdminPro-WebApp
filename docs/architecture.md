@@ -272,6 +272,32 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - Routing:
   - `/enrollment-management/bulletins`.
 
+## Reports Students Data Model
+- `bulletins_students` collection stores report rows linking bulletin, student, grade, and semester.
+- Access rules:
+  - `listRule`, `viewRule`, `createRule`, `updateRule`, `deleteRule`: `@request.auth.is_admin = true`.
+- Fields:
+  - `bulletin_id` (required relation to `bulletins`, `maxSelect = 1`, `cascadeDelete = false`),
+  - `student_id` (required relation to `students`, `maxSelect = 1`, `cascadeDelete = false`),
+  - `grade_id` (required relation to `grades`, `maxSelect = 1`, `cascadeDelete = false`),
+  - `semester_id` (required relation to `semesters`, `maxSelect = 1`, `cascadeDelete = false`),
+  - `note` (required integer number, minimum `1`),
+  - `comments` (optional text),
+  - `created_by` (required relation to `users`, `maxSelect = 1`),
+  - `updated_by` (required relation to `users`, `maxSelect = 1`),
+  - `created_at` (autodate, set on create),
+  - `updated_at` (autodate, set on create and update),
+  - `is_deleted` (bool used for soft delete, where active list filters `is_deleted != true`).
+- Frontend modules:
+  - list/create/edit/delete page: `src/pages/reports-students.tsx`,
+  - wrapper/API access: `src/lib/pocketbase/bulletins-students.ts`.
+- Data flow:
+  - list queries are paginated and server-sorted with relation expansions for bulletin, category, student, grade, semester, and users,
+  - create and update actions enforce audit metadata from authenticated user (`created_by`, `updated_by`),
+  - delete action is logical delete (`is_deleted = true`) with `updated_by` refresh.
+- Routing:
+  - `/reports/students`.
+
 ## Testing Architecture
 - Runner: Vitest (`vitest.config.ts`).
 - UI tests: `src/pages/*.test.tsx`.
