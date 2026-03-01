@@ -12,6 +12,10 @@ Docs follow a Diataxis-lite structure:
 - `change-management.md`: procedural guide for changes
 - `llm-playbook.md`: practical guidance for AI-assisted edits
 
+Implementation-specific specs are stored in:
+- `implementations/overview.md`: standards for implementation docs
+- `implementations/*.md`: decision-complete implementation specs for execution and future reference
+
 ## Source Of Truth
 - Runtime and script truth: `package.json`
 - Routes and page wiring: `src/routes.ts`
