@@ -14,6 +14,7 @@ Primary functional areas exposed through routes:
 - Enrollment management (`/enrollment-management`)
 - Enrollment students (`/enrollment-management/students`, `/enrollment-management/students/:id`)
 - Enrollment grades (`/enrollment-management/grades`)
+- Enrollment semesters (`/enrollment-management/semesters`, `/enrollment-management/semesters/:id`)
 - Reports (`/reports`)
 - Event management (`/event-management`)
 
@@ -58,6 +59,11 @@ Primary functional areas exposed through routes:
   - unique `name`,
   - integer `capacity` greater than 0,
   - prevent deletion while active students are linked to the grade.
+- Manage enrollment semesters data in PocketBase `semesters` collection:
+  - admin-only create/list/update access from enrollment module,
+  - required `name` (unique), `start_date`, and `end_date`,
+  - `created_at` and `updated_at` stored as backend-managed autodate fields,
+  - `end_date` must be at least 1 day after `start_date`.
 - Store employee invoices in PocketBase:
   - `invoices` links each invoice to one employee (`employee_id`),
   - `invoices.name` stores the normalized original filename with a timestamp suffix (for example `factura_demo_20260223_1000.pdf`),

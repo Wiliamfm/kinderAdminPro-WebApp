@@ -211,6 +211,26 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - Routing:
   - `/enrollment-management/grades`.
 
+## Semesters Data Model
+- `semesters` collection stores enrollment semester periods with admin-only access.
+- Access rules:
+  - `listRule`, `viewRule`, `createRule`, `updateRule`, `deleteRule`: `@request.auth.is_admin = true`.
+- Fields:
+  - `name` (required text, unique index),
+  - `start_date` (required `date`, datetime with timezone offset),
+  - `end_date` (required `date`, datetime with timezone offset),
+  - `created_at` (autodate, set on create),
+  - `updated_at` (autodate, set on create and update).
+- Indexes:
+  - `CREATE UNIQUE INDEX idx_semesters_name ON semesters (name)`.
+- Frontend modules:
+  - list/create page: `src/pages/enrollment-semesters.tsx`,
+  - edit page: `src/pages/enrollment-semester-edit.tsx`,
+  - wrapper/API access: `src/lib/pocketbase/semesters.ts`.
+- Routing:
+  - `/enrollment-management/semesters`,
+  - `/enrollment-management/semesters/:id`.
+
 ## Testing Architecture
 - Runner: Vitest (`vitest.config.ts`).
 - UI tests: `src/pages/*.test.tsx`.
