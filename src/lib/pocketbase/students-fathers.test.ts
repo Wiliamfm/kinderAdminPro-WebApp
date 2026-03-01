@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   countLinksByFatherId,
+  countLinksByStudentId,
   createLinksForFather,
   createLinksForStudent,
   listFatherNamesByStudentIds,
+  listLinksByFatherId,
   listLinksByStudentId,
   listStudentNamesByFatherIds,
   replaceLinksForFather,
@@ -74,7 +76,8 @@ describe('students_fathers pocketbase client', () => {
     expect(hoisted.getFullList).toHaveBeenCalledWith({
       filter: 'student_id = "s1"',
       expand: 'student_id,father_id',
-      sort: 'created',
+      sort: 'id',
+      requestKey: 'students-fathers-links-student-s1',
     });
     expect(result[0]).toMatchObject({
       id: 'l1',
@@ -218,6 +221,17 @@ describe('students_fathers pocketbase client', () => {
     expect(total).toBe(3);
   });
 
+  it('counts links by student id', async () => {
+    hoisted.getList.mockResolvedValue({ totalItems: 2 });
+
+    const total = await countLinksByStudentId('s1');
+
+    expect(hoisted.getList).toHaveBeenCalledWith(1, 1, {
+      filter: 'student_id = "s1"',
+    });
+    expect(total).toBe(2);
+  });
+
   it('normalizes and rethrows errors', async () => {
     const rawError = new Error('network');
     const normalized = { message: 'normalized', status: 500, isAbort: false };
@@ -225,6 +239,68 @@ describe('students_fathers pocketbase client', () => {
     hoisted.normalizePocketBaseError.mockReturnValue(normalized);
 
     await expect(listLinksByStudentId('s1')).rejects.toEqual(normalized);
+    expect(hoisted.normalizePocketBaseError).toHaveBeenCalledWith(rawError);
+  });
+
+  it('returns empty links when list-by-student request is auto-cancelled', async () => {
+    const rawError = new Error('aborted');
+    const normalized = {
+      message: 'The request was aborted (most likely autocancelled).',
+      status: null,
+      isAbort: false,
+    };
+    hoisted.getFullList.mockRejectedValue(rawError);
+    hoisted.normalizePocketBaseError.mockReturnValue(normalized);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const result = await listLinksByStudentId('s1');
+
+    expect(result).toEqual([]);
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Ignoring PocketBase auto-cancelled request in listLinksByStudentId.',
+      normalized,
+    );
+    warnSpy.mockRestore();
+  });
+
+  it('returns empty links when list-by-father request is auto-cancelled', async () => {
+    const rawError = new Error('aborted');
+    const normalized = {
+      message: 'request was aborted',
+      status: null,
+      isAbort: true,
+    };
+    hoisted.getFullList.mockRejectedValue(rawError);
+    hoisted.normalizePocketBaseError.mockReturnValue(normalized);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const result = await listLinksByFatherId('f1');
+
+    expect(result).toEqual([]);
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Ignoring PocketBase auto-cancelled request in listLinksByFatherId.',
+      normalized,
+    );
+    warnSpy.mockRestore();
+  });
+
+  it('normalizes and rethrows non-abort errors for list-by-father', async () => {
+    const rawError = new Error('network');
+    const normalized = { message: 'normalized', status: 500, isAbort: false };
+    hoisted.getFullList.mockRejectedValue(rawError);
+    hoisted.normalizePocketBaseError.mockReturnValue(normalized);
+
+    await expect(listLinksByFatherId('f1')).rejects.toEqual(normalized);
+    expect(hoisted.normalizePocketBaseError).toHaveBeenCalledWith(rawError);
+  });
+
+  it('normalizes and rethrows errors for count-by-student', async () => {
+    const rawError = new Error('network');
+    const normalized = { message: 'normalized', status: 500, isAbort: false };
+    hoisted.getList.mockRejectedValue(rawError);
+    hoisted.normalizePocketBaseError.mockReturnValue(normalized);
+
+    await expect(countLinksByStudentId('s1')).rejects.toEqual(normalized);
     expect(hoisted.normalizePocketBaseError).toHaveBeenCalledWith(rawError);
   });
 });

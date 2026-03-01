@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
+import { fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import EnrollmentTutorEditPage from './enrollment-tutor-edit';
 
@@ -138,8 +138,24 @@ describe('EnrollmentTutorEditPage', () => {
     });
   });
 
-  it('shows validation when no active students exist', async () => {
+  it('loads associated students even when active students list is empty', async () => {
     mocks.listActiveStudents.mockResolvedValue([]);
+    render(() => <EnrollmentTutorEditPage />);
+    await screen.findByDisplayValue('Carlos Perez');
+
+    const linkedStudentSelect = screen.getAllByRole('combobox').find((element) => (
+      within(element).queryByRole('option', { name: 'Ana' })
+    ));
+
+    expect(linkedStudentSelect).toBeDefined();
+    await waitFor(() => {
+      expect((linkedStudentSelect as HTMLSelectElement).value).toBe('s1');
+    });
+  });
+
+  it('shows validation when no available students and no existing links exist', async () => {
+    mocks.listActiveStudents.mockResolvedValue([]);
+    mocks.listLinksByFatherId.mockResolvedValue([]);
     render(() => <EnrollmentTutorEditPage />);
     await screen.findByDisplayValue('Carlos Perez');
 

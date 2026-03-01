@@ -27,6 +27,7 @@ import {
   type StudentRecord,
 } from '../lib/pocketbase/students';
 import {
+  countLinksByStudentId,
   createLinksForStudent,
   STUDENT_FATHER_RELATIONSHIPS,
   type StudentFatherLinkInput,
@@ -432,6 +433,15 @@ export default function EnrollmentStudentsPage() {
     setActionError(null);
 
     try {
+      const linked = await countLinksByStudentId(target.id);
+      if (linked > 0) {
+        setActionError(
+          `No se puede eliminar el estudiante ${target.name} porque tiene ${linked} tutor(es) asociado(s).`,
+        );
+        setDeleteTarget(null);
+        return;
+      }
+
       await deactivateStudent(target.id);
       await refetch();
       const totalPages = students()?.totalPages ?? 1;

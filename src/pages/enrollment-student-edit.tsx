@@ -44,6 +44,11 @@ type StudentLinkForm = {
   relationship: StudentFatherRelationship;
 };
 
+type FatherOption = {
+  id: string;
+  label: string;
+};
+
 const BLOOD_TYPE_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const DOCUMENT_ID_REGEX = /^\d+$/;
 
@@ -261,6 +266,29 @@ export default function EnrollmentStudentEditPage() {
   const [linksTouched, setLinksTouched] = createSignal(false);
   const [formError, setFormError] = createSignal<string | null>(null);
   const [saveBusy, setSaveBusy] = createSignal(false);
+  const fatherOptions = createMemo<FatherOption[]>(() => {
+    const optionsById = new Map<string, FatherOption>();
+
+    for (const father of fathers() ?? []) {
+      const id = father.id.trim();
+      if (!id) continue;
+      optionsById.set(id, {
+        id,
+        label: father.full_name,
+      });
+    }
+
+    for (const link of studentLinks() ?? []) {
+      const fatherId = link.fatherId.trim();
+      if (!fatherId || !link.fatherActive || optionsById.has(fatherId)) continue;
+      optionsById.set(fatherId, {
+        id: fatherId,
+        label: link.fatherName || fatherId,
+      });
+    }
+
+    return Array.from(optionsById.values());
+  });
 
   createEffect(() => {
     if (!isAuthUserAdmin()) {
@@ -293,13 +321,17 @@ export default function EnrollmentStudentEditPage() {
     const currentLinks = studentLinks();
     if (!currentLinks) return;
 
-    if (currentLinks.length === 0) {
+    const activeLinks = currentLinks.filter(
+      (link) => link.fatherActive && link.fatherId.trim().length > 0,
+    );
+
+    if (activeLinks.length === 0) {
       setLinks([createEmptyLink()]);
       setLinksTouched(false);
       return;
     }
 
-    setLinks(currentLinks.map((link) => ({
+    setLinks(activeLinks.map((link) => ({
       fatherId: link.fatherId,
       relationship: link.relationship,
     })));
@@ -355,7 +387,7 @@ export default function EnrollmentStudentEditPage() {
     setFormError(null);
   };
   const fieldErrors = createMemo(() => validateStudentForm(form()));
-  const linksError = createMemo(() => validateLinks(links(), (fathers()?.length ?? 0) > 0));
+  const linksError = createMemo(() => validateLinks(links(), fatherOptions().length > 0));
   const fieldError = (field: StudentValidatedField) => (touched()[field] ? fieldErrors()[field] : undefined);
 
   const onSubmit = async (event: SubmitEvent) => {
@@ -596,30 +628,33 @@ export default function EnrollmentStudentEditPage() {
 
               <div class="mt-3 space-y-2">
                 <For each={links()}>
-                  {(link, indexAccessor) => {
+                  {(_, indexAccessor) => {
                     const index = () => indexAccessor();
+                    const link = () => links()[index()] ?? createEmptyLink();
 
                     return (
                       <div class="grid grid-cols-1 gap-2 md:grid-cols-[1fr_180px_auto]">
                         <select
                           class="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                          value={link.fatherId}
+                          value={link().fatherId}
                           onChange={(event) => setLinkFather(index(), event.currentTarget.value)}
                           disabled={saveBusy() || fathers.loading}
                         >
                           <option value="">
                             {fathers.loading ? 'Cargando tutores...' : 'Selecciona un tutor'}
                           </option>
-                          <For each={fathers() ?? []}>
-                            {(father) => (
-                              <option value={father.id}>{father.full_name}</option>
+                          <For each={fatherOptions()}>
+                            {(option) => (
+                              <option value={option.id} selected={option.id === link().fatherId}>
+                                {option.label}
+                              </option>
                             )}
                           </For>
                         </select>
 
                         <select
                           class="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                          value={link.relationship}
+                          value={link().relationship}
                           onChange={(event) => setLinkRelationship(index(), event.currentTarget.value)}
                           disabled={saveBusy()}
                         >

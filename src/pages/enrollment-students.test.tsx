@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   deleteStudent: vi.fn(),
   deactivateStudent: vi.fn(),
   createLinksForStudent: vi.fn(),
+  countLinksByStudentId: vi.fn(),
 }));
 
 vi.mock('@solidjs/router', () => ({
@@ -40,6 +41,7 @@ vi.mock('../lib/pocketbase/fathers', () => ({
 vi.mock('../lib/pocketbase/students-fathers', () => ({
   STUDENT_FATHER_RELATIONSHIPS: ['father', 'mother', 'other'],
   createLinksForStudent: mocks.createLinksForStudent,
+  countLinksByStudentId: mocks.countLinksByStudentId,
 }));
 
 const gradesFixture = [
@@ -110,6 +112,7 @@ describe('EnrollmentStudentsPage', () => {
     mocks.createLinksForStudent.mockResolvedValue(undefined);
     mocks.deleteStudent.mockResolvedValue(undefined);
     mocks.deactivateStudent.mockResolvedValue(undefined);
+    mocks.countLinksByStudentId.mockResolvedValue(0);
   });
 
   it('redirects non-admin users', async () => {
@@ -301,8 +304,24 @@ describe('EnrollmentStudentsPage', () => {
     fireEvent.click(screen.getByText('Eliminar'));
 
     await waitFor(() => {
+      expect(mocks.countLinksByStudentId).toHaveBeenCalledWith('s1');
       expect(mocks.deactivateStudent).toHaveBeenCalledWith('s1');
     });
+  });
+
+  it('blocks delete when student has associated tutors', async () => {
+    mocks.countLinksByStudentId.mockResolvedValue(2);
+    render(() => <EnrollmentStudentsPage />);
+    await screen.findByText('Ana');
+
+    fireEvent.click(screen.getByLabelText('Eliminar estudiante Ana'));
+    await screen.findByRole('heading', { name: 'Eliminar estudiante' });
+    fireEvent.click(screen.getByText('Eliminar'));
+
+    await waitFor(() => {
+      expect(mocks.countLinksByStudentId).toHaveBeenCalledWith('s1');
+    });
+    expect(mocks.deactivateStudent).not.toHaveBeenCalled();
   });
 
   it('navigates to edit page when clicking edit action', async () => {

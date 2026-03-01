@@ -172,12 +172,24 @@ export async function listLinksByStudentId(studentId: string): Promise<StudentFa
     const records = await pb.collection('students_fathers').getFullList({
       filter: `student_id = "${escapeFilterValue(normalizedStudentId)}"`,
       expand: 'student_id,father_id',
-      sort: 'created',
+      sort: 'id',
+      requestKey: `students-fathers-links-student-${normalizedStudentId}`,
     });
 
     return records.map((record) => mapStudentFatherLinkRecord(record));
   } catch (error) {
-    throw normalizePocketBaseError(error);
+    const normalized = normalizePocketBaseError(error);
+    const message = normalized.message.toLowerCase();
+    const isAbortLike = normalized.isAbort
+      || message.includes('request was aborted')
+      || message.includes('autocancel');
+
+    if (isAbortLike) {
+      console.warn('Ignoring PocketBase auto-cancelled request in listLinksByStudentId.', normalized);
+      return [];
+    }
+
+    throw normalized;
   }
 }
 
@@ -189,12 +201,24 @@ export async function listLinksByFatherId(fatherId: string): Promise<StudentFath
     const records = await pb.collection('students_fathers').getFullList({
       filter: `father_id = "${escapeFilterValue(normalizedFatherId)}"`,
       expand: 'student_id,father_id',
-      sort: 'created',
+      sort: 'id',
+      requestKey: `students-fathers-links-father-${normalizedFatherId}`,
     });
 
     return records.map((record) => mapStudentFatherLinkRecord(record));
   } catch (error) {
-    throw normalizePocketBaseError(error);
+    const normalized = normalizePocketBaseError(error);
+    const message = normalized.message.toLowerCase();
+    const isAbortLike = normalized.isAbort
+      || message.includes('request was aborted')
+      || message.includes('autocancel');
+
+    if (isAbortLike) {
+      console.warn('Ignoring PocketBase auto-cancelled request in listLinksByFatherId.', normalized);
+      return [];
+    }
+
+    throw normalized;
   }
 }
 
@@ -347,6 +371,21 @@ export async function countLinksByFatherId(fatherId: string): Promise<number> {
 
     const result = await pb.collection('students_fathers').getList(1, 1, {
       filter: `father_id = "${escapeFilterValue(normalizedFatherId)}"`,
+    });
+
+    return result.totalItems;
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
+export async function countLinksByStudentId(studentId: string): Promise<number> {
+  try {
+    const normalizedStudentId = studentId.trim();
+    if (!normalizedStudentId) return 0;
+
+    const result = await pb.collection('students_fathers').getList(1, 1, {
+      filter: `student_id = "${escapeFilterValue(normalizedStudentId)}"`,
     });
 
     return result.totalItems;

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
+import { fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import EnrollmentStudentEditPage from './enrollment-student-edit';
 
@@ -153,6 +153,21 @@ describe('EnrollmentStudentEditPage', () => {
     warnSpy.mockRestore();
   });
 
+  it('loads associated tutors even when active fathers list is empty', async () => {
+    mocks.listActiveFathers.mockResolvedValue([]);
+    render(() => <EnrollmentStudentEditPage />);
+    await screen.findByDisplayValue('Ana');
+
+    const linkedFatherSelect = screen.getAllByRole('combobox').find((element) => (
+      within(element).queryByRole('option', { name: 'Carlos Perez' })
+    ));
+
+    expect(linkedFatherSelect).toBeDefined();
+    await waitFor(() => {
+      expect((linkedFatherSelect as HTMLSelectElement).value).toBe('f1');
+    });
+  });
+
   it('updates student and links then navigates back to list', async () => {
     render(() => <EnrollmentStudentEditPage />);
     await screen.findByDisplayValue('Ana');
@@ -216,8 +231,9 @@ describe('EnrollmentStudentEditPage', () => {
     expect(mocks.updateStudent).not.toHaveBeenCalled();
   });
 
-  it('blocks update when there are no active tutors', async () => {
+  it('blocks update when there are no available tutors and no existing links', async () => {
     mocks.listActiveFathers.mockResolvedValue([]);
+    mocks.listLinksByStudentId.mockResolvedValue([]);
     render(() => <EnrollmentStudentEditPage />);
     await screen.findByDisplayValue('Ana');
 
