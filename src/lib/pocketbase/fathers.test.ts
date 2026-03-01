@@ -128,6 +128,33 @@ describe('fathers pocketbase client', () => {
     expect(result[0]).toMatchObject({ id: 'f1', student_names: ['Ana'] });
   });
 
+  it('lists active fathers without student-name enrichment when requested', async () => {
+    hoisted.getFullList.mockResolvedValue([
+      {
+        id: 'f1',
+        full_name: 'Carlos Perez',
+        document_id: '12345',
+        phone_number: '',
+        occupation: '',
+        company: '',
+        email: '',
+        address: '',
+        is_active: true,
+      },
+    ]);
+
+    const result = await listActiveFathers({ includeStudentNames: false });
+
+    expect(hoisted.listStudentNamesByFatherIds).not.toHaveBeenCalled();
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: 'f1',
+        full_name: 'Carlos Perez',
+        student_names: [],
+      }),
+    ]);
+  });
+
   it('gets one father', async () => {
     hoisted.getOne.mockResolvedValue({
       id: 'f1',

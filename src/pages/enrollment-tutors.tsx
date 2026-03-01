@@ -183,7 +183,7 @@ export default function EnrollmentTutorsPage() {
   const [students] = createResource(async () => {
     if (!isAuthUserAdmin()) return [];
     try {
-      return await listActiveStudents();
+      return await listActiveStudents({ includeFatherNames: false });
     } catch (error) {
       const message = getErrorMessage(error).toLowerCase();
       const isAbortLike = message.includes('aborted') || message.includes('autocancel');

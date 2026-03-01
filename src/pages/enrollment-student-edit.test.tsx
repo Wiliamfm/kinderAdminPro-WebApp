@@ -134,6 +134,25 @@ describe('EnrollmentStudentEditPage', () => {
     expect(screen.getByDisplayValue('1001')).toBeInTheDocument();
   });
 
+  it('keeps page stable when active fathers request is auto-cancelled', async () => {
+    mocks.listActiveFathers.mockRejectedValue({
+      message: 'The request was aborted (most likely autocancelled).',
+      status: null,
+      isAbort: false,
+    });
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    render(() => <EnrollmentStudentEditPage />);
+
+    expect(await screen.findByDisplayValue('Ana')).toBeInTheDocument();
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Ignoring auto-cancelled active fathers request in student edit page.',
+      expect.anything(),
+    );
+
+    warnSpy.mockRestore();
+  });
+
   it('updates student and links then navigates back to list', async () => {
     render(() => <EnrollmentStudentEditPage />);
     await screen.findByDisplayValue('Ana');

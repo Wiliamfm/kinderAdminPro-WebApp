@@ -242,7 +242,18 @@ export default function EnrollmentStudentEditPage() {
   });
   const [fathers] = createResource(async () => {
     if (!isAuthUserAdmin()) return [];
-    return listActiveFathers();
+    try {
+      return await listActiveFathers({ includeStudentNames: false });
+    } catch (error) {
+      const message = getErrorMessage(error).toLowerCase();
+      const isAbortLike = message.includes('aborted') || message.includes('autocancel');
+      if (isAbortLike) {
+        console.warn('Ignoring auto-cancelled active fathers request in student edit page.', error);
+      } else {
+        console.error('Failed to load active fathers in student edit page.', error);
+      }
+      return [];
+    }
   });
   const [form, setForm] = createSignal<StudentForm>(emptyForm);
   const [links, setLinks] = createSignal<StudentLinkForm[]>([createEmptyLink()]);

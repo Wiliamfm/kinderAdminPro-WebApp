@@ -262,7 +262,18 @@ export default function EnrollmentStudentsPage() {
   });
   const [fathers] = createResource(async () => {
     if (!isAuthUserAdmin()) return [];
-    return listActiveFathers();
+    try {
+      return await listActiveFathers({ includeStudentNames: false });
+    } catch (error) {
+      const message = getErrorMessage(error).toLowerCase();
+      const isAbortLike = message.includes('aborted') || message.includes('autocancel');
+      if (isAbortLike) {
+        console.warn('Ignoring auto-cancelled active fathers request in students page.', error);
+      } else {
+        console.error('Failed to load active fathers in students page.', error);
+      }
+      return [];
+    }
   });
 
   const [createOpen, setCreateOpen] = createSignal(false);

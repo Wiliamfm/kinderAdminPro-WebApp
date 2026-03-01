@@ -133,6 +133,25 @@ describe('EnrollmentStudentsPage', () => {
     expect(screen.getByLabelText('Eliminar estudiante Ana')).toBeInTheDocument();
   });
 
+  it('keeps page stable when active fathers request is auto-cancelled', async () => {
+    mocks.listActiveFathers.mockRejectedValue({
+      message: 'The request was aborted (most likely autocancelled).',
+      status: null,
+      isAbort: false,
+    });
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    render(() => <EnrollmentStudentsPage />);
+
+    expect(await screen.findByText('Ana')).toBeInTheDocument();
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Ignoring auto-cancelled active fathers request in students page.',
+      expect.anything(),
+    );
+
+    warnSpy.mockRestore();
+  });
+
   it('requests students sorted by document column when header is clicked', async () => {
     render(() => <EnrollmentStudentsPage />);
     await screen.findByText('Ana');

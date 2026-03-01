@@ -56,6 +56,10 @@ export type StudentListOptions = {
   sortDirection?: StudentListSortDirection;
 };
 
+export type ActiveStudentListOptions = {
+  includeFatherNames?: boolean;
+};
+
 export type PaginatedStudentsResult = PaginatedListResult<StudentRecord>;
 
 type PbStudentPayload = {
@@ -186,8 +190,9 @@ function buildSortExpression(
   return sortDirection === 'desc' ? `-${mappedField}` : mappedField;
 }
 
-export async function listActiveStudents(): Promise<StudentRecord[]> {
+export async function listActiveStudents(options: ActiveStudentListOptions = {}): Promise<StudentRecord[]> {
   try {
+    const includeFatherNames = options.includeFatherNames ?? true;
     const records = await pb.collection('students').getFullList({
       sort: 'name',
       expand: 'grade_id',
@@ -195,6 +200,10 @@ export async function listActiveStudents(): Promise<StudentRecord[]> {
     const activeRecords = records
       .map((record) => mapStudentRecord(record))
       .filter((record) => record.active);
+    if (!includeFatherNames) {
+      return activeRecords;
+    }
+
     return withAssociatedFatherNames(activeRecords);
   } catch (error) {
     const normalized = normalizePocketBaseError(error);

@@ -43,6 +43,10 @@ export type FatherListOptions = {
   sortDirection?: FatherListSortDirection;
 };
 
+export type ActiveFatherListOptions = {
+  includeStudentNames?: boolean;
+};
+
 export type PaginatedFathersResult = PaginatedListResult<FatherRecord>;
 
 type PbFatherPayload = {
@@ -109,14 +113,19 @@ async function withAssociatedStudents(items: FatherRecord[]): Promise<FatherReco
   }));
 }
 
-export async function listActiveFathers(): Promise<FatherRecord[]> {
+export async function listActiveFathers(options: ActiveFatherListOptions = {}): Promise<FatherRecord[]> {
   try {
+    const includeStudentNames = options.includeStudentNames ?? true;
     const records = await pb.collection('fathers').getFullList({
       sort: 'full_name',
       filter: 'is_active != false',
     });
 
     const mapped = records.map((record) => mapFatherRecord(record)).filter((record) => record.is_active);
+    if (!includeStudentNames) {
+      return mapped;
+    }
+
     return withAssociatedStudents(mapped);
   } catch (error) {
     throw normalizePocketBaseError(error);

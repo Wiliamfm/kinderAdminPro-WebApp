@@ -115,6 +115,43 @@ describe('students pocketbase client', () => {
     });
   });
 
+  it('lists active students without father-name enrichment when requested', async () => {
+    hoisted.getFullList.mockResolvedValue([
+      {
+        id: 's1',
+        name: 'Ana',
+        grade_id: 'g1',
+        date_of_birth: '2015-06-15 13:30:00.000Z',
+        birth_place: 'Bogota',
+        department: 'Cundinamarca',
+        document_id: 'DOC-1',
+        weight: 20.5,
+        height: 115,
+        blood_type: 'O+',
+        social_security: 'SSN-1',
+        allergies: 'Ninguna',
+        active: true,
+        expand: {
+          grade_id: {
+            id: 'g1',
+            name: 'Primero A',
+          },
+        },
+      },
+    ]);
+
+    const result = await listActiveStudents({ includeFatherNames: false });
+
+    expect(hoisted.listFatherNamesByStudentIds).not.toHaveBeenCalled();
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: 's1',
+        name: 'Ana',
+        father_names: [],
+      }),
+    ]);
+  });
+
   it('lists active students page with grade relation sorting', async () => {
     hoisted.getList.mockResolvedValue({
       items: [
