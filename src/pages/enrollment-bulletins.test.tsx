@@ -161,9 +161,52 @@ describe('EnrollmentBulletinsPage', () => {
     });
   });
 
+  it('loads category options lazily for bulletin modal', async () => {
+    render(() => <EnrollmentBulletinsPage />);
+    await screen.findByText('Excelente desempeño.');
+
+    expect(mocks.listBulletinCategories).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('Nuevo boletín'));
+
+    await waitFor(() => {
+      expect(mocks.listBulletinCategories).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('keeps page stable when category options request is auto-cancelled', async () => {
+    const autoCancelledError = {
+      message: 'The request was aborted (most likely autocancelled).',
+      status: null,
+      isAbort: false,
+    };
+    mocks.listBulletinCategories.mockRejectedValue(autoCancelledError);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    render(() => <EnrollmentBulletinsPage />);
+
+    expect(await screen.findByText('Excelente desempeño.')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Nuevo boletín'));
+
+    await waitFor(() => {
+      expect(warnSpy).toHaveBeenCalledWith(
+        'Ignoring auto-cancelled bulletin categories options request in bulletins page.',
+        autoCancelledError,
+      );
+    });
+
+    warnSpy.mockRestore();
+  });
+
   it('creates and edits a category', async () => {
     render(() => <EnrollmentBulletinsPage />);
     await screen.findByText('Excelente desempeño.');
+
+    fireEvent.click(screen.getByText('Nuevo boletín'));
+    await waitFor(() => {
+      expect(mocks.listBulletinCategories).toHaveBeenCalledTimes(1);
+    });
+    fireEvent.click(screen.getByText('Cancelar'));
 
     fireEvent.click(screen.getByText('Nueva categoría'));
     fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'Convivencia' } });
@@ -175,6 +218,9 @@ describe('EnrollmentBulletinsPage', () => {
         name: 'Convivencia',
         description: 'Comportamiento',
       });
+    });
+    await waitFor(() => {
+      expect(mocks.listBulletinCategories).toHaveBeenCalledTimes(2);
     });
     await waitFor(() => {
       expect(screen.queryByRole('heading', { name: 'Crear categoría' })).not.toBeInTheDocument();
@@ -190,6 +236,7 @@ describe('EnrollmentBulletinsPage', () => {
         description: 'Rendimiento actualizado',
       });
     });
+    expect(mocks.listBulletinCategories).toHaveBeenCalledTimes(2);
   });
 
   it('blocks category delete when there are linked bulletins', async () => {
@@ -212,7 +259,11 @@ describe('EnrollmentBulletinsPage', () => {
     await screen.findByText('Excelente desempeño.');
 
     fireEvent.click(screen.getByText('Nuevo boletín'));
-    fireEvent.change(screen.getByLabelText('Categoría'), { target: { value: 'c1' } });
+    const createCategorySelect = screen.getByLabelText('Categoría');
+    await waitFor(() => {
+      expect(createCategorySelect).not.toBeDisabled();
+    });
+    fireEvent.change(createCategorySelect, { target: { value: 'c1' } });
     fireEvent.change(screen.getByLabelText('Grado'), { target: { value: 'g2' } });
     fireEvent.input(screen.getByLabelText('Descripción'), { target: { value: 'Observación positiva.' } });
     fireEvent.click(screen.getAllByText('Crear boletín')[1]);

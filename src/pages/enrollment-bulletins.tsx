@@ -79,6 +79,14 @@ function getErrorMessage(error: unknown): string {
   return 'No se pudo completar la operación.';
 }
 
+function isAbortLikeError(error: unknown): boolean {
+  const normalized = error as PocketBaseRequestError | undefined;
+  if (normalized?.isAbort) return true;
+
+  const message = getErrorMessage(error).toLowerCase();
+  return message.includes('aborted') || message.includes('autocancel');
+}
+
 function formatText(value: unknown): string {
   if (typeof value !== 'string') return '—';
   const trimmed = value.trim();
@@ -147,13 +155,45 @@ export default function EnrollmentBulletinsPage() {
 
   const [grades] = createResource(async () => {
     if (!isAuthUserAdmin()) return [];
-    return listGrades();
+    try {
+      return await listGrades();
+    } catch (error) {
+      if (isAbortLikeError(error)) {
+        console.warn('Ignoring auto-cancelled grades request in bulletins page.', error);
+      } else {
+        console.error('Failed to load grades in bulletins page.', error);
+      }
+      return [];
+    }
   });
 
-  const [categoryOptions, { refetch: refetchCategoryOptions }] = createResource(async () => {
-    if (!isAuthUserAdmin()) return [];
-    return listBulletinCategories();
-  });
+  const [categoryOptions, setCategoryOptions] = createSignal<BulletinCategoryRecord[]>([]);
+  const [categoryOptionsLoading, setCategoryOptionsLoading] = createSignal(false);
+  const [categoryOptionsLoaded, setCategoryOptionsLoaded] = createSignal(false);
+
+  const loadCategoryOptions = async (force = false): Promise<void> => {
+    if (!isAuthUserAdmin()) return;
+    if (categoryOptionsLoading()) return;
+    if (categoryOptionsLoaded() && !force) return;
+
+    setCategoryOptionsLoading(true);
+    try {
+      const options = await listBulletinCategories();
+      setCategoryOptions(options);
+      setCategoryOptionsLoaded(true);
+    } catch (error) {
+      if (isAbortLikeError(error)) {
+        console.warn('Ignoring auto-cancelled bulletin categories options request in bulletins page.', error);
+      } else {
+        console.error('Failed to load bulletin categories options in bulletins page.', error);
+      }
+      if (!categoryOptionsLoaded()) {
+        setCategoryOptions([]);
+      }
+    } finally {
+      setCategoryOptionsLoading(false);
+    }
+  };
 
   const [categories, { refetch: refetchCategories }] = createResource(
     () => {
@@ -279,7 +319,9 @@ export default function EnrollmentBulletinsPage() {
         description: createCategoryForm().description,
       });
       await refetchCategories();
-      await refetchCategoryOptions();
+      if (categoryOptionsLoaded()) {
+        await loadCategoryOptions(true);
+      }
       setCreateCategoryOpen(false);
       setCreateCategoryForm(emptyCategoryForm);
       setCreateCategoryTouched(createInitialTouchedMap(CATEGORY_FIELDS));
@@ -317,7 +359,6 @@ export default function EnrollmentBulletinsPage() {
         description: editCategoryForm().description,
       });
       await refetchCategories();
-      await refetchCategoryOptions();
       await refetchBulletins();
       setEditCategoryTarget(null);
       setEditCategoryForm(emptyCategoryForm);
@@ -348,7 +389,6 @@ export default function EnrollmentBulletinsPage() {
 
       await deleteBulletinCategory(target.id);
       await refetchCategories();
-      await refetchCategoryOptions();
       const totalPages = categories()?.totalPages ?? 1;
       if (categoryPage() > totalPages) {
         setCategoryPage(clampPage(categoryPage(), totalPages));
@@ -387,6 +427,7 @@ export default function EnrollmentBulletinsPage() {
   };
 
   const openEditBulletin = (bulletin: BulletinRecord) => {
+    void loadCategoryOptions();
     setEditBulletinTarget(bulletin);
     setEditBulletinError(null);
     setEditBulletinTouched(createInitialTouchedMap(BULLETIN_FIELDS));
@@ -637,6 +678,7 @@ export default function EnrollmentBulletinsPage() {
               type="button"
               class="rounded-lg bg-yellow-600 px-4 py-2 text-sm text-white transition-colors hover:bg-yellow-700"
               onClick={() => {
+                void loadCategoryOptions();
                 setCreateBulletinOpen(true);
                 setCreateBulletinError(null);
                 setCreateBulletinForm(emptyBulletinForm);
@@ -928,14 +970,14 @@ export default function EnrollmentBulletinsPage() {
               classList={{ 'field-input-invalid': !!createBulletinFieldError('category_id') }}
               value={createBulletinForm().category_id}
               onChange={(event) => setCreateBulletinField('category_id', event.currentTarget.value)}
-              disabled={createBulletinBusy() || categoryOptions.loading}
+              disabled={createBulletinBusy() || categoryOptionsLoading()}
               aria-invalid={!!createBulletinFieldError('category_id')}
               aria-describedby={createBulletinFieldError('category_id') ? 'create-bulletin-category-error' : undefined}
             >
               <option value="">
-                {categoryOptions.loading ? 'Cargando categorías...' : 'Selecciona una categoría'}
+                {categoryOptionsLoading() ? 'Cargando categorías...' : 'Selecciona una categoría'}
               </option>
-              <For each={categoryOptions() ?? []}>
+              <For each={categoryOptions()}>
                 {(category) => (
                   <option value={category.id}>{category.name}</option>
                 )}
@@ -1018,14 +1060,14 @@ export default function EnrollmentBulletinsPage() {
               classList={{ 'field-input-invalid': !!editBulletinFieldError('category_id') }}
               value={editBulletinForm().category_id}
               onChange={(event) => setEditBulletinField('category_id', event.currentTarget.value)}
-              disabled={editBulletinBusy() || categoryOptions.loading}
+              disabled={editBulletinBusy() || categoryOptionsLoading()}
               aria-invalid={!!editBulletinFieldError('category_id')}
               aria-describedby={editBulletinFieldError('category_id') ? 'edit-bulletin-category-error' : undefined}
             >
               <option value="">
-                {categoryOptions.loading ? 'Cargando categorías...' : 'Selecciona una categoría'}
+                {categoryOptionsLoading() ? 'Cargando categorías...' : 'Selecciona una categoría'}
               </option>
-              <For each={categoryOptions() ?? []}>
+              <For each={categoryOptions()}>
                 {(category) => (
                   <option value={category.id}>{category.name}</option>
                 )}
