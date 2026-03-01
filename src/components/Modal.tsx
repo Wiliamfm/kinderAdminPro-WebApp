@@ -31,7 +31,7 @@ const Modal: Component<ModalProps> = (props) => {
   return (
     <Show when={props.open}>
       <div
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 sm:p-6"
         onClick={(event) => {
           if (event.target === event.currentTarget && !props.busy) {
             props.onClose();
@@ -39,7 +39,7 @@ const Modal: Component<ModalProps> = (props) => {
         }}
       >
         <div
-          class="w-full rounded-xl border border-yellow-300 bg-white p-6 shadow-xl"
+          class="flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden rounded-xl border border-yellow-300 bg-white p-4 shadow-xl sm:max-h-[calc(100vh-3rem)] sm:p-6"
           classList={{
             'max-w-md': props.size !== 'xl',
             'max-w-4xl': props.size === 'xl',
@@ -50,10 +50,10 @@ const Modal: Component<ModalProps> = (props) => {
             <p class="mt-2 text-sm text-gray-600">{props.description}</p>
           </Show>
           <Show when={props.children}>
-            <div class="mt-3">{props.children}</div>
+            <div class="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">{props.children}</div>
           </Show>
 
-          <div class="mt-6 flex justify-end gap-2">
+          <div class="mt-6 flex shrink-0 justify-end gap-2">
             <button
               type="button"
               class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
