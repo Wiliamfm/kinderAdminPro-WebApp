@@ -116,14 +116,17 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - `invoices` collection stores one-to-many employee invoices:
   - relation `employee_id` -> `employees` (n:1),
   - relation `file_id` -> `invoice_files` (n:1),
+  - relation `semester_id` -> `semesters` (n:1, required),
   - text field `name` for normalized original filename plus datetime suffix (`YYYYMMDD_HHMM`),
   - `creation_datetime` autodate (`onCreate: true`),
   - `update_datetime` autodate (`onCreate: true`, `onUpdate: true`),
   - access rules mirror admin-only leaves access.
 - UI behavior in `src/pages/staff-employees.tsx`:
   - upload action appears as a dedicated icon in each employee row (admin only),
-  - upload flow is `invoice_files.create` then `invoices.create`,
-  - invoice table rows include a replace action that uploads a new file and updates `invoices.file_id`,
+  - upload flow is `invoice_files.create` then `invoices.create` with current active semester (`is_current = true`),
+  - create is blocked when there is no active semester,
+  - semester value is required and rendered as a read-only field in invoice modal forms,
+  - invoice table rows include a replace action that uploads a new file and updates `invoices.file_id` without changing `invoices.semester_id`,
   - invoice list is filtered by `employee_id` and sorted by `-update_datetime`,
   - filename shown in history table comes from `invoices.name`,
   - displayed date column uses `update_datetime` fallback to `creation_datetime`.

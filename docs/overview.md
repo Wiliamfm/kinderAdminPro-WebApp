@@ -68,10 +68,13 @@ Primary functional areas exposed through routes:
   - setting `is_current = true` automatically unsets the previously current semester.
 - Store employee invoices in PocketBase:
   - `invoices` links each invoice to one employee (`employee_id`),
+  - `invoices` links each invoice to one semester (`semester_id`, required relation to `semesters`),
   - `invoices.name` stores the normalized original filename with a timestamp suffix (for example `factura_demo_20260223_1000.pdf`),
   - `invoice_files` stores the attached file,
   - invoice upload is available from a dedicated action icon in the employees table,
-  - invoice history includes an edit action to upload a new file and replace the existing invoice file,
+  - invoice create uses the current active semester (`is_current = true`) as a required read-only value in UI,
+  - invoice create is blocked when there is no active semester,
+  - invoice history includes an edit action to upload a new file and replace the existing invoice file while keeping its existing semester,
   - invoice history is shown in a modal with filename (`Nombre de archivo`) and date (`Fecha de registro`) columns, where date displays `update_datetime` and falls back to `creation_datetime`.
 
 ## Temporal Data Standard

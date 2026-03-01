@@ -5,6 +5,7 @@ type PbInvoiceRecord = {
   id: string;
   employee_id: string;
   file_id: string;
+  semester_id?: string | string[];
   name?: string;
   creation_datetime?: string;
   update_datetime?: string;
@@ -15,6 +16,7 @@ type PbInvoiceRecord = {
 type PbInvoicePayload = {
   employee_id: string;
   file_id: string;
+  semester_id: string;
   name: string;
 };
 
@@ -27,6 +29,8 @@ export type InvoiceRecord = {
   id: string;
   employeeId: string;
   fileId: string;
+  semesterId: string;
+  semesterName: string;
   name: string;
   created: string;
   updated: string;
@@ -35,6 +39,7 @@ export type InvoiceRecord = {
 export type InvoiceCreateInput = {
   employeeId: string;
   fileId: string;
+  semesterId: string;
   originalFileName: string;
 };
 
@@ -43,7 +48,7 @@ export type InvoiceUpdateInput = {
   originalFileName: string;
 };
 
-export type InvoiceSortField = 'name' | 'update_datetime';
+export type InvoiceSortField = 'name' | 'semester_name' | 'update_datetime';
 export type InvoiceSortDirection = 'asc' | 'desc';
 export type InvoiceListOptions = {
   sortField?: InvoiceSortField;
@@ -60,6 +65,34 @@ function toDateTimeValue(value: unknown): string {
   if (typeof value === 'string') return value.trim();
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString();
   return '';
+}
+
+function toRelationIdValue(value: unknown): string {
+  if (typeof value === 'string') return value.trim();
+  if (Array.isArray(value)) {
+    const firstValue = value[0];
+    return typeof firstValue === 'string' ? firstValue.trim() : '';
+  }
+  return '';
+}
+
+function getExpandedSemester(
+  record: Record<string, unknown> & { get?: (key: string) => unknown },
+): Record<string, unknown> | null {
+  const directExpand = (record as { expand?: Record<string, unknown> }).expand;
+  const fromGet = record.get?.('expand');
+  const expand = (directExpand ?? fromGet) as Record<string, unknown> | undefined;
+  const semester = expand?.semester_id;
+
+  if (Array.isArray(semester)) {
+    return (semester[0] as Record<string, unknown>) ?? null;
+  }
+
+  if (semester && typeof semester === 'object') {
+    return semester as Record<string, unknown>;
+  }
+
+  return null;
 }
 
 function sanitizeInvoiceFileName(fileName: string): string {
@@ -105,10 +138,14 @@ function buildInvoiceName(originalFileName: string, dateTime: unknown): string {
 function mapInvoiceRecord(
   record: Record<string, unknown> & { id: string; get?: (key: string) => unknown },
 ): InvoiceRecord {
+  const expandedSemester = getExpandedSemester(record);
+
   return {
     id: record.id,
     employeeId: toStringValue(record.get?.('employee_id') ?? record.employee_id),
     fileId: toStringValue(record.get?.('file_id') ?? record.file_id),
+    semesterId: toRelationIdValue(record.get?.('semester_id') ?? record.semester_id),
+    semesterName: toStringValue(expandedSemester?.name),
     name: toStringValue(record.get?.('name') ?? record.name),
     created: toDateTimeValue(
       record.get?.('creation_datetime')
@@ -133,6 +170,7 @@ function mapInvoicePayload(input: InvoiceCreateInput): PbInvoicePayload {
   return {
     employee_id: input.employeeId,
     file_id: input.fileId,
+    semester_id: input.semesterId,
     name: buildInvoiceName(input.originalFileName, new Date()),
   };
 }
@@ -148,7 +186,8 @@ function buildSortExpression(
   sortField: InvoiceSortField,
   sortDirection: InvoiceSortDirection,
 ): string {
-  return sortDirection === 'desc' ? `-${sortField}` : sortField;
+  const mappedField = sortField === 'semester_name' ? 'semester_id.name' : sortField;
+  return sortDirection === 'desc' ? `-${mappedField}` : mappedField;
 }
 
 export async function listEmployeeInvoices(
@@ -164,6 +203,7 @@ export async function listEmployeeInvoices(
     const result = await pb.collection('invoices').getList(page, perPage, {
       sort: buildSortExpression(sortField, sortDirection),
       filter: pb.filter('employee_id = {:employeeId}', { employeeId }),
+      expand: 'semester_id',
     });
 
     return {

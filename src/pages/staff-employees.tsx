@@ -40,6 +40,7 @@ import {
   type InvoiceSortField,
 } from '../lib/pocketbase/invoices';
 import { createInvoiceFile } from '../lib/pocketbase/invoice-files';
+import { getCurrentSemester } from '../lib/pocketbase/semesters';
 import {
   createEmployeeUser,
   resendUserOnboarding,
@@ -316,6 +317,14 @@ export default function StaffEmployeesPage() {
         sortDirection,
       },
     ),
+  );
+  const [currentInvoiceSemester] = createResource(
+    () => {
+      const target = invoiceTarget();
+      if (!target || editingInvoice()) return undefined;
+      return target.id;
+    },
+    () => getCurrentSemester(),
   );
 
   const openCreateEmployeeModal = () => {
@@ -619,11 +628,48 @@ export default function StaffEmployeesPage() {
     return errors;
   });
   const invoiceFileError = () => (invoiceTouched().file ? invoiceFieldErrors().file : undefined);
+  const invoiceSemesterError = createMemo(() => {
+    if (editingInvoice()) return undefined;
+    if (currentInvoiceSemester.error) return getErrorMessage(currentInvoiceSemester.error);
+    if (!currentInvoiceSemester.loading && !currentInvoiceSemester()) {
+      return 'No hay un semestre activo. No se puede crear la factura.';
+    }
+
+    return undefined;
+  });
+  const invoiceSemesterDisplayValue = createMemo(() => {
+    const invoiceToEdit = editingInvoice();
+    if (invoiceToEdit) {
+      return formatText(invoiceToEdit.semesterName || invoiceToEdit.semesterId);
+    }
+
+    if (currentInvoiceSemester.loading) return 'Cargando semestre activo...';
+    return formatText(currentInvoiceSemester()?.name);
+  });
 
   const submitInvoice = async () => {
     const target = invoiceTarget();
     if (!target) return;
     const invoiceToEdit = editingInvoice();
+    const semesterError = invoiceSemesterError();
+    const currentSemester = currentInvoiceSemester();
+
+    if (!invoiceToEdit) {
+      if (currentInvoiceSemester.loading) {
+        setInvoiceError('Cargando semestre activo. Intenta nuevamente.');
+        return;
+      }
+
+      if (semesterError) {
+        setInvoiceError(semesterError);
+        return;
+      }
+
+      if (!currentSemester) {
+        setInvoiceError('No hay un semestre activo. No se puede crear la factura.');
+        return;
+      }
+    }
 
     setInvoiceTouched((current) => touchAllFields(current));
     if (hasAnyError(invoiceFieldErrors())) return;
@@ -646,6 +692,7 @@ export default function StaffEmployeesPage() {
         await createInvoice({
           employeeId: target.id,
           fileId: createdFile.id,
+          semesterId: currentSemester!.id,
           originalFileName: file.name,
         });
       }
@@ -1180,6 +1227,24 @@ export default function StaffEmployeesPage() {
         }>
           <div class="space-y-4">
             <label class="block">
+              <span class="text-sm text-gray-700">
+                Semestre de factura <span class="text-red-600">*</span>
+              </span>
+              <input
+                class="mt-1 w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700"
+                classList={{ 'field-input-invalid': !!invoiceSemesterError() }}
+                type="text"
+                value={invoiceSemesterDisplayValue()}
+                disabled
+                readOnly
+                required
+                aria-invalid={!!invoiceSemesterError()}
+                aria-describedby={invoiceSemesterError() ? 'invoice-semester-error' : undefined}
+              />
+              <InlineFieldAlert id="invoice-semester-error" message={invoiceSemesterError()} />
+            </label>
+
+            <label class="block">
               <span class="text-sm text-gray-700">Archivo de factura (PDF)</span>
               <input
                 ref={invoiceFileInputRef}
@@ -1241,6 +1306,13 @@ export default function StaffEmployeesPage() {
                     />
                     <SortableHeaderCell
                       class="px-4 py-3 font-semibold"
+                      label="Semestre"
+                      columnKey="semester_name"
+                      sort={invoiceSort()}
+                      onSort={handleInvoiceSort}
+                    />
+                    <SortableHeaderCell
+                      class="px-4 py-3 font-semibold"
                       label="Fecha de registro"
                       columnKey="update_datetime"
                       sort={invoiceSort()}
@@ -1252,14 +1324,14 @@ export default function StaffEmployeesPage() {
                 <tbody>
                   <Show when={!invoices.loading} fallback={
                     <tr>
-                      <td class="px-4 py-4 text-gray-600" colSpan={3}>
+                      <td class="px-4 py-4 text-gray-600" colSpan={4}>
                         Cargando facturas...
                       </td>
                     </tr>
                   }>
                     <Show when={!invoices.error} fallback={
                       <tr>
-                        <td class="px-4 py-4 text-red-700" colSpan={3}>
+                        <td class="px-4 py-4 text-red-700" colSpan={4}>
                           {getErrorMessage(invoices.error)}
                         </td>
                       </tr>
@@ -1268,7 +1340,7 @@ export default function StaffEmployeesPage() {
                         when={invoiceItems().length > 0}
                         fallback={
                           <tr>
-                            <td class="px-4 py-4 text-gray-600" colSpan={3}>
+                            <td class="px-4 py-4 text-gray-600" colSpan={4}>
                               Este empleado no tiene facturas registradas.
                             </td>
                           </tr>
@@ -1278,6 +1350,9 @@ export default function StaffEmployeesPage() {
                           {(invoice: InvoiceRecord) => (
                             <tr class="border-t border-yellow-100 align-top">
                               <td class="px-4 py-3">{formatText(invoice.name)}</td>
+                              <td class="px-4 py-3">
+                                {formatText(invoice.semesterName || invoice.semesterId)}
+                              </td>
                               <td class="px-4 py-3">
                                 {(invoice.updated || invoice.created)
                                   ? formatDateTime(invoice.updated || invoice.created)

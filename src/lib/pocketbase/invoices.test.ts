@@ -45,10 +45,17 @@ describe('invoices pocketbase client', () => {
           id: 'inv-1',
           employee_id: 'e1',
           file_id: 'f1',
+          semester_id: 's1',
           name: 'factura_demo_20260223_1000.pdf',
           creation_datetime: '2026-02-23T10:00:00.000Z',
           created: '',
           updated: '2026-02-23T10:00:00.000Z',
+          expand: {
+            semester_id: {
+              id: 's1',
+              name: '2026-A',
+            },
+          },
         },
       ],
       page: 1,
@@ -65,11 +72,14 @@ describe('invoices pocketbase client', () => {
     expect(hoisted.getList).toHaveBeenCalledWith(1, 10, {
       sort: '-update_datetime',
       filter: 'employee_id = "e1"',
+      expand: 'semester_id',
     });
     expect(result.items[0]).toMatchObject({
       id: 'inv-1',
       employeeId: 'e1',
       fileId: 'f1',
+      semesterId: 's1',
+      semesterName: '2026-A',
       name: 'factura_demo_20260223_1000.pdf',
     });
   });
@@ -92,6 +102,29 @@ describe('invoices pocketbase client', () => {
     expect(hoisted.getList).toHaveBeenCalledWith(1, 10, {
       sort: 'name',
       filter: 'employee_id = "e1"',
+      expand: 'semester_id',
+    });
+  });
+
+  it('supports semester sorting options', async () => {
+    hoisted.filter.mockReturnValue('employee_id = "e1"');
+    hoisted.getList.mockResolvedValue({
+      items: [],
+      page: 1,
+      perPage: 10,
+      totalItems: 0,
+      totalPages: 1,
+    });
+
+    await listEmployeeInvoices('e1', 1, 10, {
+      sortField: 'semester_name',
+      sortDirection: 'asc',
+    });
+
+    expect(hoisted.getList).toHaveBeenCalledWith(1, 10, {
+      sort: 'semester_id.name',
+      filter: 'employee_id = "e1"',
+      expand: 'semester_id',
     });
   });
 
@@ -100,6 +133,7 @@ describe('invoices pocketbase client', () => {
       id: 'inv-2',
       employee_id: 'e1',
       file_id: 'f2',
+      semester_id: 's1',
       name: 'factura_demo_20260223_1159.pdf',
       creation_datetime: '2026-02-23T12:00:00.000Z',
       update_datetime: '2026-02-23T12:00:00.000Z',
@@ -110,6 +144,7 @@ describe('invoices pocketbase client', () => {
       id: 'inv-2',
       employee_id: 'e1',
       file_id: 'f2',
+      semester_id: 's1',
       name: 'factura_demo_20260223_1200.pdf',
       creation_datetime: '2026-02-23T12:00:00.000Z',
       update_datetime: '2026-02-23T12:00:00.000Z',
@@ -120,12 +155,14 @@ describe('invoices pocketbase client', () => {
     const result = await createInvoice({
       employeeId: 'e1',
       fileId: 'f2',
+      semesterId: 's1',
       originalFileName: 'factura demo.pdf',
     });
 
     expect(hoisted.create).toHaveBeenCalledWith(expect.objectContaining({
       employee_id: 'e1',
       file_id: 'f2',
+      semester_id: 's1',
       name: expect.stringMatching(/^factura_demo_\d{8}_\d{4}\.pdf$/),
     }));
     expect(hoisted.update).toHaveBeenCalledWith('inv-2', {
@@ -135,6 +172,7 @@ describe('invoices pocketbase client', () => {
       id: 'inv-2',
       employeeId: 'e1',
       fileId: 'f2',
+      semesterId: 's1',
       name: 'factura_demo_20260223_1200.pdf',
     });
   });
@@ -154,6 +192,7 @@ describe('invoices pocketbase client', () => {
       id: 'inv-3',
       employee_id: 'e1',
       file_id: 'f3',
+      semester_id: 's2',
       name: 'factura_reemplazo_20260223_1400.pdf',
       creation_datetime: '2026-02-23T12:00:00.000Z',
       update_datetime: '2026-02-23T14:00:00.000Z',
@@ -174,6 +213,7 @@ describe('invoices pocketbase client', () => {
       id: 'inv-3',
       employeeId: 'e1',
       fileId: 'f3',
+      semesterId: 's2',
       name: 'factura_reemplazo_20260223_1400.pdf',
     });
   });

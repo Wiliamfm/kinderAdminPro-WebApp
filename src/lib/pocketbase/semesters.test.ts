@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createSemester,
+  getCurrentSemester,
   getSemesterById,
   listSemestersPage,
   updateSemester,
@@ -98,6 +99,56 @@ describe('semesters pocketbase client', () => {
 
     expect(hoisted.getOne).toHaveBeenCalledWith('s1');
     expect(result.name).toBe('2026-A');
+  });
+
+  it('gets current semester when one is active', async () => {
+    hoisted.getList.mockResolvedValue({
+      items: [
+        {
+          id: 's1',
+          name: '2026-A',
+          start_date: '2026-01-15T05:00:00.000Z',
+          end_date: '2026-06-15T05:00:00.000Z',
+          is_current: true,
+          created_at: '2026-01-01T10:00:00.000Z',
+          updated_at: '2026-02-01T10:00:00.000Z',
+        },
+      ],
+      page: 1,
+      perPage: 1,
+      totalItems: 1,
+      totalPages: 1,
+    });
+
+    const result = await getCurrentSemester();
+
+    expect(hoisted.getList).toHaveBeenCalledWith(1, 1, {
+      filter: 'is_current = true',
+      sort: '-updated_at',
+    });
+    expect(result).toEqual({
+      id: 's1',
+      name: '2026-A',
+      start_date: '2026-01-15T05:00:00.000Z',
+      end_date: '2026-06-15T05:00:00.000Z',
+      is_current: true,
+      created_at: '2026-01-01T10:00:00.000Z',
+      updated_at: '2026-02-01T10:00:00.000Z',
+    });
+  });
+
+  it('returns null when there is no current semester', async () => {
+    hoisted.getList.mockResolvedValue({
+      items: [],
+      page: 1,
+      perPage: 1,
+      totalItems: 0,
+      totalPages: 1,
+    });
+
+    const result = await getCurrentSemester();
+
+    expect(result).toBeNull();
   });
 
   it('creates and updates semesters with trimmed payload', async () => {

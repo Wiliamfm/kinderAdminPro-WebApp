@@ -126,6 +126,20 @@ export async function getSemesterById(id: string): Promise<SemesterRecord> {
   }
 }
 
+export async function getCurrentSemester(): Promise<SemesterRecord | null> {
+  try {
+    const result = await pb.collection('semesters').getList(1, 1, {
+      filter: 'is_current = true',
+      sort: '-updated_at',
+    });
+
+    const current = result.items[0];
+    return current ? mapSemesterRecord(current) : null;
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
 export async function createSemester(payload: SemesterCreateInput): Promise<SemesterRecord> {
   try {
     if (payload.is_current) {

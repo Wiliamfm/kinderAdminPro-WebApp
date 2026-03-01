@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => {
     createInvoice: vi.fn(),
     updateInvoice: vi.fn(),
     createInvoiceFile: vi.fn(),
+    getCurrentSemester: vi.fn(),
   };
 });
 
@@ -63,6 +64,10 @@ vi.mock('../lib/pocketbase/invoices', () => ({
 
 vi.mock('../lib/pocketbase/invoice-files', () => ({
   createInvoiceFile: mocks.createInvoiceFile,
+}));
+
+vi.mock('../lib/pocketbase/semesters', () => ({
+  getCurrentSemester: mocks.getCurrentSemester,
 }));
 
 const employee = {
@@ -124,6 +129,15 @@ describe('StaffEmployeesPage features', () => {
     ]);
     mocks.listEmployeeLeaves.mockResolvedValue(emptyLeavesPage);
     mocks.listEmployeeInvoices.mockResolvedValue(emptyInvoicesPage);
+    mocks.getCurrentSemester.mockResolvedValue({
+      id: 'sem-current',
+      name: '2026-A',
+      start_date: '2026-01-01T00:00:00.000Z',
+      end_date: '2026-06-30T23:59:59.000Z',
+      is_current: true,
+      created_at: '2026-01-01T00:00:00.000Z',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    });
     mocks.createEmployeeUser.mockResolvedValue({
       id: 'u2',
       email: 'new@test.com',
@@ -167,6 +181,8 @@ describe('StaffEmployeesPage features', () => {
       id: 'inv-1',
       employeeId: 'e1',
       fileId: 'file-1',
+      semesterId: 'sem-current',
+      semesterName: '2026-A',
       name: 'invoice_20260223_1000.pdf',
       created: '2026-02-23T10:00:00.000Z',
       updated: '2026-02-23T10:00:00.000Z',
@@ -175,6 +191,8 @@ describe('StaffEmployeesPage features', () => {
       id: 'inv-1',
       employeeId: 'e1',
       fileId: 'file-2',
+      semesterId: 'sem-current',
+      semesterName: '2026-A',
       name: 'invoice_new_20260223_1100.pdf',
       created: '2026-02-23T10:00:00.000Z',
       updated: '2026-02-23T11:00:00.000Z',
@@ -509,8 +527,22 @@ describe('StaffEmployeesPage features', () => {
   it('opens invoices modal with upload and history table', async () => {
     await openInvoiceModal();
 
+    expect(screen.getByText('Semestre de factura')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('2026-A')).toBeInTheDocument();
     expect(screen.getByText('Archivo de factura (PDF)')).toBeInTheDocument();
     expect(screen.getByText('Este empleado no tiene facturas registradas.')).toBeInTheDocument();
+  });
+
+  it('blocks invoice create when there is no active semester', async () => {
+    mocks.getCurrentSemester.mockResolvedValue(null);
+    await openInvoiceModal();
+
+    fireEvent.click(screen.getByText('Subir factura'));
+
+    const errors = await screen.findAllByText('No hay un semestre activo. No se puede crear la factura.');
+    expect(errors.length).toBeGreaterThan(0);
+    expect(mocks.createInvoiceFile).not.toHaveBeenCalled();
+    expect(mocks.createInvoice).not.toHaveBeenCalled();
   });
 
   it('blocks invoice submit when file is missing', async () => {
@@ -561,6 +593,7 @@ describe('StaffEmployeesPage features', () => {
     expect(mocks.createInvoice).toHaveBeenCalledWith({
       employeeId: 'e1',
       fileId: 'file-1',
+      semesterId: 'sem-current',
       originalFileName: 'invoice.pdf',
     });
   });
@@ -572,6 +605,8 @@ describe('StaffEmployeesPage features', () => {
           id: 'inv-1',
           employeeId: 'e1',
           fileId: 'file-1',
+          semesterId: 'sem-current',
+          semesterName: '2026-A',
           name: 'factura_demo_20260223_1000.pdf',
           created: '2026-02-23T10:00:00.000Z',
           updated: '2026-02-23T10:00:00.000Z',
@@ -586,8 +621,10 @@ describe('StaffEmployeesPage features', () => {
     await openInvoiceModal();
 
     expect(screen.getByText('Nombre de archivo')).toBeInTheDocument();
+    expect(screen.getByText('Semestre')).toBeInTheDocument();
     expect(screen.getByText('Acción')).toBeInTheDocument();
     expect(screen.getByText('factura_demo_20260223_1000.pdf')).toBeInTheDocument();
+    expect(screen.getByText('2026-A')).toBeInTheDocument();
     expect(screen.queryByText('file-1')).not.toBeInTheDocument();
   });
 
@@ -598,6 +635,8 @@ describe('StaffEmployeesPage features', () => {
           id: 'inv-1',
           employeeId: 'e1',
           fileId: 'file-1',
+          semesterId: 'sem-previous',
+          semesterName: '2025-B',
           name: 'factura_demo_20260223_1000.pdf',
           created: '2026-02-23T10:00:00.000Z',
           updated: '2026-02-23T10:00:00.000Z',
@@ -611,6 +650,7 @@ describe('StaffEmployeesPage features', () => {
 
     await openInvoiceModal();
     fireEvent.click(screen.getByLabelText('Reemplazar archivo factura_demo_20260223_1000.pdf'));
+    expect(screen.getByDisplayValue('2025-B')).toBeInTheDocument();
 
     const input = screen.getByLabelText('Archivo de factura (PDF)') as HTMLInputElement;
     const file = new File(['pdf-content'], 'factura nueva.pdf', { type: 'application/pdf' });
@@ -671,6 +711,19 @@ describe('StaffEmployeesPage features', () => {
     await waitFor(() => {
       expect(mocks.listEmployeeInvoices).toHaveBeenCalledWith('e1', 1, 10, {
         sortField: 'name',
+        sortDirection: 'asc',
+      });
+    });
+  });
+
+  it('requests invoices sorted by semester when semester header is clicked', async () => {
+    await openInvoiceModal();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Semestre' }));
+
+    await waitFor(() => {
+      expect(mocks.listEmployeeInvoices).toHaveBeenCalledWith('e1', 1, 10, {
+        sortField: 'semester_name',
         sortDirection: 'asc',
       });
     });
