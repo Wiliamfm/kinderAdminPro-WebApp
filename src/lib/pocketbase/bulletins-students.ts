@@ -51,6 +51,9 @@ export type BulletinStudentListSortDirection = 'asc' | 'desc';
 export type BulletinStudentListOptions = {
   sortField?: BulletinStudentListSortField;
   sortDirection?: BulletinStudentListSortDirection;
+  gradeId?: string;
+  semesterId?: string;
+  studentQuery?: string;
 };
 
 export type PaginatedBulletinsStudentsResult = PaginatedListResult<BulletinStudentRecord>;
@@ -218,6 +221,32 @@ function buildSortExpression(
   return sortDirection === 'desc' ? `-${mappedField}` : mappedField;
 }
 
+function escapeFilterValue(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function buildFilterExpression(options: BulletinStudentListOptions): string {
+  const clauses = ['is_deleted != true'];
+  const gradeId = toStringValue(options.gradeId);
+  const semesterId = toStringValue(options.semesterId);
+  const studentQuery = toStringValue(options.studentQuery);
+
+  if (gradeId.length > 0) {
+    clauses.push(`grade_id = "${escapeFilterValue(gradeId)}"`);
+  }
+
+  if (semesterId.length > 0) {
+    clauses.push(`semester_id = "${escapeFilterValue(semesterId)}"`);
+  }
+
+  if (studentQuery.length > 0) {
+    const escapedQuery = escapeFilterValue(studentQuery);
+    clauses.push(`(student_id.name ~ "${escapedQuery}" || student_id.document_id ~ "${escapedQuery}")`);
+  }
+
+  return clauses.join(' && ');
+}
+
 function requireAuthUserId(): string {
   const userId = getAuthUserId();
   if (!userId) {
@@ -244,12 +273,13 @@ export async function listBulletinsStudentsPage(
   options: BulletinStudentListOptions = {},
 ): Promise<PaginatedBulletinsStudentsResult> {
   try {
-    const sortField = options.sortField ?? 'updated_at';
+    const sortField = options.sortField ?? 'created_at';
     const sortDirection = options.sortDirection ?? 'desc';
+    const filterExpression = buildFilterExpression(options);
 
     const result = await pb.collection('bulletins_students').getList(page, perPage, {
       sort: buildSortExpression(sortField, sortDirection),
-      filter: 'is_deleted != true',
+      filter: filterExpression,
       expand: 'bulletin_id,bulletin_id.category_id,student_id,grade_id,semester_id,created_by,updated_by',
     });
 

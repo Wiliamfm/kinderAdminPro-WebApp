@@ -35,6 +35,12 @@ type BulletinStudentForm = {
   comments: string;
 };
 
+type ReportFilters = {
+  gradeId: string;
+  semesterId: string;
+  studentQuery: string;
+};
+
 const BULLETIN_STUDENT_FIELDS = [
   'bulletin_id',
   'student_id',
@@ -54,6 +60,14 @@ const emptyForm: BulletinStudentForm = {
   note: '',
   comments: '',
 };
+
+function createEmptyReportFilters(): ReportFilters {
+  return {
+    gradeId: '',
+    semesterId: '',
+    studentQuery: '',
+  };
+}
 
 const emptyFormOptions: BulletinStudentFormOptions = {
   bulletins: [],
@@ -178,7 +192,7 @@ export default function ReportsStudentsPage() {
 
   const [reportPage, setReportPage] = createSignal(1);
   const [reportSort, setReportSort] = createSignal<SortState<BulletinStudentSortKey>>({
-    key: 'updated_at',
+    key: 'created_at',
     direction: 'desc',
   });
 
@@ -187,6 +201,8 @@ export default function ReportsStudentsPage() {
   const [formOptions, setFormOptions] = createSignal<BulletinStudentFormOptions>(emptyFormOptions);
   const [formOptionsLoading, setFormOptionsLoading] = createSignal(false);
   const [formOptionsLoaded, setFormOptionsLoaded] = createSignal(false);
+  const [filterDraft, setFilterDraft] = createSignal<ReportFilters>(createEmptyReportFilters());
+  const [appliedFilters, setAppliedFilters] = createSignal<ReportFilters>(createEmptyReportFilters());
 
   const loadFormOptions = async (force = false): Promise<void> => {
     if (!isAuthUserAdmin()) return;
@@ -216,16 +232,27 @@ export default function ReportsStudentsPage() {
   const [bulletinsStudents, { refetch }] = createResource(
     () => {
       if (!isAuthUserAdmin()) return undefined;
+      const filters = appliedFilters();
       return {
         page: reportPage(),
         sortField: reportSort().key,
         sortDirection: reportSort().direction,
+        gradeId: filters.gradeId,
+        semesterId: filters.semesterId,
+        studentQuery: filters.studentQuery,
       };
     },
-    ({ page, sortField, sortDirection }) => listBulletinsStudentsPage(page, DEFAULT_TABLE_PAGE_SIZE, {
-      sortField,
-      sortDirection,
-    }),
+    ({ page, sortField, sortDirection, gradeId, semesterId, studentQuery }) => listBulletinsStudentsPage(
+      page,
+      DEFAULT_TABLE_PAGE_SIZE,
+      {
+        sortField,
+        sortDirection,
+        gradeId,
+        semesterId,
+        studentQuery,
+      },
+    ),
   );
 
   const [createOpen, setCreateOpen] = createSignal(false);
@@ -247,6 +274,11 @@ export default function ReportsStudentsPage() {
     if (!isAuthUserAdmin()) {
       navigate('/reports', { replace: true });
     }
+  });
+
+  createEffect(() => {
+    if (!isAuthUserAdmin()) return;
+    void loadFormOptions();
   });
 
   const createFieldErrors = createMemo(() => validateForm(createForm()));
@@ -367,6 +399,33 @@ export default function ReportsStudentsPage() {
     setReportPage(1);
   };
 
+  const setFilterField = (field: keyof ReportFilters, value: string) => {
+    setFilterDraft((current) => ({ ...current, [field]: value }));
+  };
+
+  const applyFilters = () => {
+    const normalized: ReportFilters = {
+      gradeId: filterDraft().gradeId.trim(),
+      semesterId: filterDraft().semesterId.trim(),
+      studentQuery: filterDraft().studentQuery.trim(),
+    };
+
+    setFilterDraft(normalized);
+    setAppliedFilters(normalized);
+    setReportPage(1);
+  };
+
+  const clearFilters = () => {
+    const emptyFilters = createEmptyReportFilters();
+    setFilterDraft(emptyFilters);
+    setAppliedFilters(emptyFilters);
+    setReportSort({
+      key: 'created_at',
+      direction: 'desc',
+    });
+    setReportPage(1);
+  };
+
   return (
     <section class="min-h-screen bg-yellow-50 p-4 sm:p-6 lg:p-8 text-gray-800">
       <div class="mx-auto max-w-[1280px] space-y-6">
@@ -417,6 +476,72 @@ export default function ReportsStudentsPage() {
               {actionError()}
             </div>
           </Show>
+
+          <div class="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
+            <h3 class="text-sm font-semibold text-gray-700">Agrupar y filtrar resultados</h3>
+            <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <label class="block">
+                <span class="text-sm text-gray-700">Grado</span>
+                <select
+                  class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                  value={filterDraft().gradeId}
+                  onChange={(event) => setFilterField('gradeId', event.currentTarget.value)}
+                  disabled={formOptionsLoading() || bulletinsStudents.loading}
+                >
+                  <option value="">Todos los grados</option>
+                  <For each={formOptions().grades}>
+                    {(grade) => <option value={grade.id}>{grade.label}</option>}
+                  </For>
+                </select>
+              </label>
+
+              <label class="block">
+                <span class="text-sm text-gray-700">Semestre</span>
+                <select
+                  class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                  value={filterDraft().semesterId}
+                  onChange={(event) => setFilterField('semesterId', event.currentTarget.value)}
+                  disabled={formOptionsLoading() || bulletinsStudents.loading}
+                >
+                  <option value="">Todos los semestres</option>
+                  <For each={formOptions().semesters}>
+                    {(semester) => <option value={semester.id}>{semester.label}</option>}
+                  </For>
+                </select>
+              </label>
+
+              <label class="block">
+                <span class="text-sm text-gray-700">Estudiante (nombre o documento)</span>
+                <input
+                  type="text"
+                  class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  value={filterDraft().studentQuery}
+                  onInput={(event) => setFilterField('studentQuery', event.currentTarget.value)}
+                  disabled={bulletinsStudents.loading}
+                  placeholder="Ej. Ana o 12345"
+                />
+              </label>
+            </div>
+
+            <div class="mt-4 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                class="rounded-lg bg-yellow-600 px-4 py-2 text-sm text-white transition-colors hover:bg-yellow-700 disabled:cursor-not-allowed disabled:bg-yellow-300"
+                onClick={applyFilters}
+                disabled={bulletinsStudents.loading}
+              >
+                Aplicar filtros
+              </button>
+              <button
+                type="button"
+                class="rounded-lg border border-yellow-300 bg-white px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-yellow-100 disabled:cursor-not-allowed disabled:text-gray-400"
+                onClick={clearFilters}
+                disabled={bulletinsStudents.loading}
+              >
+                Limpiar
+              </button>
+            </div>
+          </div>
 
           <div class="mt-6 overflow-x-auto rounded-lg border border-yellow-200">
             <table class="min-w-[1850px] w-full text-left text-sm">

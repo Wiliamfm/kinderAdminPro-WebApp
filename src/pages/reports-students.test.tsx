@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
+import { fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ReportsStudentsPage from './reports-students';
 
@@ -91,8 +91,21 @@ describe('ReportsStudentsPage', () => {
 
     expect(await screen.findByText('Académico: Notas de periodo')).toBeInTheDocument();
     expect(screen.getByText('Ana Pérez')).toBeInTheDocument();
-    expect(screen.getByText('Primero A')).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: 'Primero A' })).toBeInTheDocument();
     expect(screen.getByText('95')).toBeInTheDocument();
+  });
+
+  it('requests initial list with created date descending defaults', async () => {
+    render(() => <ReportsStudentsPage />);
+    await screen.findByText('Ana Pérez');
+
+    expect(mocks.listBulletinsStudentsPage).toHaveBeenCalledWith(1, 10, {
+      sortField: 'created_at',
+      sortDirection: 'desc',
+      gradeId: '',
+      semesterId: '',
+      studentQuery: '',
+    });
   });
 
   it('submits create modal payload', async () => {
@@ -105,12 +118,17 @@ describe('ReportsStudentsPage', () => {
       expect(mocks.listBulletinStudentFormOptions).toHaveBeenCalledTimes(1);
     });
 
-    fireEvent.change(screen.getByLabelText('Boletín'), { target: { value: 'b1' } });
-    fireEvent.change(screen.getByLabelText('Estudiante'), { target: { value: 's1' } });
-    fireEvent.change(screen.getByLabelText('Grado'), { target: { value: 'g1' } });
-    fireEvent.change(screen.getByLabelText('Semestre'), { target: { value: 'sem1' } });
-    fireEvent.input(screen.getByLabelText('Nota'), { target: { value: '99' } });
-    fireEvent.input(screen.getByLabelText('Comentarios'), { target: { value: 'Muy bien.' } });
+    const createModalHeading = await screen.findByRole('heading', { name: 'Crear reporte de estudiante' });
+    const createModal = createModalHeading.closest('div');
+    expect(createModal).not.toBeNull();
+    const createModalQueries = within(createModal as HTMLElement);
+
+    fireEvent.change(createModalQueries.getByLabelText('Boletín'), { target: { value: 'b1' } });
+    fireEvent.change(createModalQueries.getByLabelText('Estudiante'), { target: { value: 's1' } });
+    fireEvent.change(createModalQueries.getByLabelText('Grado'), { target: { value: 'g1' } });
+    fireEvent.change(createModalQueries.getByLabelText('Semestre'), { target: { value: 'sem1' } });
+    fireEvent.input(createModalQueries.getByLabelText('Nota'), { target: { value: '99' } });
+    fireEvent.input(createModalQueries.getByLabelText('Comentarios'), { target: { value: 'Muy bien.' } });
     fireEvent.click(screen.getByRole('button', { name: 'Crear reporte' }));
 
     await waitFor(() => {
@@ -173,6 +191,9 @@ describe('ReportsStudentsPage', () => {
       expect(mocks.listBulletinsStudentsPage).toHaveBeenCalledWith(1, 10, {
         sortField: 'created_by_name',
         sortDirection: 'asc',
+        gradeId: '',
+        semesterId: '',
+        studentQuery: '',
       });
     });
   });
@@ -205,8 +226,75 @@ describe('ReportsStudentsPage', () => {
 
     await waitFor(() => {
       expect(mocks.listBulletinsStudentsPage).toHaveBeenCalledWith(2, 10, {
-        sortField: 'updated_at',
+        sortField: 'created_at',
         sortDirection: 'desc',
+        gradeId: '',
+        semesterId: '',
+        studentQuery: '',
+      });
+    });
+  });
+
+  it('applies grade, semester and student filters with AND behavior', async () => {
+    render(() => <ReportsStudentsPage />);
+    await screen.findByText('Ana Pérez');
+
+    fireEvent.change(screen.getByLabelText('Grado'), { target: { value: 'g1' } });
+    fireEvent.change(screen.getByLabelText('Semestre'), { target: { value: 'sem1' } });
+    fireEvent.input(screen.getByLabelText('Estudiante (nombre o documento)'), { target: { value: '  Ana  ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
+
+    await waitFor(() => {
+      expect(mocks.listBulletinsStudentsPage).toHaveBeenLastCalledWith(1, 10, {
+        sortField: 'created_at',
+        sortDirection: 'desc',
+        gradeId: 'g1',
+        semesterId: 'sem1',
+        studentQuery: 'Ana',
+      });
+    });
+  });
+
+  it('clears filters and restores created date descending sort', async () => {
+    render(() => <ReportsStudentsPage />);
+    await screen.findByText('Ana Pérez');
+
+    fireEvent.change(screen.getByLabelText('Grado'), { target: { value: 'g1' } });
+    fireEvent.change(screen.getByLabelText('Semestre'), { target: { value: 'sem1' } });
+    fireEvent.input(screen.getByLabelText('Estudiante (nombre o documento)'), { target: { value: 'Ana' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
+
+    await waitFor(() => {
+      expect(mocks.listBulletinsStudentsPage).toHaveBeenLastCalledWith(1, 10, {
+        sortField: 'created_at',
+        sortDirection: 'desc',
+        gradeId: 'g1',
+        semesterId: 'sem1',
+        studentQuery: 'Ana',
+      });
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Creado por' }));
+
+    await waitFor(() => {
+      expect(mocks.listBulletinsStudentsPage).toHaveBeenLastCalledWith(1, 10, {
+        sortField: 'created_by_name',
+        sortDirection: 'asc',
+        gradeId: 'g1',
+        semesterId: 'sem1',
+        studentQuery: 'Ana',
+      });
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Limpiar' }));
+
+    await waitFor(() => {
+      expect(mocks.listBulletinsStudentsPage).toHaveBeenLastCalledWith(1, 10, {
+        sortField: 'created_at',
+        sortDirection: 'desc',
+        gradeId: '',
+        semesterId: '',
+        studentQuery: '',
       });
     });
   });
@@ -221,11 +309,16 @@ describe('ReportsStudentsPage', () => {
         expect(mocks.listBulletinStudentFormOptions).toHaveBeenCalled();
       });
 
-      fireEvent.change(screen.getByLabelText('Boletín'), { target: { value: 'b1' } });
-      fireEvent.change(screen.getByLabelText('Estudiante'), { target: { value: 's1' } });
-      fireEvent.change(screen.getByLabelText('Grado'), { target: { value: 'g1' } });
-      fireEvent.change(screen.getByLabelText('Semestre'), { target: { value: 'sem1' } });
-      fireEvent.input(screen.getByLabelText('Nota'), { target: { value } });
+      const createModalHeading = await screen.findByRole('heading', { name: 'Crear reporte de estudiante' });
+      const createModal = createModalHeading.closest('div');
+      expect(createModal).not.toBeNull();
+      const createModalQueries = within(createModal as HTMLElement);
+
+      fireEvent.change(createModalQueries.getByLabelText('Boletín'), { target: { value: 'b1' } });
+      fireEvent.change(createModalQueries.getByLabelText('Estudiante'), { target: { value: 's1' } });
+      fireEvent.change(createModalQueries.getByLabelText('Grado'), { target: { value: 'g1' } });
+      fireEvent.change(createModalQueries.getByLabelText('Semestre'), { target: { value: 'sem1' } });
+      fireEvent.input(createModalQueries.getByLabelText('Nota'), { target: { value } });
       fireEvent.click(screen.getByRole('button', { name: 'Crear reporte' }));
 
       expect(await screen.findByText(expectedMessage)).toBeInTheDocument();

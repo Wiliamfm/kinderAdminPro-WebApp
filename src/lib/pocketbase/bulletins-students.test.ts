@@ -119,6 +119,46 @@ describe('bulletins-students pocketbase client', () => {
     }));
   });
 
+  it('uses created_at descending as default sort', async () => {
+    hoisted.getList.mockResolvedValue({
+      items: [],
+      page: 1,
+      perPage: 10,
+      totalItems: 0,
+      totalPages: 1,
+    });
+
+    await listBulletinsStudentsPage(1, 10);
+
+    expect(hoisted.getList).toHaveBeenCalledWith(1, 10, {
+      sort: '-created_at',
+      filter: 'is_deleted != true',
+      expand: 'bulletin_id,bulletin_id.category_id,student_id,grade_id,semester_id,created_by,updated_by',
+    });
+  });
+
+  it('builds filter clauses for grade, semester and student query', async () => {
+    hoisted.getList.mockResolvedValue({
+      items: [],
+      page: 1,
+      perPage: 10,
+      totalItems: 0,
+      totalPages: 1,
+    });
+
+    await listBulletinsStudentsPage(1, 10, {
+      gradeId: ' g1 ',
+      semesterId: ' sem1 ',
+      studentQuery: 'Ana "123" \\ doc',
+    });
+
+    expect(hoisted.getList).toHaveBeenCalledWith(1, 10, {
+      sort: '-created_at',
+      filter: 'is_deleted != true && grade_id = "g1" && semester_id = "sem1" && (student_id.name ~ "Ana \\"123\\" \\\\ doc" || student_id.document_id ~ "Ana \\"123\\" \\\\ doc")',
+      expand: 'bulletin_id,bulletin_id.category_id,student_id,grade_id,semester_id,created_by,updated_by',
+    });
+  });
+
   it('creates bulletin student with audit defaults', async () => {
     hoisted.create.mockResolvedValue({
       id: 'bs1',

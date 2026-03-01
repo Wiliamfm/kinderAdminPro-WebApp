@@ -89,7 +89,9 @@ Primary functional areas exposed through routes:
   - audit fields `created_by` and `updated_by` are stored as `users` relations,
   - backend-managed `created_at` and `updated_at` autodate fields are exposed in UI,
   - deletion is soft delete via `is_deleted = true`,
-  - workflow is available in `/reports/students` with sortable and paginated table plus create/edit/delete modals.
+  - workflow is available in `/reports/students` with sortable and paginated table plus create/edit/delete modals,
+  - table default order is `created_at` descending,
+  - includes an apply/clear filter form to group results by `grade`, `semester`, and student search (`name` or `document_id`).
 - Store employee invoices in PocketBase:
   - `invoices` links each invoice to one employee (`employee_id`),
   - `invoices` links each invoice to one semester (`semester_id`, required relation to `semesters`),
