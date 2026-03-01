@@ -8,6 +8,7 @@ import {
 
 const hoisted = vi.hoisted(() => {
   const getList = vi.fn();
+  const getFullList = vi.fn();
   const getOne = vi.fn();
   const create = vi.fn();
   const update = vi.fn();
@@ -16,6 +17,7 @@ const hoisted = vi.hoisted(() => {
   const pb = {
     collection: vi.fn(() => ({
       getList,
+      getFullList,
       getOne,
       create,
       update,
@@ -24,6 +26,7 @@ const hoisted = vi.hoisted(() => {
 
   return {
     getList,
+    getFullList,
     getOne,
     create,
     update,
@@ -50,6 +53,7 @@ describe('semesters pocketbase client', () => {
           name: '2026-A',
           start_date: '2026-01-15T05:00:00.000Z',
           end_date: '2026-06-15T05:00:00.000Z',
+          is_current: true,
           created_at: '2026-01-01T10:00:00.000Z',
           updated_at: '2026-01-01T10:00:00.000Z',
         },
@@ -73,6 +77,7 @@ describe('semesters pocketbase client', () => {
       name: '2026-A',
       start_date: '2026-01-15T05:00:00.000Z',
       end_date: '2026-06-15T05:00:00.000Z',
+      is_current: true,
       created_at: '2026-01-01T10:00:00.000Z',
       updated_at: '2026-01-01T10:00:00.000Z',
     });
@@ -84,6 +89,7 @@ describe('semesters pocketbase client', () => {
       name: '2026-A',
       start_date: '2026-01-15T05:00:00.000Z',
       end_date: '2026-06-15T05:00:00.000Z',
+      is_current: false,
       created_at: '2026-01-01T10:00:00.000Z',
       updated_at: '2026-01-01T10:00:00.000Z',
     });
@@ -108,32 +114,102 @@ describe('semesters pocketbase client', () => {
       name: '2026-B',
       start_date: '2026-07-01T05:00:00.000Z',
       end_date: '2026-12-01T05:00:00.000Z',
+      is_current: true,
       created_at: '2026-01-01T10:00:00.000Z',
       updated_at: '2026-06-01T10:00:00.000Z',
     });
+    hoisted.getFullList.mockResolvedValue([]);
 
     await createSemester({
       name: ' 2026-A ',
       start_date: ' 2026-01-15T05:00:00.000Z ',
       end_date: ' 2026-06-15T05:00:00.000Z ',
+      is_current: false,
     });
 
     expect(hoisted.create).toHaveBeenCalledWith({
       name: '2026-A',
       start_date: '2026-01-15T05:00:00.000Z',
       end_date: '2026-06-15T05:00:00.000Z',
+      is_current: false,
     });
 
     await updateSemester('s1', {
       name: ' 2026-B ',
       start_date: ' 2026-07-01T05:00:00.000Z ',
       end_date: ' 2026-12-01T05:00:00.000Z ',
+      is_current: true,
     });
 
     expect(hoisted.update).toHaveBeenCalledWith('s1', {
       name: '2026-B',
       start_date: '2026-07-01T05:00:00.000Z',
       end_date: '2026-12-01T05:00:00.000Z',
+      is_current: true,
+    });
+  });
+
+  it('sets previous current semester to false before creating a new current semester', async () => {
+    hoisted.getFullList.mockResolvedValue([{ id: 's-old' }]);
+    hoisted.create.mockResolvedValue({
+      id: 's-new',
+      name: '2026-C',
+      start_date: '2026-08-01T05:00:00.000Z',
+      end_date: '2026-12-15T05:00:00.000Z',
+      is_current: true,
+      created_at: '2026-07-01T10:00:00.000Z',
+      updated_at: '2026-07-01T10:00:00.000Z',
+    });
+
+    await createSemester({
+      name: '2026-C',
+      start_date: '2026-08-01T05:00:00.000Z',
+      end_date: '2026-12-15T05:00:00.000Z',
+      is_current: true,
+    });
+
+    expect(hoisted.getFullList).toHaveBeenCalledWith({
+      filter: 'is_current = true',
+      fields: 'id',
+    });
+    expect(hoisted.update).toHaveBeenCalledWith('s-old', { is_current: false });
+    expect(hoisted.create).toHaveBeenCalledWith({
+      name: '2026-C',
+      start_date: '2026-08-01T05:00:00.000Z',
+      end_date: '2026-12-15T05:00:00.000Z',
+      is_current: true,
+    });
+  });
+
+  it('sets other current semesters to false before updating semester as current', async () => {
+    hoisted.getFullList.mockResolvedValue([{ id: 's-other' }]);
+    hoisted.update.mockResolvedValue({
+      id: 's1',
+      name: '2026-D',
+      start_date: '2026-01-15T05:00:00.000Z',
+      end_date: '2026-06-15T05:00:00.000Z',
+      is_current: true,
+      created_at: '2026-01-01T10:00:00.000Z',
+      updated_at: '2026-08-01T10:00:00.000Z',
+    });
+
+    await updateSemester('s1', {
+      name: '2026-D',
+      start_date: '2026-01-15T05:00:00.000Z',
+      end_date: '2026-06-15T05:00:00.000Z',
+      is_current: true,
+    });
+
+    expect(hoisted.getFullList).toHaveBeenCalledWith({
+      filter: 'is_current = true && id != "s1"',
+      fields: 'id',
+    });
+    expect(hoisted.update).toHaveBeenNthCalledWith(1, 's-other', { is_current: false });
+    expect(hoisted.update).toHaveBeenNthCalledWith(2, 's1', {
+      name: '2026-D',
+      start_date: '2026-01-15T05:00:00.000Z',
+      end_date: '2026-06-15T05:00:00.000Z',
+      is_current: true,
     });
   });
 

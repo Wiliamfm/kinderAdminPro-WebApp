@@ -61,9 +61,11 @@ Primary functional areas exposed through routes:
   - prevent deletion while active students are linked to the grade.
 - Manage enrollment semesters data in PocketBase `semesters` collection:
   - admin-only create/list/update access from enrollment module,
-  - required `name` (unique), `start_date`, and `end_date`,
+  - required `name` (unique), `start_date`, `end_date`, plus `is_current` (bool default `false`),
   - `created_at` and `updated_at` stored as backend-managed autodate fields,
-  - `end_date` must be at least 1 day after `start_date`.
+  - `end_date` must be at least 1 day after `start_date`,
+  - when `is_current = true`, date range must include today,
+  - setting `is_current = true` automatically unsets the previously current semester.
 - Store employee invoices in PocketBase:
   - `invoices` links each invoice to one employee (`employee_id`),
   - `invoices.name` stores the normalized original filename with a timestamp suffix (for example `factura_demo_20260223_1000.pdf`),

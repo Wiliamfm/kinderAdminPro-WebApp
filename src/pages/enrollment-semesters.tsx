@@ -26,6 +26,7 @@ type SemesterForm = {
   name: string;
   start_date: string;
   end_date: string;
+  is_current: boolean;
 };
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -37,6 +38,7 @@ const emptyForm: SemesterForm = {
   name: '',
   start_date: '',
   end_date: '',
+  is_current: false,
 };
 
 function getErrorMessage(error: unknown): string {
@@ -88,6 +90,13 @@ function validateForm(form: SemesterForm): FieldErrorMap<SemesterField> {
       errors.end_date = 'Las fechas ingresadas no son válidas.';
     } else if (end.getTime() - start.getTime() < DAY_IN_MS) {
       errors.end_date = 'La fecha de fin debe ser al menos 1 día posterior a la fecha de inicio.';
+    } else if (form.is_current) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (today.getTime() < start.getTime() || today.getTime() > end.getTime()) {
+        errors.end_date = 'Para marcar como semestre actual, la fecha de hoy debe estar entre inicio y fin.';
+      }
     }
   }
 
@@ -99,6 +108,7 @@ function toPayload(form: SemesterForm): SemesterCreateInput {
     name: form.name.trim(),
     start_date: toIsoDate(form.start_date),
     end_date: toIsoDate(form.end_date),
+    is_current: form.is_current,
   };
 }
 
@@ -153,6 +163,14 @@ export default function EnrollmentSemestersPage() {
     }));
 
     setCreateTouched((current) => touchField(current, field));
+    setCreateError(null);
+  };
+
+  const setCreateIsCurrent = (value: boolean) => {
+    setCreateForm((current) => ({
+      ...current,
+      is_current: value,
+    }));
     setCreateError(null);
   };
 
@@ -211,7 +229,7 @@ export default function EnrollmentSemestersPage() {
           <div>
             <h1 class="text-2xl font-semibold">Gestión de semestres</h1>
             <p class="mt-2 text-gray-600">
-              Administra semestres académicos y sus fechas de inicio y fin.
+              Administra semestres académicos, sus fechas de inicio y fin, y el estado actual.
             </p>
           </div>
 
@@ -240,13 +258,20 @@ export default function EnrollmentSemestersPage() {
         </Show>
 
         <div class="mt-6 overflow-x-auto rounded-lg border border-yellow-200">
-          <table class="min-w-[520px] w-full text-left text-sm">
+          <table class="min-w-[640px] w-full text-left text-sm">
             <thead class="bg-yellow-100 text-gray-700">
               <tr>
                 <SortableHeaderCell
                   class="px-4 py-3 font-semibold"
                   label="Semestre"
                   columnKey="name"
+                  sort={semesterSort()}
+                  onSort={handleSort}
+                />
+                <SortableHeaderCell
+                  class="px-4 py-3 font-semibold"
+                  label="Actual"
+                  columnKey="is_current"
                   sort={semesterSort()}
                   onSort={handleSort}
                 />
@@ -258,7 +283,7 @@ export default function EnrollmentSemestersPage() {
                 when={!semesters.loading}
                 fallback={(
                   <tr>
-                    <td class="px-4 py-4 text-gray-600" colSpan={2}>
+                    <td class="px-4 py-4 text-gray-600" colSpan={3}>
                       Cargando semestres...
                     </td>
                   </tr>
@@ -268,7 +293,7 @@ export default function EnrollmentSemestersPage() {
                   when={!semesters.error}
                   fallback={(
                     <tr>
-                      <td class="px-4 py-4 text-red-700" colSpan={2}>
+                      <td class="px-4 py-4 text-red-700" colSpan={3}>
                         {getErrorMessage(semesters.error)}
                       </td>
                     </tr>
@@ -278,7 +303,7 @@ export default function EnrollmentSemestersPage() {
                     when={semesterRows().length > 0}
                     fallback={(
                       <tr>
-                        <td class="px-4 py-4 text-gray-600" colSpan={2}>
+                        <td class="px-4 py-4 text-gray-600" colSpan={3}>
                           No hay semestres registrados.
                         </td>
                       </tr>
@@ -288,6 +313,7 @@ export default function EnrollmentSemestersPage() {
                       {(semester) => (
                         <tr class="border-t border-yellow-100 align-top">
                           <td class="px-4 py-3">{semester.name || '—'}</td>
+                          <td class="px-4 py-3">{semester.is_current ? 'Sí' : 'No'}</td>
                           <td class="px-4 py-3">
                             <button
                               type="button"
@@ -371,6 +397,17 @@ export default function EnrollmentSemestersPage() {
               aria-describedby={fieldError('end_date') ? 'create-semester-end-error' : undefined}
             />
             <InlineFieldAlert id="create-semester-end-error" message={fieldError('end_date')} />
+          </label>
+
+          <label class="flex items-center gap-2 text-sm text-gray-700" for="create-semester-is-current">
+            <input
+              id="create-semester-is-current"
+              type="checkbox"
+              checked={createForm().is_current}
+              onInput={(event) => setCreateIsCurrent(event.currentTarget.checked)}
+              disabled={createBusy()}
+            />
+            Marcar como semestre actual
           </label>
 
           <Show when={createError()}>

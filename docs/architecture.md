@@ -219,10 +219,16 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - `name` (required text, unique index),
   - `start_date` (required `date`, datetime with timezone offset),
   - `end_date` (required `date`, datetime with timezone offset),
+  - `is_current` (bool, default `false`; omitted/null inputs are persisted as `false`),
   - `created_at` (autodate, set on create),
   - `updated_at` (autodate, set on create and update).
 - Indexes:
   - `CREATE UNIQUE INDEX idx_semesters_name ON semesters (name)`.
+  - `CREATE UNIQUE INDEX idx_semesters_single_current ON semesters (is_current) WHERE is_current = true`.
+- Semesters business rules:
+  - only one semester can have `is_current = true` at the same time,
+  - when a create/edit action sets one semester as current, any previously current semester is automatically set to `false`,
+  - when `is_current = true`, date validation requires `start_date <= today <= end_date`.
 - Frontend modules:
   - list/create page: `src/pages/enrollment-semesters.tsx`,
   - edit page: `src/pages/enrollment-semester-edit.tsx`,

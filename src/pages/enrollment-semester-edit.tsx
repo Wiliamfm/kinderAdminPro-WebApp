@@ -20,6 +20,7 @@ type SemesterForm = {
   name: string;
   start_date: string;
   end_date: string;
+  is_current: boolean;
 };
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -30,6 +31,7 @@ const emptyForm: SemesterForm = {
   name: '',
   start_date: '',
   end_date: '',
+  is_current: false,
 };
 
 function getErrorMessage(error: unknown): string {
@@ -95,6 +97,13 @@ function validateForm(form: SemesterForm): FieldErrorMap<SemesterField> {
       errors.end_date = 'Las fechas ingresadas no son válidas.';
     } else if (end.getTime() - start.getTime() < DAY_IN_MS) {
       errors.end_date = 'La fecha de fin debe ser al menos 1 día posterior a la fecha de inicio.';
+    } else if (form.is_current) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (today.getTime() < start.getTime() || today.getTime() > end.getTime()) {
+        errors.end_date = 'Para marcar como semestre actual, la fecha de hoy debe estar entre inicio y fin.';
+      }
     }
   }
 
@@ -106,6 +115,7 @@ function toPayload(form: SemesterForm): SemesterUpdateInput {
     name: form.name.trim(),
     start_date: toIsoDate(form.start_date),
     end_date: toIsoDate(form.end_date),
+    is_current: form.is_current,
   };
 }
 
@@ -134,6 +144,7 @@ export default function EnrollmentSemesterEditPage() {
       name: current.name,
       start_date: toDateInputValue(current.start_date),
       end_date: toDateInputValue(current.end_date),
+      is_current: current.is_current,
     });
     setTouched(createInitialTouchedMap(SEMESTER_FIELDS));
     setFormError(null);
@@ -148,6 +159,14 @@ export default function EnrollmentSemesterEditPage() {
       [field]: value,
     }));
     setTouched((current) => touchField(current, field));
+    setFormError(null);
+  };
+
+  const setIsCurrent = (value: boolean) => {
+    setForm((current) => ({
+      ...current,
+      is_current: value,
+    }));
     setFormError(null);
   };
 
@@ -231,6 +250,17 @@ export default function EnrollmentSemesterEditPage() {
                 disabled={saveBusy()}
               />
               <InlineFieldAlert id="edit-semester-end-error" message={fieldError('end_date')} />
+            </label>
+
+            <label class="flex items-center gap-2 text-sm text-gray-700" for="edit-semester-is-current">
+              <input
+                id="edit-semester-is-current"
+                type="checkbox"
+                checked={form().is_current}
+                onInput={(event) => setIsCurrent(event.currentTarget.checked)}
+                disabled={saveBusy()}
+              />
+              Marcar como semestre actual
             </label>
 
             <Show when={formError()}>

@@ -28,6 +28,7 @@ const semestersFixture = [
     name: '2026-A',
     start_date: '2026-01-15T05:00:00.000Z',
     end_date: '2026-06-15T05:00:00.000Z',
+    is_current: true,
     created_at: '2026-01-01T05:00:00.000Z',
     updated_at: '2026-01-01T05:00:00.000Z',
   },
@@ -62,6 +63,8 @@ describe('EnrollmentSemestersPage', () => {
     render(() => <EnrollmentSemestersPage />);
 
     expect(await screen.findByText('2026-A')).toBeInTheDocument();
+    expect(screen.getByText('Actual')).toBeInTheDocument();
+    expect(screen.getByText('Sí')).toBeInTheDocument();
     expect(screen.getByText('Acciones')).toBeInTheDocument();
     expect(screen.getByLabelText('Editar semestre 2026-A')).toBeInTheDocument();
   });
@@ -80,7 +83,7 @@ describe('EnrollmentSemestersPage', () => {
     });
   });
 
-  it('creates a semester with valid dates', async () => {
+  it('creates a semester with is_current=true when date range includes today', async () => {
     render(() => <EnrollmentSemestersPage />);
     await screen.findByText('2026-A');
 
@@ -88,8 +91,9 @@ describe('EnrollmentSemestersPage', () => {
     await screen.findByRole('heading', { name: 'Crear semestre' });
 
     fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: '2026-B' } });
-    fireEvent.input(screen.getByLabelText('Fecha de inicio'), { target: { value: '2026-07-01' } });
-    fireEvent.input(screen.getByLabelText('Fecha de fin'), { target: { value: '2026-12-01' } });
+    fireEvent.input(screen.getByLabelText('Fecha de inicio'), { target: { value: '1900-01-01' } });
+    fireEvent.input(screen.getByLabelText('Fecha de fin'), { target: { value: '2999-12-31' } });
+    fireEvent.click(screen.getByLabelText('Marcar como semestre actual'));
 
     fireEvent.click(screen.getAllByText('Crear semestre')[1]);
 
@@ -98,6 +102,7 @@ describe('EnrollmentSemestersPage', () => {
         name: '2026-B',
         start_date: expect.stringMatching(/Z$/),
         end_date: expect.stringMatching(/Z$/),
+        is_current: true,
       }));
     });
   });
@@ -117,6 +122,26 @@ describe('EnrollmentSemestersPage', () => {
 
     expect(
       await screen.findByText('La fecha de fin debe ser al menos 1 día posterior a la fecha de inicio.'),
+    ).toBeInTheDocument();
+    expect(mocks.createSemester).not.toHaveBeenCalled();
+  });
+
+  it('blocks create when is_current=true and today is outside date range', async () => {
+    render(() => <EnrollmentSemestersPage />);
+    await screen.findByText('2026-A');
+
+    fireEvent.click(screen.getByText('Nuevo semestre'));
+    await screen.findByRole('heading', { name: 'Crear semestre' });
+
+    fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: '2000-A' } });
+    fireEvent.input(screen.getByLabelText('Fecha de inicio'), { target: { value: '2000-01-01' } });
+    fireEvent.input(screen.getByLabelText('Fecha de fin'), { target: { value: '2000-12-31' } });
+    fireEvent.click(screen.getByLabelText('Marcar como semestre actual'));
+
+    fireEvent.click(screen.getAllByText('Crear semestre')[1]);
+
+    expect(
+      await screen.findByText('Para marcar como semestre actual, la fecha de hoy debe estar entre inicio y fin.'),
     ).toBeInTheDocument();
     expect(mocks.createSemester).not.toHaveBeenCalled();
   });

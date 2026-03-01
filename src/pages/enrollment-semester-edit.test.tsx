@@ -29,6 +29,7 @@ const semesterFixture = {
   name: '2026-A',
   start_date: '2026-01-15T05:00:00.000Z',
   end_date: '2026-06-15T05:00:00.000Z',
+  is_current: true,
   created_at: '2026-01-01T05:00:00.000Z',
   updated_at: '2026-01-01T05:00:00.000Z',
 };
@@ -60,6 +61,7 @@ describe('EnrollmentSemesterEditPage', () => {
 
     expect(startDateInput.value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(endDateInput.value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(screen.getByLabelText('Marcar como semestre actual')).toBeChecked();
   });
 
   it('updates semester and navigates back', async () => {
@@ -67,8 +69,9 @@ describe('EnrollmentSemesterEditPage', () => {
     await screen.findByDisplayValue('2026-A');
 
     fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: '2026-B' } });
-    fireEvent.input(screen.getByLabelText('Fecha de inicio'), { target: { value: '2026-07-01' } });
-    fireEvent.input(screen.getByLabelText('Fecha de fin'), { target: { value: '2026-12-01' } });
+    fireEvent.input(screen.getByLabelText('Fecha de inicio'), { target: { value: '1900-01-01' } });
+    fireEvent.input(screen.getByLabelText('Fecha de fin'), { target: { value: '2999-12-31' } });
+    fireEvent.click(screen.getByLabelText('Marcar como semestre actual'));
 
     fireEvent.click(screen.getByText('Guardar cambios'));
 
@@ -77,6 +80,7 @@ describe('EnrollmentSemesterEditPage', () => {
         name: '2026-B',
         start_date: expect.stringMatching(/Z$/),
         end_date: expect.stringMatching(/Z$/),
+        is_current: false,
       }));
     });
 
@@ -96,6 +100,21 @@ describe('EnrollmentSemesterEditPage', () => {
 
     expect(
       await screen.findByText('La fecha de fin debe ser al menos 1 día posterior a la fecha de inicio.'),
+    ).toBeInTheDocument();
+    expect(mocks.updateSemester).not.toHaveBeenCalled();
+  });
+
+  it('blocks save when is_current=true and today is outside date range', async () => {
+    render(() => <EnrollmentSemesterEditPage />);
+    await screen.findByDisplayValue('2026-A');
+
+    fireEvent.input(screen.getByLabelText('Fecha de inicio'), { target: { value: '2000-01-01' } });
+    fireEvent.input(screen.getByLabelText('Fecha de fin'), { target: { value: '2000-12-31' } });
+
+    fireEvent.click(screen.getByText('Guardar cambios'));
+
+    expect(
+      await screen.findByText('Para marcar como semestre actual, la fecha de hoy debe estar entre inicio y fin.'),
     ).toBeInTheDocument();
     expect(mocks.updateSemester).not.toHaveBeenCalled();
   });
