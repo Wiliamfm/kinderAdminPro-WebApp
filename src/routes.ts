@@ -15,6 +15,8 @@ import AppUsersPage from './pages/app-users';
 import StaffJobsPage from './pages/staff-jobs';
 import EnrollmentStudentsPage from './pages/enrollment-students';
 import EnrollmentStudentEditPage from './pages/enrollment-student-edit';
+import EnrollmentTutorsPage from './pages/enrollment-tutors';
+import EnrollmentTutorEditPage from './pages/enrollment-tutor-edit';
 
 export const routes: RouteDefinition[] = [
   {
@@ -60,6 +62,14 @@ export const routes: RouteDefinition[] = [
   {
     path: '/enrollment-management/students/:id',
     component: EnrollmentStudentEditPage,
+  },
+  {
+    path: '/enrollment-management/tutors',
+    component: EnrollmentTutorsPage,
+  },
+  {
+    path: '/enrollment-management/tutors/:id',
+    component: EnrollmentTutorEditPage,
   },
   {
     path: '/enrollment-management/grades',

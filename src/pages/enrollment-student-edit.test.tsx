@@ -7,8 +7,11 @@ const mocks = vi.hoisted(() => ({
   params: { id: 's1' },
   isAuthUserAdmin: vi.fn(),
   listGrades: vi.fn(),
+  listActiveFathers: vi.fn(),
   getStudentById: vi.fn(),
+  listLinksByStudentId: vi.fn(),
   updateStudent: vi.fn(),
+  replaceLinksForStudent: vi.fn(),
 }));
 
 vi.mock('@solidjs/router', () => ({
@@ -24,12 +27,38 @@ vi.mock('../lib/pocketbase/students', () => ({
   getStudentById: mocks.getStudentById,
   updateStudent: mocks.updateStudent,
 }));
+
 vi.mock('../lib/pocketbase/grades', () => ({
   listGrades: mocks.listGrades,
 }));
 
+vi.mock('../lib/pocketbase/fathers', () => ({
+  listActiveFathers: mocks.listActiveFathers,
+}));
+
+vi.mock('../lib/pocketbase/students-fathers', () => ({
+  STUDENT_FATHER_RELATIONSHIPS: ['father', 'mother', 'other'],
+  listLinksByStudentId: mocks.listLinksByStudentId,
+  replaceLinksForStudent: mocks.replaceLinksForStudent,
+}));
+
 const gradesFixture = [
   { id: 'g1', name: 'Primero A', capacity: 30 },
+];
+
+const fathersFixture = [
+  {
+    id: 'f1',
+    full_name: 'Carlos Perez',
+    document_id: '2001',
+    phone_number: '',
+    occupation: '',
+    company: '',
+    email: '',
+    address: '',
+    is_active: true,
+    student_names: [],
+  },
 ];
 
 const studentFixture = {
@@ -47,6 +76,7 @@ const studentFixture = {
   social_security: 'SSN-1',
   allergies: 'Ninguna',
   active: true,
+  father_names: ['Carlos Perez'],
 };
 
 function toDateTimeLocalValue(date: Date): string {
@@ -65,8 +95,22 @@ describe('EnrollmentStudentEditPage', () => {
     mocks.params.id = 's1';
     mocks.isAuthUserAdmin.mockReturnValue(true);
     mocks.listGrades.mockResolvedValue(gradesFixture);
+    mocks.listActiveFathers.mockResolvedValue(fathersFixture);
     mocks.getStudentById.mockResolvedValue(studentFixture);
+    mocks.listLinksByStudentId.mockResolvedValue([
+      {
+        id: 'l1',
+        studentId: 's1',
+        fatherId: 'f1',
+        relationship: 'father',
+        studentName: 'Ana',
+        studentActive: true,
+        fatherName: 'Carlos Perez',
+        fatherActive: true,
+      },
+    ]);
     mocks.updateStudent.mockResolvedValue(studentFixture);
+    mocks.replaceLinksForStudent.mockResolvedValue(undefined);
   });
 
   it('redirects non-admin users', async () => {
@@ -90,7 +134,7 @@ describe('EnrollmentStudentEditPage', () => {
     expect(screen.getByDisplayValue('1001')).toBeInTheDocument();
   });
 
-  it('updates student and navigates back to list', async () => {
+  it('updates student and links then navigates back to list', async () => {
     render(() => <EnrollmentStudentEditPage />);
     await screen.findByDisplayValue('Ana');
     const gradeSelect = screen.getByLabelText('Grado') as HTMLSelectElement;
@@ -123,6 +167,15 @@ describe('EnrollmentStudentEditPage', () => {
     });
 
     await waitFor(() => {
+      expect(mocks.replaceLinksForStudent).toHaveBeenCalledWith('s1', [
+        {
+          fatherId: 'f1',
+          relationship: 'father',
+        },
+      ]);
+    });
+
+    await waitFor(() => {
       expect(mocks.navigate).toHaveBeenCalledWith('/enrollment-management/students', { replace: true });
     });
   });
@@ -141,6 +194,17 @@ describe('EnrollmentStudentEditPage', () => {
     fireEvent.click(screen.getByText('Guardar cambios'));
 
     expect(await screen.findByText('El estudiante debe tener al menos 2 años.')).toBeInTheDocument();
+    expect(mocks.updateStudent).not.toHaveBeenCalled();
+  });
+
+  it('blocks update when there are no active tutors', async () => {
+    mocks.listActiveFathers.mockResolvedValue([]);
+    render(() => <EnrollmentStudentEditPage />);
+    await screen.findByDisplayValue('Ana');
+
+    fireEvent.click(screen.getByText('Guardar cambios'));
+
+    expect(await screen.findByText(/No hay tutores activos disponibles/)).toBeInTheDocument();
     expect(mocks.updateStudent).not.toHaveBeenCalled();
   });
 

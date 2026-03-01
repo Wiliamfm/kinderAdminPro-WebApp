@@ -10,12 +10,20 @@ import {
 } from '../lib/forms/realtime-validation';
 import { isAuthUserAdmin } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
+import { listActiveFathers } from '../lib/pocketbase/fathers';
 import { listGrades } from '../lib/pocketbase/grades';
 import {
   getStudentById,
   updateStudent,
   type StudentUpdateInput,
 } from '../lib/pocketbase/students';
+import {
+  listLinksByStudentId,
+  replaceLinksForStudent,
+  STUDENT_FATHER_RELATIONSHIPS,
+  type StudentFatherLinkInput,
+  type StudentFatherRelationship,
+} from '../lib/pocketbase/students-fathers';
 
 type StudentForm = {
   name: string;
@@ -29,6 +37,11 @@ type StudentForm = {
   blood_type: string;
   social_security: string;
   allergies: string;
+};
+
+type StudentLinkForm = {
+  fatherId: string;
+  relationship: StudentFatherRelationship;
 };
 
 const BLOOD_TYPE_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -61,6 +74,13 @@ const STUDENT_VALIDATED_FIELDS = [
 ] as const;
 
 type StudentValidatedField = (typeof STUDENT_VALIDATED_FIELDS)[number];
+
+function createEmptyLink(): StudentLinkForm {
+  return {
+    fatherId: '',
+    relationship: 'father',
+  };
+}
 
 function getErrorMessage(error: unknown): string {
   const normalized = error as PocketBaseRequestError | undefined;
@@ -171,16 +191,63 @@ function toStudentUpdateInput(form: StudentForm): StudentUpdateInput {
   };
 }
 
+function validateLinks(
+  links: StudentLinkForm[],
+  hasAvailableFathers: boolean,
+): string | undefined {
+  if (!hasAvailableFathers) {
+    return 'No hay tutores activos disponibles. Debes crear un tutor antes de continuar.';
+  }
+
+  if (links.length === 0) {
+    return 'Debes conservar al menos un tutor asociado.';
+  }
+
+  const selected = new Set<string>();
+
+  for (const link of links) {
+    if (link.fatherId.trim().length === 0) {
+      return 'Cada vínculo debe incluir un tutor.';
+    }
+
+    if (!STUDENT_FATHER_RELATIONSHIPS.includes(link.relationship)) {
+      return 'Cada vínculo debe incluir una relación válida.';
+    }
+
+    if (selected.has(link.fatherId)) {
+      return 'No se permiten tutores duplicados en los vínculos.';
+    }
+
+    selected.add(link.fatherId);
+  }
+
+  return undefined;
+}
+
+function toLinkInput(links: StudentLinkForm[]): StudentFatherLinkInput[] {
+  return links.map((link) => ({
+    fatherId: link.fatherId.trim(),
+    relationship: link.relationship,
+  }));
+}
+
 export default function EnrollmentStudentEditPage() {
   const params = useParams();
   const navigate = useNavigate();
   const [student] = createResource(() => params.id, getStudentById);
+  const [studentLinks] = createResource(() => params.id, listLinksByStudentId);
   const [grades] = createResource(async () => {
     if (!isAuthUserAdmin()) return [];
     return listGrades();
   });
+  const [fathers] = createResource(async () => {
+    if (!isAuthUserAdmin()) return [];
+    return listActiveFathers();
+  });
   const [form, setForm] = createSignal<StudentForm>(emptyForm);
+  const [links, setLinks] = createSignal<StudentLinkForm[]>([createEmptyLink()]);
   const [touched, setTouched] = createSignal(createInitialTouchedMap(STUDENT_VALIDATED_FIELDS));
+  const [linksTouched, setLinksTouched] = createSignal(false);
   const [formError, setFormError] = createSignal<string | null>(null);
   const [saveBusy, setSaveBusy] = createSignal(false);
 
@@ -211,6 +278,23 @@ export default function EnrollmentStudentEditPage() {
     setFormError(null);
   });
 
+  createEffect(() => {
+    const currentLinks = studentLinks();
+    if (!currentLinks) return;
+
+    if (currentLinks.length === 0) {
+      setLinks([createEmptyLink()]);
+      setLinksTouched(false);
+      return;
+    }
+
+    setLinks(currentLinks.map((link) => ({
+      fatherId: link.fatherId,
+      relationship: link.relationship,
+    })));
+    setLinksTouched(false);
+  });
+
   const setField = (field: keyof StudentForm, value: string) => {
     const normalizedValue = field === 'document_id' ? sanitizeNumericValue(value) : value;
     setForm((prev) => ({ ...prev, [field]: normalizedValue }));
@@ -219,20 +303,63 @@ export default function EnrollmentStudentEditPage() {
     }
     setFormError(null);
   };
+
+  const setLinkFather = (index: number, value: string) => {
+    setLinks((current) => current.map((link, linkIndex) => (
+      linkIndex === index
+        ? {
+            ...link,
+            fatherId: value,
+          }
+        : link
+    )));
+    setLinksTouched(true);
+    setFormError(null);
+  };
+
+  const setLinkRelationship = (index: number, value: string) => {
+    if (!STUDENT_FATHER_RELATIONSHIPS.includes(value as StudentFatherRelationship)) return;
+
+    setLinks((current) => current.map((link, linkIndex) => (
+      linkIndex === index
+        ? {
+            ...link,
+            relationship: value as StudentFatherRelationship,
+          }
+        : link
+    )));
+    setLinksTouched(true);
+    setFormError(null);
+  };
+
+  const addLink = () => {
+    setLinks((current) => [...current, createEmptyLink()]);
+    setLinksTouched(true);
+    setFormError(null);
+  };
+
+  const removeLink = (index: number) => {
+    setLinks((current) => current.filter((_, linkIndex) => linkIndex !== index));
+    setLinksTouched(true);
+    setFormError(null);
+  };
   const fieldErrors = createMemo(() => validateStudentForm(form()));
+  const linksError = createMemo(() => validateLinks(links(), (fathers()?.length ?? 0) > 0));
   const fieldError = (field: StudentValidatedField) => (touched()[field] ? fieldErrors()[field] : undefined);
 
   const onSubmit = async (event: SubmitEvent) => {
     event.preventDefault();
 
     setTouched((current) => touchAllFields(current));
-    if (hasAnyError(fieldErrors())) return;
+    setLinksTouched(true);
+    if (hasAnyError(fieldErrors()) || Boolean(linksError())) return;
 
     setFormError(null);
 
     setSaveBusy(true);
     try {
       await updateStudent(params.id, toStudentUpdateInput(form()));
+      await replaceLinksForStudent(params.id, toLinkInput(links()));
       navigate('/enrollment-management/students', { replace: true });
     } catch (error) {
       setFormError(getErrorMessage(error));
@@ -259,6 +386,16 @@ export default function EnrollmentStudentEditPage() {
         <Show when={grades.error}>
           <div class="mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
             {getErrorMessage(grades.error)}
+          </div>
+        </Show>
+        <Show when={studentLinks.error}>
+          <div class="mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {getErrorMessage(studentLinks.error)}
+          </div>
+        </Show>
+        <Show when={fathers.error}>
+          <div class="mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {getErrorMessage(fathers.error)}
           </div>
         </Show>
 
@@ -432,6 +569,76 @@ export default function EnrollmentStudentEditPage() {
                 onInput={(event) => setField('allergies', event.currentTarget.value)}
               />
             </label>
+
+            <div class="rounded-lg border border-yellow-200 bg-yellow-50 p-3 md:col-span-2">
+              <div class="flex items-center justify-between gap-2">
+                <h2 class="text-sm font-semibold text-gray-800">Tutores asociados</h2>
+                <button
+                  type="button"
+                  class="rounded-md border border-yellow-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-yellow-100"
+                  onClick={addLink}
+                  disabled={saveBusy()}
+                >
+                  Agregar vínculo
+                </button>
+              </div>
+
+              <div class="mt-3 space-y-2">
+                <For each={links()}>
+                  {(link, indexAccessor) => {
+                    const index = () => indexAccessor();
+
+                    return (
+                      <div class="grid grid-cols-1 gap-2 md:grid-cols-[1fr_180px_auto]">
+                        <select
+                          class="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                          value={link.fatherId}
+                          onChange={(event) => setLinkFather(index(), event.currentTarget.value)}
+                          disabled={saveBusy() || fathers.loading}
+                        >
+                          <option value="">
+                            {fathers.loading ? 'Cargando tutores...' : 'Selecciona un tutor'}
+                          </option>
+                          <For each={fathers() ?? []}>
+                            {(father) => (
+                              <option value={father.id}>{father.full_name}</option>
+                            )}
+                          </For>
+                        </select>
+
+                        <select
+                          class="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                          value={link.relationship}
+                          onChange={(event) => setLinkRelationship(index(), event.currentTarget.value)}
+                          disabled={saveBusy()}
+                        >
+                          <For each={STUDENT_FATHER_RELATIONSHIPS}>
+                            {(relationship) => (
+                              <option value={relationship}>{relationship}</option>
+                            )}
+                          </For>
+                        </select>
+
+                        <button
+                          type="button"
+                          class="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          onClick={() => removeLink(index())}
+                          disabled={saveBusy() || links().length <= 1}
+                          aria-label={`Eliminar vínculo ${index() + 1}`}
+                        >
+                          <i class="bi bi-trash" aria-hidden="true"></i>
+                        </button>
+                      </div>
+                    );
+                  }}
+                </For>
+              </div>
+
+              <InlineFieldAlert
+                id="edit-student-links-error"
+                message={linksTouched() ? linksError() : undefined}
+              />
+            </div>
 
             <p class="text-xs text-gray-500 md:col-span-2">
               La fecha se captura en hora local y se almacena con zona horaria.

@@ -15,6 +15,7 @@ const hoisted = vi.hoisted(() => {
   const create = vi.fn();
   const update = vi.fn();
   const normalizePocketBaseError = vi.fn();
+  const listFatherNamesByStudentIds = vi.fn();
 
   const pb = {
     collection: vi.fn(() => ({
@@ -33,6 +34,7 @@ const hoisted = vi.hoisted(() => {
     create,
     update,
     normalizePocketBaseError,
+    listFatherNamesByStudentIds,
     pb,
   };
 });
@@ -42,9 +44,14 @@ vi.mock('./client', () => ({
   normalizePocketBaseError: hoisted.normalizePocketBaseError,
 }));
 
+vi.mock('./students-fathers', () => ({
+  listFatherNamesByStudentIds: hoisted.listFatherNamesByStudentIds,
+}));
+
 describe('students pocketbase client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    hoisted.listFatherNamesByStudentIds.mockResolvedValue({});
   });
 
   it('lists active students and maps fields', async () => {
@@ -104,6 +111,7 @@ describe('students pocketbase client', () => {
       grade_name: 'Primero A',
       document_id: 'DOC-1',
       active: true,
+      father_names: [],
     });
   });
 
@@ -153,6 +161,7 @@ describe('students pocketbase client', () => {
     expect(result.items[0]).toMatchObject({
       id: 's1',
       grade_name: 'Primero A',
+      father_names: [],
     });
   });
 
@@ -185,6 +194,7 @@ describe('students pocketbase client', () => {
     expect(result.id).toBe('s1');
     expect(result.name).toBe('Ana');
     expect(result.grade_name).toBe('Primero A');
+    expect(result.father_names).toEqual([]);
   });
 
   it('creates student with active=true', async () => {
@@ -316,5 +326,45 @@ describe('students pocketbase client', () => {
 
     await expect(listActiveStudents()).rejects.toEqual(normalized);
     expect(hoisted.normalizePocketBaseError).toHaveBeenCalledWith(rawError);
+  });
+
+  it('logs and ignores auto-cancelled errors', async () => {
+    const rawError = new Error('aborted');
+    const normalized = { message: 'aborted', status: null, isAbort: true };
+    hoisted.getFullList.mockRejectedValue(rawError);
+    hoisted.normalizePocketBaseError.mockReturnValue(normalized);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const result = await listActiveStudents();
+
+    expect(result).toEqual([]);
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Ignoring PocketBase auto-cancelled request in listActiveStudents.',
+      normalized,
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it('logs and ignores abort-like messages even when isAbort is false', async () => {
+    const rawError = new Error('abort-like');
+    const normalized = {
+      message: 'The request was aborted (most likely autocancelled).',
+      status: null,
+      isAbort: false,
+    };
+    hoisted.getFullList.mockRejectedValue(rawError);
+    hoisted.normalizePocketBaseError.mockReturnValue(normalized);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const result = await listActiveStudents();
+
+    expect(result).toEqual([]);
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Ignoring PocketBase auto-cancelled request in listActiveStudents.',
+      normalized,
+    );
+
+    warnSpy.mockRestore();
   });
 });

@@ -15,15 +15,23 @@ import { toggleSort, type SortState } from '../lib/table/sorting';
 import { clampPage, DEFAULT_TABLE_PAGE_SIZE } from '../lib/table/pagination';
 import { isAuthUserAdmin } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
+import { listActiveFathers } from '../lib/pocketbase/fathers';
 import { listGrades } from '../lib/pocketbase/grades';
 import {
   createStudent,
+  deleteStudent,
   deactivateStudent,
   listActiveStudentsPage,
   type StudentListSortField,
   type StudentCreateInput,
   type StudentRecord,
 } from '../lib/pocketbase/students';
+import {
+  createLinksForStudent,
+  STUDENT_FATHER_RELATIONSHIPS,
+  type StudentFatherLinkInput,
+  type StudentFatherRelationship,
+} from '../lib/pocketbase/students-fathers';
 
 type StudentForm = {
   name: string;
@@ -37,6 +45,11 @@ type StudentForm = {
   blood_type: string;
   social_security: string;
   allergies: string;
+};
+
+type StudentLinkForm = {
+  fatherId: string;
+  relationship: StudentFatherRelationship;
 };
 
 const BLOOD_TYPE_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -103,6 +116,10 @@ function formatDateTime(value: unknown): string {
 function formatNumber(value: number | null): string {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
   return String(value);
+}
+
+function formatNames(values: string[]): string {
+  return values.length > 0 ? values.join(', ') : '—';
 }
 
 type StudentSortKey = StudentListSortField;
@@ -189,6 +206,53 @@ function toStudentCreateInput(form: StudentForm): StudentCreateInput {
   };
 }
 
+function createEmptyLink(): StudentLinkForm {
+  return {
+    fatherId: '',
+    relationship: 'father',
+  };
+}
+
+function validateLinks(
+  links: StudentLinkForm[],
+  hasAvailableFathers: boolean,
+): string | undefined {
+  if (!hasAvailableFathers) {
+    return 'No hay tutores activos disponibles. Debes crear un tutor antes de registrar estudiantes.';
+  }
+
+  if (links.length === 0) {
+    return 'Debes registrar al menos un tutor asociado.';
+  }
+
+  const selected = new Set<string>();
+
+  for (const link of links) {
+    if (link.fatherId.trim().length === 0) {
+      return 'Cada vínculo debe incluir un tutor.';
+    }
+
+    if (!STUDENT_FATHER_RELATIONSHIPS.includes(link.relationship)) {
+      return 'Cada vínculo debe incluir una relación válida.';
+    }
+
+    if (selected.has(link.fatherId)) {
+      return 'No se permiten tutores duplicados en los vínculos.';
+    }
+
+    selected.add(link.fatherId);
+  }
+
+  return undefined;
+}
+
+function toLinkInput(links: StudentLinkForm[]): StudentFatherLinkInput[] {
+  return links.map((link) => ({
+    fatherId: link.fatherId.trim(),
+    relationship: link.relationship,
+  }));
+}
+
 export default function EnrollmentStudentsPage() {
   const navigate = useNavigate();
   const [studentPage, setStudentPage] = createSignal(1);
@@ -196,12 +260,18 @@ export default function EnrollmentStudentsPage() {
     if (!isAuthUserAdmin()) return [];
     return listGrades();
   });
+  const [fathers] = createResource(async () => {
+    if (!isAuthUserAdmin()) return [];
+    return listActiveFathers();
+  });
 
   const [createOpen, setCreateOpen] = createSignal(false);
   const [createForm, setCreateForm] = createSignal<StudentForm>(emptyForm);
   const [createTouched, setCreateTouched] = createSignal(
     createInitialTouchedMap(STUDENT_VALIDATED_FIELDS),
   );
+  const [linksTouched, setLinksTouched] = createSignal(false);
+  const [createLinks, setCreateLinks] = createSignal<StudentLinkForm[]>([createEmptyLink()]);
   const [createBusy, setCreateBusy] = createSignal(false);
   const [createError, setCreateError] = createSignal<string | null>(null);
 
@@ -247,20 +317,70 @@ export default function EnrollmentStudentsPage() {
   };
 
   const createFieldErrors = createMemo(() => validateStudentForm(createForm()));
+  const createLinksError = createMemo(() => validateLinks(createLinks(), (fathers()?.length ?? 0) > 0));
   const fieldError = (field: StudentValidatedField) => (
     createTouched()[field] ? createFieldErrors()[field] : undefined
   );
 
+  const setCreateLinkFather = (index: number, value: string) => {
+    setCreateLinks((current) => current.map((link, linkIndex) => (
+      linkIndex === index
+        ? {
+            ...link,
+            fatherId: value,
+          }
+        : link
+    )));
+    setLinksTouched(true);
+    setCreateError(null);
+  };
+
+  const setCreateLinkRelationship = (index: number, value: string) => {
+    if (!STUDENT_FATHER_RELATIONSHIPS.includes(value as StudentFatherRelationship)) return;
+
+    setCreateLinks((current) => current.map((link, linkIndex) => (
+      linkIndex === index
+        ? {
+            ...link,
+            relationship: value as StudentFatherRelationship,
+          }
+        : link
+    )));
+    setLinksTouched(true);
+    setCreateError(null);
+  };
+
+  const addCreateLink = () => {
+    setCreateLinks((current) => [...current, createEmptyLink()]);
+    setLinksTouched(true);
+    setCreateError(null);
+  };
+
+  const removeCreateLink = (index: number) => {
+    setCreateLinks((current) => current.filter((_, linkIndex) => linkIndex !== index));
+    setLinksTouched(true);
+    setCreateError(null);
+  };
+
   const submitCreate = async () => {
     setCreateTouched((current) => touchAllFields(current));
-    if (hasAnyError(createFieldErrors())) return;
+    setLinksTouched(true);
+    if (hasAnyError(createFieldErrors()) || Boolean(createLinksError())) return;
 
     setCreateBusy(true);
     setCreateError(null);
     setActionError(null);
 
     try {
-      await createStudent(toStudentCreateInput(createForm()));
+      const created = await createStudent(toStudentCreateInput(createForm()));
+
+      try {
+        await createLinksForStudent(created.id, toLinkInput(createLinks()));
+      } catch (error) {
+        await deleteStudent(created.id);
+        throw error;
+      }
+
       await refetch();
       const totalPages = students()?.totalPages ?? 1;
       if (studentPage() > totalPages) {
@@ -269,6 +389,8 @@ export default function EnrollmentStudentsPage() {
       setCreateOpen(false);
       setCreateForm(emptyForm);
       setCreateTouched(createInitialTouchedMap(STUDENT_VALIDATED_FIELDS));
+      setCreateLinks([createEmptyLink()]);
+      setLinksTouched(false);
     } catch (error) {
       setCreateError(getErrorMessage(error));
     } finally {
@@ -282,6 +404,8 @@ export default function EnrollmentStudentsPage() {
     setCreateError(null);
     setCreateForm(emptyForm);
     setCreateTouched(createInitialTouchedMap(STUDENT_VALIDATED_FIELDS));
+    setCreateLinks([createEmptyLink()]);
+    setLinksTouched(false);
   };
 
   const closeDeleteModal = () => {
@@ -346,6 +470,8 @@ export default function EnrollmentStudentsPage() {
                 setCreateError(null);
                 setCreateForm(emptyForm);
                 setCreateTouched(createInitialTouchedMap(STUDENT_VALIDATED_FIELDS));
+                setCreateLinks([createEmptyLink()]);
+                setLinksTouched(false);
               }}
             >
               Nuevo estudiante
@@ -360,7 +486,7 @@ export default function EnrollmentStudentsPage() {
         </Show>
 
         <div class="mt-6 overflow-x-auto rounded-lg border border-yellow-200">
-          <table class="min-w-[1400px] w-full text-left text-sm">
+          <table class="min-w-[1600px] w-full text-left text-sm">
             <thead class="bg-yellow-100 text-gray-700">
               <tr>
                 <SortableHeaderCell
@@ -440,20 +566,21 @@ export default function EnrollmentStudentsPage() {
                   sort={studentSort()}
                   onSort={handleStudentSort}
                 />
+                <th class="px-4 py-3 font-semibold">Tutores asociados</th>
                 <th class="px-4 py-3 font-semibold">Acciones</th>
               </tr>
             </thead>
             <tbody>
               <Show when={!students.loading} fallback={
                 <tr>
-                  <td class="px-4 py-4 text-gray-600" colSpan={12}>
+                  <td class="px-4 py-4 text-gray-600" colSpan={13}>
                     Cargando estudiantes...
                   </td>
                 </tr>
               }>
                 <Show when={!students.error} fallback={
                   <tr>
-                    <td class="px-4 py-4 text-red-700" colSpan={12}>
+                    <td class="px-4 py-4 text-red-700" colSpan={13}>
                       {getErrorMessage(students.error)}
                     </td>
                   </tr>
@@ -462,7 +589,7 @@ export default function EnrollmentStudentsPage() {
                     when={studentRows().length > 0}
                     fallback={
                       <tr>
-                        <td class="px-4 py-4 text-gray-600" colSpan={12}>
+                        <td class="px-4 py-4 text-gray-600" colSpan={13}>
                           No hay estudiantes registrados.
                         </td>
                       </tr>
@@ -482,6 +609,7 @@ export default function EnrollmentStudentsPage() {
                           <td class="px-4 py-3">{formatText(student.blood_type)}</td>
                           <td class="px-4 py-3">{formatText(student.social_security)}</td>
                           <td class="px-4 py-3">{formatText(student.allergies)}</td>
+                          <td class="px-4 py-3">{formatNames(student.father_names)}</td>
                           <td class="px-4 py-3">
                             <div class="flex items-center gap-2">
                               <button
@@ -720,6 +848,76 @@ export default function EnrollmentStudentsPage() {
                 disabled={createBusy()}
               />
             </label>
+          </div>
+
+          <div class="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-sm font-semibold text-gray-800">Tutores asociados</h3>
+              <button
+                type="button"
+                class="rounded-md border border-yellow-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-yellow-100"
+                onClick={addCreateLink}
+                disabled={createBusy()}
+              >
+                Agregar vínculo
+              </button>
+            </div>
+
+            <div class="mt-3 space-y-2">
+              <For each={createLinks()}>
+                {(link, indexAccessor) => {
+                  const index = () => indexAccessor();
+
+                  return (
+                    <div class="grid grid-cols-1 gap-2 md:grid-cols-[1fr_180px_auto]">
+                      <select
+                        class="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                        value={link.fatherId}
+                        onChange={(event) => setCreateLinkFather(index(), event.currentTarget.value)}
+                        disabled={createBusy() || fathers.loading}
+                      >
+                        <option value="">
+                          {fathers.loading ? 'Cargando tutores...' : 'Selecciona un tutor'}
+                        </option>
+                        <For each={fathers() ?? []}>
+                          {(father) => (
+                            <option value={father.id}>{father.full_name}</option>
+                          )}
+                        </For>
+                      </select>
+
+                      <select
+                        class="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                        value={link.relationship}
+                        onChange={(event) => setCreateLinkRelationship(index(), event.currentTarget.value)}
+                        disabled={createBusy()}
+                      >
+                        <For each={STUDENT_FATHER_RELATIONSHIPS}>
+                          {(relationship) => (
+                            <option value={relationship}>{relationship}</option>
+                          )}
+                        </For>
+                      </select>
+
+                      <button
+                        type="button"
+                        class="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={() => removeCreateLink(index())}
+                        disabled={createBusy() || createLinks().length <= 1}
+                        aria-label={`Eliminar vínculo ${index() + 1}`}
+                      >
+                        <i class="bi bi-trash" aria-hidden="true"></i>
+                      </button>
+                    </div>
+                  );
+                }}
+              </For>
+            </div>
+
+            <InlineFieldAlert
+              id="create-student-links-error"
+              message={linksTouched() ? createLinksError() : undefined}
+            />
           </div>
 
           <p class="text-xs text-gray-500">

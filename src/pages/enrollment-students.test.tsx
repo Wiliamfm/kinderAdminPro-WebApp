@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
+import { fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import EnrollmentStudentsPage from './enrollment-students';
 
@@ -6,9 +6,12 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   isAuthUserAdmin: vi.fn(),
   listGrades: vi.fn(),
+  listActiveFathers: vi.fn(),
   listActiveStudentsPage: vi.fn(),
   createStudent: vi.fn(),
+  deleteStudent: vi.fn(),
   deactivateStudent: vi.fn(),
+  createLinksForStudent: vi.fn(),
 }));
 
 vi.mock('@solidjs/router', () => ({
@@ -22,14 +25,40 @@ vi.mock('../lib/pocketbase/auth', () => ({
 vi.mock('../lib/pocketbase/students', () => ({
   listActiveStudentsPage: mocks.listActiveStudentsPage,
   createStudent: mocks.createStudent,
+  deleteStudent: mocks.deleteStudent,
   deactivateStudent: mocks.deactivateStudent,
 }));
+
 vi.mock('../lib/pocketbase/grades', () => ({
   listGrades: mocks.listGrades,
 }));
 
+vi.mock('../lib/pocketbase/fathers', () => ({
+  listActiveFathers: mocks.listActiveFathers,
+}));
+
+vi.mock('../lib/pocketbase/students-fathers', () => ({
+  STUDENT_FATHER_RELATIONSHIPS: ['father', 'mother', 'other'],
+  createLinksForStudent: mocks.createLinksForStudent,
+}));
+
 const gradesFixture = [
   { id: 'g1', name: 'Primero A', capacity: 30 },
+];
+
+const fathersFixture = [
+  {
+    id: 'f1',
+    full_name: 'Carlos Perez',
+    document_id: '2001',
+    phone_number: '',
+    occupation: '',
+    company: '',
+    email: '',
+    address: '',
+    is_active: true,
+    student_names: [],
+  },
 ];
 
 const studentsFixture = [
@@ -48,6 +77,7 @@ const studentsFixture = [
     social_security: 'SSN-1',
     allergies: 'Ninguna',
     active: true,
+    father_names: ['Carlos Perez'],
   },
 ];
 
@@ -74,8 +104,11 @@ describe('EnrollmentStudentsPage', () => {
     vi.clearAllMocks();
     mocks.isAuthUserAdmin.mockReturnValue(true);
     mocks.listGrades.mockResolvedValue(gradesFixture);
+    mocks.listActiveFathers.mockResolvedValue(fathersFixture);
     mocks.listActiveStudentsPage.mockResolvedValue(studentsPageFixture);
     mocks.createStudent.mockResolvedValue(studentsFixture[0]);
+    mocks.createLinksForStudent.mockResolvedValue(undefined);
+    mocks.deleteStudent.mockResolvedValue(undefined);
     mocks.deactivateStudent.mockResolvedValue(undefined);
   });
 
@@ -89,12 +122,13 @@ describe('EnrollmentStudentsPage', () => {
     expect(mocks.listActiveStudentsPage).not.toHaveBeenCalled();
   });
 
-  it('renders students table with actions', async () => {
+  it('renders students table with associated fathers and actions', async () => {
     render(() => <EnrollmentStudentsPage />);
 
     expect(await screen.findByText('Ana')).toBeInTheDocument();
     expect(screen.getByText('Primero A')).toBeInTheDocument();
-    expect(screen.getByText('Documento')).toBeInTheDocument();
+    expect(screen.getByText('Tutores asociados')).toBeInTheDocument();
+    expect(screen.getByText('Carlos Perez')).toBeInTheDocument();
     expect(screen.getByLabelText('Editar estudiante Ana')).toBeInTheDocument();
     expect(screen.getByLabelText('Eliminar estudiante Ana')).toBeInTheDocument();
   });
@@ -112,7 +146,7 @@ describe('EnrollmentStudentsPage', () => {
     });
   });
 
-  it('creates a student from modal', async () => {
+  it('creates a student and links at least one tutor from modal', async () => {
     render(() => <EnrollmentStudentsPage />);
     await screen.findByText('Ana');
 
@@ -126,6 +160,14 @@ describe('EnrollmentStudentsPage', () => {
     fireEvent.input(screen.getByLabelText('Documento'), { target: { value: '1002' } });
     fireEvent.change(screen.getByLabelText('Grado'), { target: { value: 'g1' } });
     fireEvent.change(screen.getByLabelText('Tipo de sangre'), { target: { value: 'A+' } });
+
+    const fatherSelect = screen
+      .getAllByRole('combobox')
+      .find((element) => within(element).queryByRole('option', { name: 'Carlos Perez' }));
+    if (!fatherSelect) {
+      throw new Error('Father select was not found');
+    }
+    fireEvent.change(fatherSelect, { target: { value: 'f1' } });
 
     fireEvent.click(screen.getAllByText('Crear estudiante')[1]);
 
@@ -141,6 +183,15 @@ describe('EnrollmentStudentsPage', () => {
           date_of_birth: expect.stringMatching(/Z$/),
         }),
       );
+    });
+
+    await waitFor(() => {
+      expect(mocks.createLinksForStudent).toHaveBeenCalledWith('s1', [
+        {
+          fatherId: 'f1',
+          relationship: 'father',
+        },
+      ]);
     });
   });
 
@@ -166,6 +217,28 @@ describe('EnrollmentStudentsPage', () => {
     fireEvent.click(screen.getAllByText('Crear estudiante')[1]);
 
     expect(await screen.findByText('El estudiante debe tener al menos 2 años.')).toBeInTheDocument();
+    expect(mocks.createStudent).not.toHaveBeenCalled();
+  });
+
+  it('blocks create when there are no active tutors', async () => {
+    mocks.listActiveFathers.mockResolvedValue([]);
+    render(() => <EnrollmentStudentsPage />);
+    await screen.findByText('Ana');
+
+    fireEvent.click(screen.getByText('Nuevo estudiante'));
+    await screen.findByRole('heading', { name: 'Crear estudiante' });
+
+    fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'Luis' } });
+    fireEvent.input(screen.getByLabelText('Fecha de nacimiento'), { target: { value: '2016-01-10T08:30' } });
+    fireEvent.input(screen.getByLabelText('Lugar de nacimiento'), { target: { value: 'Bogota' } });
+    fireEvent.input(screen.getByLabelText('Departamento'), { target: { value: 'Cundinamarca' } });
+    fireEvent.input(screen.getByLabelText('Documento'), { target: { value: '1002' } });
+    fireEvent.change(screen.getByLabelText('Grado'), { target: { value: 'g1' } });
+    fireEvent.change(screen.getByLabelText('Tipo de sangre'), { target: { value: 'A+' } });
+
+    fireEvent.click(screen.getAllByText('Crear estudiante')[1]);
+
+    expect(await screen.findByText(/No hay tutores activos disponibles/)).toBeInTheDocument();
     expect(mocks.createStudent).not.toHaveBeenCalled();
   });
 
@@ -241,6 +314,7 @@ describe('EnrollmentStudentsPage', () => {
             id: 's2',
             name: 'Bruno',
             document_id: '1002',
+            father_names: ['Laura'],
           },
         ],
         page: 2,

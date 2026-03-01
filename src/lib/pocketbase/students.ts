@@ -1,5 +1,6 @@
 import pb, { normalizePocketBaseError } from './client';
 import type { PaginatedListResult } from '../table/pagination';
+import { listFatherNamesByStudentIds } from './students-fathers';
 
 export type StudentRecord = {
   id: string;
@@ -16,6 +17,7 @@ export type StudentRecord = {
   social_security: string;
   allergies: string;
   active: boolean;
+  father_names: string[];
 };
 
 export type StudentCreateInput = {
@@ -132,7 +134,18 @@ function mapStudentRecord(
     social_security: toStringValue(record.get?.('social_security') ?? record.social_security),
     allergies: toStringValue(record.get?.('allergies') ?? record.allergies),
     active: toActiveValue(record.get?.('active') ?? record.active),
+    father_names: [],
   };
+}
+
+async function withAssociatedFatherNames(items: StudentRecord[]): Promise<StudentRecord[]> {
+  if (items.length === 0) return [];
+
+  const namesByStudentId = await listFatherNamesByStudentIds(items.map((item) => item.id));
+  return items.map((item) => ({
+    ...item,
+    father_names: namesByStudentId[item.id] ?? [],
+  }));
 }
 
 function mapStudentPayload(payload: StudentCreateInput | StudentUpdateInput): PbStudentPayload {
@@ -179,9 +192,23 @@ export async function listActiveStudents(): Promise<StudentRecord[]> {
       sort: 'name',
       expand: 'grade_id',
     });
-    return records.map((record) => mapStudentRecord(record)).filter((record) => record.active);
+    const activeRecords = records
+      .map((record) => mapStudentRecord(record))
+      .filter((record) => record.active);
+    return withAssociatedFatherNames(activeRecords);
   } catch (error) {
-    throw normalizePocketBaseError(error);
+    const normalized = normalizePocketBaseError(error);
+    const message = normalized.message.toLowerCase();
+    const isAbortLike = normalized.isAbort
+      || message.includes('request was aborted')
+      || message.includes('autocancel');
+
+    if (isAbortLike) {
+      console.warn('Ignoring PocketBase auto-cancelled request in listActiveStudents.', normalized);
+      return [];
+    }
+
+    throw normalized;
   }
 }
 
@@ -198,9 +225,12 @@ export async function listActiveStudentsPage(
       filter: 'active = true',
       expand: 'grade_id',
     });
+    const items = await withAssociatedFatherNames(
+      result.items.map((record) => mapStudentRecord(record)),
+    );
 
     return {
-      items: result.items.map((record) => mapStudentRecord(record)),
+      items,
       page: result.page,
       perPage: result.perPage,
       totalItems: result.totalItems,
@@ -216,7 +246,12 @@ export async function getStudentById(id: string): Promise<StudentRecord> {
     const record = await pb.collection('students').getOne(id, {
       expand: 'grade_id',
     });
-    return mapStudentRecord(record);
+    const mapped = mapStudentRecord(record);
+    const namesByStudentId = await listFatherNamesByStudentIds([id]);
+    return {
+      ...mapped,
+      father_names: namesByStudentId[id] ?? [],
+    };
   } catch (error) {
     throw normalizePocketBaseError(error);
   }
@@ -253,6 +288,14 @@ export async function updateStudent(id: string, payload: StudentUpdateInput): Pr
 export async function deactivateStudent(id: string): Promise<void> {
   try {
     await pb.collection('students').update(id, { active: false });
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
+export async function deleteStudent(id: string): Promise<void> {
+  try {
+    await pb.collection('students').delete(id);
   } catch (error) {
     throw normalizePocketBaseError(error);
   }

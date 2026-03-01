@@ -1,6 +1,6 @@
 # Architecture Reference
 
-Last updated: 2026-02-26
+Last updated: 2026-03-01
 
 ## Purpose
 Provide a stable technical reference for module responsibilities, data flow, and key design constraints.
@@ -152,6 +152,45 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - Routing:
   - `/enrollment-management/students`,
   - `/enrollment-management/students/:id`.
+
+## Fathers Data Model
+- `fathers` collection stores student parent/tutor records with admin-only access.
+- Access rules:
+  - `listRule`, `viewRule`, `createRule`, `updateRule`, `deleteRule`: `@request.auth.is_admin = true`.
+- Fields:
+  - `full_name` (required text),
+  - `document_id` (required text, unique index),
+  - `phone_number` (optional text),
+  - `occupation` (optional text),
+  - `company` (optional text),
+  - `email` (optional email, non-unique),
+  - `address` (optional text),
+  - `is_active` (optional bool used for soft delete, where active lists filter `is_active != false`).
+- Indexes:
+  - `CREATE UNIQUE INDEX idx_fathers_document_id ON fathers (document_id)`.
+- Frontend modules:
+  - list/create/soft-delete page: `src/pages/enrollment-tutors.tsx`,
+  - edit page: `src/pages/enrollment-tutor-edit.tsx`,
+  - wrapper/API access: `src/lib/pocketbase/fathers.ts`.
+- Routing:
+  - `/enrollment-management/tutors`,
+  - `/enrollment-management/tutors/:id`.
+
+## Student-Father Relation Model
+- `students_fathers` collection models n:n links between `students` and `fathers`.
+- Access rules:
+  - `listRule`, `viewRule`, `createRule`, `updateRule`, `deleteRule`: `@request.auth.is_admin = true`.
+- Fields:
+  - `student_id` (required relation to `students`, `maxSelect = 1`),
+  - `father_id` (required relation to `fathers`, `maxSelect = 1`),
+  - `relationship` (required single select: `father`, `mother`, `other`).
+- Indexes:
+  - `CREATE UNIQUE INDEX idx_students_fathers_student_father ON students_fathers (student_id, father_id)`,
+  - `CREATE INDEX idx_students_fathers_father_id ON students_fathers (father_id)`.
+- Frontend usage:
+  - relation management helpers live in `src/lib/pocketbase/students-fathers.ts`,
+  - student and tutor create/edit forms use repeatable link rows (`counterpart + relationship`),
+  - both flows enforce at least one linked counterpart on create and edit.
 
 ## Grades Data Model
 - `grades` collection stores enrollment grades with admin-only access.

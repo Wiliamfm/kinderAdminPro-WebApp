@@ -1,6 +1,6 @@
 # Project Overview
 
-Last updated: 2026-02-26
+Last updated: 2026-03-01
 
 ## Purpose
 This application is a SolidJS frontend for staff and operational management workflows backed by PocketBase.
@@ -41,6 +41,16 @@ Primary functional areas exposed through routes:
   - create student records from modal form,
   - edit records in dedicated route,
   - soft delete via `active = false`.
+- Manage student-family data in PocketBase:
+  - `fathers` collection stores parent/tutor identity and contact data,
+  - admin-only CRUD access for `fathers`,
+  - required `full_name` and unique `document_id`,
+  - soft delete via `is_active = false`,
+  - optional duplicated `email`,
+  - `students_fathers` collection models n:n student-parent links,
+  - each link requires `student_id`, `father_id`, and `relationship` (`father`, `mother`, `other`),
+  - duplicate `student_id` + `father_id` pairs are blocked by unique index,
+  - student and tutor create/edit flows require at least one linked counterpart.
 - Manage enrollment grades data in PocketBase `grades` collection:
   - admin-only CRUD access,
   - unique `name`,
