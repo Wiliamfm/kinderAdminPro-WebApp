@@ -36,6 +36,8 @@ const employeeFixture = {
   emergency_contact: 'Luis',
   userId: 'u1',
   active: true,
+  cvFileName: 'ana_cv.pdf',
+  cvUrl: 'https://files/ana_cv.pdf',
 };
 
 describe('StaffEmployeeEditPage', () => {
@@ -86,5 +88,61 @@ describe('StaffEmployeeEditPage', () => {
       );
     });
     expect(mocks.navigate).toHaveBeenCalledWith('/staff-management/employees', { replace: true });
+  });
+
+  it('renders current cv link when available', async () => {
+    render(() => <StaffEmployeeEditPage />);
+
+    const cvLink = await screen.findByRole('link', { name: 'Ver CV' });
+    expect(cvLink).toHaveAttribute('href', 'https://files/ana_cv.pdf');
+    const cvDownload = screen.getByLabelText('Descargar CV actual');
+    expect(cvDownload).toHaveAttribute('href', 'https://files/ana_cv.pdf');
+  });
+
+  it('updates employee with optional cv replacement file', async () => {
+    render(() => <StaffEmployeeEditPage />);
+    await screen.findByDisplayValue('Ana');
+
+    const cvInput = screen.getByLabelText('Reemplazar hoja de vida (PDF, opcional)') as HTMLInputElement;
+    const cvFile = new File(['pdf-content'], 'new_cv.pdf', { type: 'application/pdf' });
+    fireEvent.change(cvInput, { target: { files: [cvFile] } });
+    fireEvent.click(screen.getByText('Guardar cambios'));
+
+    await waitFor(() => {
+      expect(mocks.updateEmployee).toHaveBeenCalledWith(
+        'e1',
+        expect.objectContaining({
+          cv: cvFile,
+        }),
+      );
+    });
+  });
+
+  it('blocks save when cv replacement is not a pdf', async () => {
+    render(() => <StaffEmployeeEditPage />);
+    await screen.findByDisplayValue('Ana');
+
+    const cvInput = screen.getByLabelText('Reemplazar hoja de vida (PDF, opcional)') as HTMLInputElement;
+    const invalidFile = new File(['text'], 'cv.txt', { type: 'text/plain' });
+    fireEvent.change(cvInput, { target: { files: [invalidFile] } });
+    fireEvent.click(screen.getByText('Guardar cambios'));
+
+    expect(await screen.findByText('Solo se permiten archivos PDF.')).toBeInTheDocument();
+    expect(mocks.updateEmployee).not.toHaveBeenCalled();
+  });
+
+  it('blocks save when cv replacement exceeds max size', async () => {
+    render(() => <StaffEmployeeEditPage />);
+    await screen.findByDisplayValue('Ana');
+
+    const cvInput = screen.getByLabelText('Reemplazar hoja de vida (PDF, opcional)') as HTMLInputElement;
+    const largePdf = new File(['a'.repeat(10 * 1024 * 1024 + 1)], 'cv.pdf', {
+      type: 'application/pdf',
+    });
+    fireEvent.change(cvInput, { target: { files: [largePdf] } });
+    fireEvent.click(screen.getByText('Guardar cambios'));
+
+    expect(await screen.findByText('El archivo PDF debe pesar máximo 10 MB.')).toBeInTheDocument();
+    expect(mocks.updateEmployee).not.toHaveBeenCalled();
   });
 });

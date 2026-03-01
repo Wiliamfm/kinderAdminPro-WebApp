@@ -13,6 +13,8 @@ export type EmployeeRecord = {
   jobId: string;
   jobName: string;
   jobSalary: number | string;
+  cvFileName: string;
+  cvUrl: string | null;
 };
 
 export type EmployeeUpdateInput = {
@@ -22,6 +24,7 @@ export type EmployeeUpdateInput = {
   address: string;
   emergency_contact: string;
   jobId: string;
+  cv?: File | null;
 };
 
 export type EmployeeCreateInput = EmployeeUpdateInput & {
@@ -57,8 +60,30 @@ type PbEmployeeCreatePayload = {
   active: boolean;
 };
 
+type PbEmployeeUpdatePayload = {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  emergency_contact: string;
+  job_id: string;
+};
+
 function toStringValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function toFileNameValue(value: unknown): string {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+
+  if (Array.isArray(value)) {
+    const firstValid = value.find((entry) => typeof entry === 'string' && entry.trim().length > 0);
+    return typeof firstValid === 'string' ? firstValid.trim() : '';
+  }
+
+  return '';
 }
 
 function toSalaryValue(value: unknown): number | string {
@@ -103,6 +128,7 @@ function mapEmployeeRecord(
   record: Record<string, unknown> & { id: string; get?: (key: string) => unknown },
 ): EmployeeRecord {
   const expandedJob = getExpandedJob(record);
+  const cvFileName = toFileNameValue(record.get?.('cv') ?? record.cv);
 
   return {
     id: record.id,
@@ -116,6 +142,8 @@ function mapEmployeeRecord(
     jobId: toStringValue(record.get?.('job_id') ?? record.job_id),
     jobName: toStringValue(expandedJob?.name),
     jobSalary: toSalaryValue(expandedJob?.salary),
+    cvFileName,
+    cvUrl: cvFileName.length > 0 ? pb.files.getURL(record, cvFileName) : null,
   };
 }
 
@@ -130,6 +158,29 @@ function mapEmployeeCreatePayload(payload: EmployeeCreateInput): PbEmployeeCreat
     job_id: payload.jobId,
     active: true,
   };
+}
+
+function mapEmployeeUpdatePayload(payload: EmployeeUpdateInput): PbEmployeeUpdatePayload {
+  return {
+    name: payload.name,
+    email: payload.email,
+    phone: payload.phone,
+    address: payload.address,
+    emergency_contact: payload.emergency_contact,
+    job_id: payload.jobId,
+  };
+}
+
+function buildFormDataPayload(
+  payload: PbEmployeeCreatePayload | PbEmployeeUpdatePayload,
+  cvFile: File,
+): FormData {
+  const formData = new FormData();
+  for (const [key, value] of Object.entries(payload)) {
+    formData.set(key, String(value));
+  }
+  formData.set('cv', cvFile);
+  return formData;
 }
 
 const EMPLOYEE_SORT_FIELD_MAP: Record<EmployeeListSortField, string> = {
@@ -201,7 +252,11 @@ export async function getEmployeeById(id: string): Promise<EmployeeRecord> {
 
 export async function createEmployee(payload: EmployeeCreateInput): Promise<EmployeeRecord> {
   try {
-    const record = await pb.collection('employees').create(mapEmployeeCreatePayload(payload), {
+    const mappedPayload = mapEmployeeCreatePayload(payload);
+    const createPayload = payload.cv
+      ? buildFormDataPayload(mappedPayload, payload.cv)
+      : mappedPayload;
+    const record = await pb.collection('employees').create(createPayload, {
       expand: 'job_id',
     });
     return mapEmployeeRecord(record);
@@ -212,12 +267,13 @@ export async function createEmployee(payload: EmployeeCreateInput): Promise<Empl
 
 export async function updateEmployee(id: string, payload: EmployeeUpdateInput): Promise<EmployeeRecord> {
   try {
+    const mappedPayload = mapEmployeeUpdatePayload(payload);
+    const updatePayload = payload.cv
+      ? buildFormDataPayload(mappedPayload, payload.cv)
+      : mappedPayload;
     const record = await pb.collection('employees').update(
       id,
-      {
-        ...payload,
-        job_id: payload.jobId,
-      },
+      updatePayload,
       {
         expand: 'job_id',
       },

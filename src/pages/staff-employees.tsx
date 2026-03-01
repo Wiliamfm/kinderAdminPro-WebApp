@@ -69,10 +69,14 @@ type CreateEmployeeField = (typeof CREATE_EMPLOYEE_FIELDS)[number];
 const LEAVE_FIELDS = ['start_datetime', 'end_datetime'] as const;
 type LeaveField = (typeof LEAVE_FIELDS)[number];
 
+const CREATE_CV_FIELDS = ['cv'] as const;
+type CreateCvField = (typeof CREATE_CV_FIELDS)[number];
+
 const INVOICE_FIELDS = ['file'] as const;
 type InvoiceField = (typeof INVOICE_FIELDS)[number];
 
 const PHONE_REGEX = /^[+\d\s()-]{7,20}$/;
+const MAX_PDF_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
 function formatSalary(value: number | string): string {
   if (typeof value === 'number') {
@@ -219,6 +223,15 @@ function validateLeaveForm(current: LeaveCreateInput): FieldErrorMap<LeaveField>
   return errors;
 }
 
+function isPdfFile(file: File): boolean {
+  if (file.type === 'application/pdf') return true;
+  return file.name.toLowerCase().endsWith('.pdf');
+}
+
+function isFileWithinLimit(file: File, maxSizeBytes: number): boolean {
+  return file.size <= maxSizeBytes;
+}
+
 export default function StaffEmployeesPage() {
   const navigate = useNavigate();
   const canManageAdminActions = () => isAuthUserAdmin();
@@ -251,6 +264,10 @@ export default function StaffEmployeesPage() {
   const [createTouched, setCreateTouched] = createSignal(
     createInitialTouchedMap(CREATE_EMPLOYEE_FIELDS),
   );
+  const [createCvFile, setCreateCvFile] = createSignal<File | null>(null);
+  const [createCvTouched, setCreateCvTouched] = createSignal(
+    createInitialTouchedMap(CREATE_CV_FIELDS),
+  );
   const [resendBusyEmployeeId, setResendBusyEmployeeId] = createSignal<string | null>(null);
   const [inviteNotice, setInviteNotice] = createSignal<string | null>(null);
   const [leaveTarget, setLeaveTarget] = createSignal<EmployeeRecord | null>(null);
@@ -272,6 +289,7 @@ export default function StaffEmployeesPage() {
     createInitialTouchedMap(INVOICE_FIELDS),
   );
   const [editingInvoice, setEditingInvoice] = createSignal<InvoiceRecord | null>(null);
+  let createCvInputRef: HTMLInputElement | undefined;
   let invoiceFileInputRef: HTMLInputElement | undefined;
 
   const [leaves, { refetch: refetchLeaves }] = createResource(
@@ -333,6 +351,9 @@ export default function StaffEmployeesPage() {
     setCreateInviteWarning(null);
     setCreateForm(emptyCreateEmployeeForm);
     setCreateTouched(createInitialTouchedMap(CREATE_EMPLOYEE_FIELDS));
+    setCreateCvFile(null);
+    setCreateCvTouched(createInitialTouchedMap(CREATE_CV_FIELDS));
+    if (createCvInputRef) createCvInputRef.value = '';
   };
 
   const closeCreateEmployeeModal = () => {
@@ -342,6 +363,9 @@ export default function StaffEmployeesPage() {
     setCreateInviteWarning(null);
     setCreateForm(emptyCreateEmployeeForm);
     setCreateTouched(createInitialTouchedMap(CREATE_EMPLOYEE_FIELDS));
+    setCreateCvFile(null);
+    setCreateCvTouched(createInitialTouchedMap(CREATE_CV_FIELDS));
+    if (createCvInputRef) createCvInputRef.value = '';
   };
 
   const setCreateField = (field: keyof EmployeeCreateForm, value: string) => {
@@ -356,6 +380,28 @@ export default function StaffEmployeesPage() {
   const createFieldError = (field: CreateEmployeeField) => (
     createTouched()[field] ? createFieldErrors()[field] : undefined
   );
+  const setCreateCvField = (file: File | null) => {
+    setCreateCvFile(file);
+    setCreateCvTouched((current) => touchField(current, 'cv'));
+    setCreateError(null);
+  };
+  const createCvFieldErrors = createMemo(() => {
+    const errors: FieldErrorMap<CreateCvField> = {};
+    const file = createCvFile();
+    if (!file) return errors;
+
+    if (!isPdfFile(file)) {
+      errors.cv = 'Solo se permiten archivos PDF.';
+      return errors;
+    }
+
+    if (!isFileWithinLimit(file, MAX_PDF_FILE_SIZE_BYTES)) {
+      errors.cv = 'El archivo PDF debe pesar máximo 10 MB.';
+    }
+
+    return errors;
+  });
+  const createCvFieldError = () => (createCvTouched().cv ? createCvFieldErrors().cv : undefined);
 
   const submitCreateEmployee = async () => {
     if (!canManageAdminActions()) {
@@ -364,8 +410,11 @@ export default function StaffEmployeesPage() {
     }
 
     setCreateTouched((current) => touchAllFields(current));
+    setCreateCvTouched((current) => touchAllFields(current));
     if (hasAnyError(createFieldErrors())) return;
+    if (hasAnyError(createCvFieldErrors())) return;
     const validated = toCreateEmployeeInput(createForm());
+    const cv = createCvFile();
 
     setCreateBusy(true);
     setCreateError(null);
@@ -381,6 +430,7 @@ export default function StaffEmployeesPage() {
       await createEmployee({
         ...validated,
         userId: createdUser.id,
+        cv: cv ?? undefined,
       });
 
       try {
@@ -400,6 +450,9 @@ export default function StaffEmployeesPage() {
       setCreateModalOpen(false);
       setCreateForm(emptyCreateEmployeeForm);
       setCreateTouched(createInitialTouchedMap(CREATE_EMPLOYEE_FIELDS));
+      setCreateCvFile(null);
+      setCreateCvTouched(createInitialTouchedMap(CREATE_CV_FIELDS));
+      if (createCvInputRef) createCvInputRef.value = '';
     } catch (error) {
       setCreateError(getErrorMessage(error));
     } finally {
@@ -596,11 +649,6 @@ export default function StaffEmployeesPage() {
     }
   };
 
-  const isPdfFile = (file: File): boolean => {
-    if (file.type === 'application/pdf') return true;
-    return file.name.toLowerCase().endsWith('.pdf');
-  };
-
   const validateInvoiceFile = (): File | null => {
     const file = invoiceFile();
     if (!file) {
@@ -782,7 +830,7 @@ export default function StaffEmployeesPage() {
         </Show>
 
         <div class="mt-6 overflow-x-auto rounded-lg border border-yellow-200">
-          <table class="min-w-[980px] w-full text-left text-sm">
+          <table class="min-w-[1080px] w-full text-left text-sm">
             <thead class="bg-yellow-100 text-gray-700">
               <tr>
                 <SortableHeaderCell
@@ -834,13 +882,14 @@ export default function StaffEmployeesPage() {
                   sort={employeeSort()}
                   onSort={handleEmployeeSort}
                 />
+                <th class="px-4 py-3 font-semibold">CV</th>
                 <th class="px-4 py-3 font-semibold">Acciones</th>
               </tr>
             </thead>
             <tbody>
               <Show when={!employees.loading} fallback={
                 <tr>
-                  <td class="px-4 py-4 text-gray-600" colSpan={8}>
+                  <td class="px-4 py-4 text-gray-600" colSpan={9}>
                     Cargando personal...
                   </td>
                 </tr>
@@ -849,7 +898,7 @@ export default function StaffEmployeesPage() {
                   when={employeeRows().length > 0}
                   fallback={
                     <tr>
-                      <td class="px-4 py-4 text-gray-600" colSpan={8}>
+                      <td class="px-4 py-4 text-gray-600" colSpan={9}>
                         No hay empleados registrados.
                       </td>
                     </tr>
@@ -866,6 +915,23 @@ export default function StaffEmployeesPage() {
                         <td class="px-4 py-3">{formatText(employee.address)}</td>
                         <td class="px-4 py-3">{formatText(employee.emergency_contact)}</td>
                         <td class="px-4 py-3">
+                          <Show
+                            when={employee.cvUrl}
+                            fallback={<span class="text-gray-500">—</span>}
+                          >
+                            {(cvUrl) => (
+                              <a
+                                href={cvUrl()}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="font-medium text-blue-700 underline hover:text-blue-800"
+                              >
+                                Ver CV
+                              </a>
+                            )}
+                          </Show>
+                        </td>
+                        <td class="px-4 py-3">
                           <div class="flex items-center gap-2">
                             <button
                               type="button"
@@ -877,6 +943,21 @@ export default function StaffEmployeesPage() {
                             </button>
 
                             <Show when={canManageAdminActions()}>
+                              <Show when={employee.cvUrl}>
+                                {(cvUrl) => (
+                                  <a
+                                    href={cvUrl()}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    download={employee.cvFileName || undefined}
+                                    class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-cyan-300 bg-cyan-50 text-cyan-700 transition-colors hover:bg-cyan-100"
+                                    aria-label={`Descargar CV de ${employee.name || 'empleado'}`}
+                                  >
+                                    <i class="bi bi-download" aria-hidden="true"></i>
+                                  </a>
+                                )}
+                              </Show>
+
                               <button
                                 type="button"
                                 class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-blue-300 bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100"
@@ -1052,7 +1133,28 @@ export default function StaffEmployeesPage() {
                   message={createFieldError('emergency_contact')}
                 />
               </label>
+              <label class="block md:col-span-2">
+                <span class="text-sm text-gray-700">Hoja de vida (PDF, opcional)</span>
+                <input
+                  ref={createCvInputRef}
+                  class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-yellow-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-yellow-900 hover:file:bg-yellow-200"
+                  classList={{ 'field-input-invalid': !!createCvFieldError() }}
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(event) => setCreateCvField(event.currentTarget.files?.[0] ?? null)}
+                  disabled={createBusy()}
+                  aria-invalid={!!createCvFieldError()}
+                  aria-describedby={createCvFieldError() ? 'create-employee-cv-error' : undefined}
+                />
+                <InlineFieldAlert id="create-employee-cv-error" message={createCvFieldError()} />
+              </label>
             </div>
+
+            <Show when={createCvFile()}>
+              <p class="text-xs text-gray-600">
+                Archivo seleccionado: {createCvFile()?.name}
+              </p>
+            </Show>
 
             <Show when={createError()}>
               <div class="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">

@@ -57,10 +57,13 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - Data flow for create:
   - `users.create` via `src/lib/pocketbase/users.ts` (`is_admin` forced to `false`),
   - `employees.create` via `src/lib/pocketbase/employees.ts` with relations `user_id` and `job_id`,
+  - optional `employees.cv` upload (PDF only, max 10 MB),
   - onboarding trigger via `users.requestPasswordReset`.
 - Recovery behavior:
   - if invite email fails, created records are kept,
   - admin can resend onboarding from the employee row action.
+- Employee list table includes a `CV` column that renders `Ver CV` when a file exists.
+- Employee edit route (`src/pages/staff-employee-edit.tsx`) allows optional CV replacement.
 - Onboarding routes:
   - `/auth/set-password` confirms password-reset token and sets initial password.
 

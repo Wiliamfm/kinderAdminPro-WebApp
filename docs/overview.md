@@ -28,8 +28,12 @@ Primary functional areas exposed through routes:
   - create linked auth user (`users`) with default `is_admin = false`,
   - persist `employees.user_id` relation,
   - persist `employees.job_id` relation,
+  - optionally upload `employees.cv` (PDF only, max 10 MB),
   - send password setup email,
   - allow admin resend of onboarding invite.
+- Update employees from `/staff-management/employees/:id`:
+  - keep existing CV when no new file is selected,
+  - optionally replace CV with a new PDF file.
 - Manage employee leaves from the employee list modal:
   - create leave,
   - edit existing leave,

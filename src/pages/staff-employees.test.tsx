@@ -82,6 +82,8 @@ const employee = {
   emergency_contact: 'Luis',
   active: true,
   userId: 'u1',
+  cvFileName: '',
+  cvUrl: null,
 };
 
 const emptyLeavesPage = {
@@ -157,6 +159,8 @@ describe('StaffEmployeesPage features', () => {
       emergency_contact: 'Maria',
       active: true,
       userId: 'u2',
+      cvFileName: '',
+      cvUrl: null,
     });
     mocks.sendUserOnboardingEmails.mockResolvedValue(undefined);
     mocks.resendUserOnboarding.mockResolvedValue(undefined);
@@ -233,6 +237,27 @@ describe('StaffEmployeesPage features', () => {
     });
   });
 
+  it('renders employee cv download link when cv is available', async () => {
+    mocks.listActiveEmployeesPage.mockResolvedValue({
+      ...employeePageFixture,
+      items: [
+        {
+          ...employee,
+          cvFileName: 'ana_cv.pdf',
+          cvUrl: 'https://files/ana_cv.pdf',
+        },
+      ],
+    });
+
+    render(() => <StaffEmployeesPage />);
+    await screen.findByText('Ana');
+
+    const cvLink = screen.getByRole('link', { name: 'Ver CV' });
+    expect(cvLink).toHaveAttribute('href', 'https://files/ana_cv.pdf');
+    const cvAction = screen.getByLabelText('Descargar CV de Ana');
+    expect(cvAction).toHaveAttribute('href', 'https://files/ana_cv.pdf');
+  });
+
   it('hides admin actions for non-admin users', async () => {
     mocks.isAuthUserAdmin.mockReturnValue(false);
     render(() => <StaffEmployeesPage />);
@@ -276,6 +301,40 @@ describe('StaffEmployeesPage features', () => {
     });
     await waitFor(() => {
       expect(mocks.sendUserOnboardingEmails).toHaveBeenCalledWith('new@test.com');
+    });
+  });
+
+  it('creates employee with optional cv pdf file', async () => {
+    render(() => <StaffEmployeesPage />);
+    await screen.findByText('Ana');
+
+    fireEvent.click(screen.getByText('Nuevo empleado'));
+    await screen.findByRole('heading', { name: 'Crear empleado' });
+
+    fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'New Employee' } });
+    fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'j1' } });
+    fireEvent.input(screen.getByLabelText('Correo'), { target: { value: 'new@test.com' } });
+    fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: '3001234' } });
+    fireEvent.input(screen.getByLabelText('Dirección'), { target: { value: 'Calle 9' } });
+    fireEvent.input(screen.getByLabelText('Contacto de emergencia'), { target: { value: 'Maria' } });
+
+    const cvInput = screen.getByLabelText('Hoja de vida (PDF, opcional)') as HTMLInputElement;
+    const cvFile = new File(['pdf-content'], 'cv.pdf', { type: 'application/pdf' });
+    fireEvent.change(cvInput, { target: { files: [cvFile] } });
+
+    fireEvent.click(screen.getAllByText('Crear empleado')[1]);
+
+    await waitFor(() => {
+      expect(mocks.createEmployee).toHaveBeenCalledWith({
+        name: 'New Employee',
+        jobId: 'j1',
+        email: 'new@test.com',
+        phone: '3001234',
+        address: 'Calle 9',
+        emergency_contact: 'Maria',
+        userId: 'u2',
+        cv: cvFile,
+      });
     });
   });
 
@@ -333,6 +392,50 @@ describe('StaffEmployeesPage features', () => {
       await screen.findByText('El teléfono debe tener entre 7 y 20 caracteres válidos.'),
     ).toBeInTheDocument();
     expect(mocks.createEmployeeUser).not.toHaveBeenCalled();
+  });
+
+  it('blocks create employee submit when cv file is not pdf', async () => {
+    render(() => <StaffEmployeesPage />);
+    await screen.findByText('Ana');
+
+    fireEvent.click(screen.getByText('Nuevo empleado'));
+    fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'New Employee' } });
+    fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'j1' } });
+    fireEvent.input(screen.getByLabelText('Correo'), { target: { value: 'new@test.com' } });
+    fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: '3001234' } });
+    fireEvent.input(screen.getByLabelText('Dirección'), { target: { value: 'Calle 9' } });
+    fireEvent.input(screen.getByLabelText('Contacto de emergencia'), { target: { value: 'Maria' } });
+    const cvInput = screen.getByLabelText('Hoja de vida (PDF, opcional)') as HTMLInputElement;
+    const invalidFile = new File(['text'], 'cv.txt', { type: 'text/plain' });
+    fireEvent.change(cvInput, { target: { files: [invalidFile] } });
+    fireEvent.click(screen.getAllByText('Crear empleado')[1]);
+
+    expect(await screen.findByText('Solo se permiten archivos PDF.')).toBeInTheDocument();
+    expect(mocks.createEmployeeUser).not.toHaveBeenCalled();
+    expect(mocks.createEmployee).not.toHaveBeenCalled();
+  });
+
+  it('blocks create employee submit when cv pdf exceeds max size', async () => {
+    render(() => <StaffEmployeesPage />);
+    await screen.findByText('Ana');
+
+    fireEvent.click(screen.getByText('Nuevo empleado'));
+    fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'New Employee' } });
+    fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'j1' } });
+    fireEvent.input(screen.getByLabelText('Correo'), { target: { value: 'new@test.com' } });
+    fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: '3001234' } });
+    fireEvent.input(screen.getByLabelText('Dirección'), { target: { value: 'Calle 9' } });
+    fireEvent.input(screen.getByLabelText('Contacto de emergencia'), { target: { value: 'Maria' } });
+    const cvInput = screen.getByLabelText('Hoja de vida (PDF, opcional)') as HTMLInputElement;
+    const largePdf = new File(['a'.repeat(10 * 1024 * 1024 + 1)], 'cv.pdf', {
+      type: 'application/pdf',
+    });
+    fireEvent.change(cvInput, { target: { files: [largePdf] } });
+    fireEvent.click(screen.getAllByText('Crear empleado')[1]);
+
+    expect(await screen.findByText('El archivo PDF debe pesar máximo 10 MB.')).toBeInTheDocument();
+    expect(mocks.createEmployeeUser).not.toHaveBeenCalled();
+    expect(mocks.createEmployee).not.toHaveBeenCalled();
   });
 
   it('opens leaves modal with form and table', async () => {

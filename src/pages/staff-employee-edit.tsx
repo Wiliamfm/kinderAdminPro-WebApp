@@ -63,6 +63,9 @@ const REQUIRED_FIELDS = [
   'emergency_contact',
 ] as const;
 type RequiredField = (typeof REQUIRED_FIELDS)[number];
+const CV_FIELDS = ['cv'] as const;
+type CvField = (typeof CV_FIELDS)[number];
+const MAX_PDF_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
 function validateForm(current: EmployeeUpdateInput): FieldErrorMap<RequiredField> {
   const errors: FieldErrorMap<RequiredField> = {};
@@ -79,6 +82,15 @@ function validateForm(current: EmployeeUpdateInput): FieldErrorMap<RequiredField
   return errors;
 }
 
+function isPdfFile(file: File): boolean {
+  if (file.type === 'application/pdf') return true;
+  return file.name.toLowerCase().endsWith('.pdf');
+}
+
+function isFileWithinLimit(file: File, maxSizeBytes: number): boolean {
+  return file.size <= maxSizeBytes;
+}
+
 export default function StaffEmployeeEditPage() {
   const params = useParams();
   const navigate = useNavigate();
@@ -86,8 +98,11 @@ export default function StaffEmployeeEditPage() {
   const [jobs] = createResource(listEmployeeJobs);
   const [form, setForm] = createSignal<EmployeeUpdateInput>(emptyForm);
   const [touched, setTouched] = createSignal(createInitialTouchedMap(REQUIRED_FIELDS));
+  const [cvFile, setCvFile] = createSignal<File | null>(null);
+  const [cvTouched, setCvTouched] = createSignal(createInitialTouchedMap(CV_FIELDS));
   const [formError, setFormError] = createSignal<string | null>(null);
   const [saveBusy, setSaveBusy] = createSignal(false);
+  let cvInputRef: HTMLInputElement | undefined;
 
   createEffect(() => {
     const current = employee();
@@ -102,6 +117,9 @@ export default function StaffEmployeeEditPage() {
       emergency_contact: current.emergency_contact,
     });
     setTouched(createInitialTouchedMap(REQUIRED_FIELDS));
+    setCvFile(null);
+    setCvTouched(createInitialTouchedMap(CV_FIELDS));
+    if (cvInputRef) cvInputRef.value = '';
     setFormError(null);
   });
 
@@ -117,12 +135,36 @@ export default function StaffEmployeeEditPage() {
   });
   const fieldErrors = createMemo(() => validateForm(form()));
   const fieldError = (field: RequiredField) => (touched()[field] ? fieldErrors()[field] : undefined);
+  const setCvField = (file: File | null) => {
+    setCvFile(file);
+    setCvTouched((current) => touchField(current, 'cv'));
+    setFormError(null);
+  };
+  const cvFieldErrors = createMemo(() => {
+    const errors: FieldErrorMap<CvField> = {};
+    const file = cvFile();
+    if (!file) return errors;
+
+    if (!isPdfFile(file)) {
+      errors.cv = 'Solo se permiten archivos PDF.';
+      return errors;
+    }
+
+    if (!isFileWithinLimit(file, MAX_PDF_FILE_SIZE_BYTES)) {
+      errors.cv = 'El archivo PDF debe pesar máximo 10 MB.';
+    }
+
+    return errors;
+  });
+  const cvFieldError = () => (cvTouched().cv ? cvFieldErrors().cv : undefined);
 
   const onSubmit = async (event: SubmitEvent) => {
     event.preventDefault();
 
     setTouched((current) => touchAllFields(current));
+    setCvTouched((current) => touchAllFields(current));
     if (hasAnyError(fieldErrors())) return;
+    if (hasAnyError(cvFieldErrors())) return;
 
     setFormError(null);
 
@@ -131,6 +173,7 @@ export default function StaffEmployeeEditPage() {
       await updateEmployee(params.id, {
         ...form(),
         email: form().email.trim(),
+        cv: cvFile() ?? undefined,
       });
       navigate('/staff-management/employees', { replace: true });
     } catch (error) {
@@ -254,6 +297,52 @@ export default function StaffEmployeeEditPage() {
                 message={fieldError('emergency_contact')}
               />
             </label>
+
+            <Show when={employee()?.cvUrl}>
+              <p class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+                Hoja de vida actual:{' '}
+                <a
+                  href={employee()?.cvUrl ?? ''}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download={employee()?.cvFileName || undefined}
+                  class="font-medium underline hover:text-blue-900"
+                >
+                  Ver CV
+                </a>
+                <span class="mx-2 text-blue-300">|</span>
+                <a
+                  href={employee()?.cvUrl ?? ''}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download={employee()?.cvFileName || undefined}
+                  class="font-medium underline hover:text-blue-900"
+                  aria-label="Descargar CV actual"
+                >
+                  Descargar CV
+                </a>
+              </p>
+            </Show>
+
+            <label class="text-sm">
+              <span class="mb-1 block font-medium text-gray-700">Reemplazar hoja de vida (PDF, opcional)</span>
+              <input
+                ref={cvInputRef}
+                type="file"
+                accept="application/pdf"
+                class="w-full rounded-lg border border-yellow-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-yellow-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-yellow-900 hover:file:bg-yellow-200"
+                classList={{ 'field-input-invalid': !!cvFieldError() }}
+                onChange={(event) => setCvField(event.currentTarget.files?.[0] ?? null)}
+                disabled={saveBusy()}
+                aria-invalid={!!cvFieldError()}
+                aria-describedby={cvFieldError() ? 'employee-cv-error' : undefined}
+              />
+              <InlineFieldAlert id="employee-cv-error" message={cvFieldError()} />
+            </label>
+
+            <Show when={cvFile()}>
+              <p class="text-xs text-gray-600">Archivo seleccionado: {cvFile()?.name}</p>
+            </Show>
 
             <Show when={formError()}>
               <div class="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">

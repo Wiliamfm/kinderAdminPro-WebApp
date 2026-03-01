@@ -14,6 +14,7 @@ const hoisted = vi.hoisted(() => {
   const getOne = vi.fn();
   const create = vi.fn();
   const update = vi.fn();
+  const getURL = vi.fn();
   const normalizePocketBaseError = vi.fn();
 
   const pb = {
@@ -24,6 +25,9 @@ const hoisted = vi.hoisted(() => {
       create,
       update,
     })),
+    files: {
+      getURL,
+    },
   };
 
   return {
@@ -32,6 +36,7 @@ const hoisted = vi.hoisted(() => {
     getOne,
     create,
     update,
+    getURL,
     normalizePocketBaseError,
     pb,
   };
@@ -45,6 +50,7 @@ vi.mock('./client', () => ({
 describe('employees pocketbase client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    hoisted.getURL.mockImplementation((_record: unknown, fileName: string) => `https://files/${fileName}`);
   });
 
   it('lists only active employees and maps relations', async () => {
@@ -59,6 +65,7 @@ describe('employees pocketbase client', () => {
         active: true,
         user_id: 'u1',
         job_id: 'j1',
+        cv: 'ana_cv.pdf',
         expand: {
           job_id: {
             id: 'j1',
@@ -91,7 +98,10 @@ describe('employees pocketbase client', () => {
       jobName: 'Docente',
       jobSalary: 1000,
       active: true,
+      cvFileName: 'ana_cv.pdf',
+      cvUrl: 'https://files/ana_cv.pdf',
     });
+    expect(hoisted.getURL).toHaveBeenCalledWith(expect.objectContaining({ id: 'e1' }), 'ana_cv.pdf');
   });
 
   it('lists active employees page with server-side relation sorting', async () => {
@@ -138,6 +148,8 @@ describe('employees pocketbase client', () => {
       id: 'e1',
       jobName: 'Docente',
       jobSalary: 1000,
+      cvFileName: '',
+      cvUrl: null,
     });
   });
 
@@ -152,6 +164,7 @@ describe('employees pocketbase client', () => {
       active: true,
       user_id: 'u1',
       job_id: 'j1',
+      cv: 'ana_cv.pdf',
       expand: {
         job_id: {
           id: 'j1',
@@ -164,7 +177,36 @@ describe('employees pocketbase client', () => {
     const result = await getEmployeeById('e1');
     expect(result.userId).toBe('u1');
     expect(result.jobName).toBe('Docente');
+    expect(result.cvFileName).toBe('ana_cv.pdf');
+    expect(result.cvUrl).toBe('https://files/ana_cv.pdf');
     expect(hoisted.getOne).toHaveBeenCalledWith('e1', { expand: 'job_id' });
+  });
+
+  it('maps cv file name when PocketBase returns file field as array', async () => {
+    hoisted.getOne.mockResolvedValue({
+      id: 'e1',
+      name: 'Ana',
+      email: 'ana@test.com',
+      phone: '300',
+      address: 'Calle 1',
+      emergency_contact: 'Luis',
+      active: true,
+      user_id: 'u1',
+      job_id: 'j1',
+      cv: ['ana_cv.pdf'],
+      expand: {
+        job_id: {
+          id: 'j1',
+          name: 'Docente',
+          salary: 1000,
+        },
+      },
+    });
+
+    const result = await getEmployeeById('e1');
+    expect(result.cvFileName).toBe('ana_cv.pdf');
+    expect(result.cvUrl).toBe('https://files/ana_cv.pdf');
+    expect(hoisted.getURL).toHaveBeenCalledWith(expect.objectContaining({ id: 'e1' }), 'ana_cv.pdf');
   });
 
   it('creates employee with user and job relation', async () => {
@@ -216,6 +258,48 @@ describe('employees pocketbase client', () => {
     expect(result.jobId).toBe('j1');
   });
 
+  it('creates employee with cv file using FormData payload', async () => {
+    hoisted.create.mockResolvedValue({
+      id: 'e3',
+      name: 'Ana',
+      email: 'ana@test.com',
+      phone: '300',
+      address: 'Calle 1',
+      emergency_contact: 'Luis',
+      active: true,
+      user_id: 'u3',
+      job_id: 'j1',
+      cv: 'ana_cv.pdf',
+      expand: {
+        job_id: {
+          id: 'j1',
+          name: 'Docente',
+          salary: 1200,
+        },
+      },
+    });
+
+    const cv = new File(['pdf-content'], 'ana_cv.pdf', { type: 'application/pdf' });
+    await createEmployee({
+      name: 'Ana',
+      email: 'ana@test.com',
+      phone: '300',
+      address: 'Calle 1',
+      emergency_contact: 'Luis',
+      userId: 'u3',
+      jobId: 'j1',
+      cv,
+    });
+
+    const payload = hoisted.create.mock.calls[0][0];
+    expect(payload).toBeInstanceOf(FormData);
+    expect(payload.get('name')).toBe('Ana');
+    expect(payload.get('job_id')).toBe('j1');
+    expect(payload.get('user_id')).toBe('u3');
+    expect(payload.get('active')).toBe('true');
+    expect(payload.get('cv')).toBe(cv);
+  });
+
   it('updates and deactivates employees', async () => {
     hoisted.update.mockResolvedValue({
       id: 'e1',
@@ -254,6 +338,45 @@ describe('employees pocketbase client', () => {
 
     await deactivateEmployee('e1');
     expect(hoisted.update).toHaveBeenLastCalledWith('e1', { active: false });
+  });
+
+  it('updates employee with cv file using FormData payload', async () => {
+    hoisted.update.mockResolvedValue({
+      id: 'e1',
+      name: 'Ana',
+      email: 'ana@test.com',
+      phone: '300',
+      address: 'Calle 1',
+      emergency_contact: 'Luis',
+      active: true,
+      user_id: 'u1',
+      job_id: 'j2',
+      cv: 'ana_cv_new.pdf',
+      expand: {
+        job_id: {
+          id: 'j2',
+          name: 'Coordinador',
+          salary: 1300,
+        },
+      },
+    });
+
+    const cv = new File(['pdf-content'], 'ana_cv_new.pdf', { type: 'application/pdf' });
+    await updateEmployee('e1', {
+      name: 'Ana',
+      email: 'ana@test.com',
+      phone: '300',
+      address: 'Calle 1',
+      emergency_contact: 'Luis',
+      jobId: 'j2',
+      cv,
+    });
+
+    const payload = hoisted.update.mock.calls[0][1];
+    expect(payload).toBeInstanceOf(FormData);
+    expect(payload.get('name')).toBe('Ana');
+    expect(payload.get('job_id')).toBe('j2');
+    expect(payload.get('cv')).toBe(cv);
   });
 
   it('normalizes and rethrows errors', async () => {
