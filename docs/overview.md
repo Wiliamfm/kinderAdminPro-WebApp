@@ -91,7 +91,9 @@ Primary functional areas exposed through routes:
   - deletion is soft delete via `is_deleted = true`,
   - workflow is available in `/reports/students` with sortable and paginated table plus create/edit/delete modals,
   - table default order is `created_at` descending,
-  - includes an apply/clear filter form to group results by `grade`, `semester`, and student search (`name` or `document_id`).
+  - includes an apply/clear filter form to group results by `grade` and `semester`,
+  - filter form provides a datalist-based student picker for exact filtering by one or more specific students,
+  - specific-student suggestions are shown only after typing in the search box.
 - Store employee invoices in PocketBase:
   - `invoices` links each invoice to one employee (`employee_id`),
   - `invoices` links each invoice to one semester (`semester_id`, required relation to `semesters`),

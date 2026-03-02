@@ -159,6 +159,27 @@ describe('bulletins-students pocketbase client', () => {
     });
   });
 
+  it('builds exact student filters when specific student ids are provided', async () => {
+    hoisted.getList.mockResolvedValue({
+      items: [],
+      page: 1,
+      perPage: 10,
+      totalItems: 0,
+      totalPages: 1,
+    });
+
+    await listBulletinsStudentsPage(1, 10, {
+      studentIds: [' s1 ', 's2', 's1'],
+      studentQuery: 'Ana',
+    });
+
+    expect(hoisted.getList).toHaveBeenCalledWith(1, 10, {
+      sort: '-created_at',
+      filter: 'is_deleted != true && (student_id = "s1" || student_id = "s2")',
+      expand: 'bulletin_id,bulletin_id.category_id,student_id,grade_id,semester_id,created_by,updated_by',
+    });
+  });
+
   it('creates bulletin student with audit defaults', async () => {
     hoisted.create.mockResolvedValue({
       id: 'bs1',

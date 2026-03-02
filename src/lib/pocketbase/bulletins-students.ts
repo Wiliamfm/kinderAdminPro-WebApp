@@ -54,6 +54,7 @@ export type BulletinStudentListOptions = {
   gradeId?: string;
   semesterId?: string;
   studentQuery?: string;
+  studentIds?: string[];
 };
 
 export type PaginatedBulletinsStudentsResult = PaginatedListResult<BulletinStudentRecord>;
@@ -225,11 +226,22 @@ function escapeFilterValue(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
+function normalizeFilterIds(values: string[] | undefined): string[] {
+  if (!Array.isArray(values)) return [];
+
+  const normalized = values
+    .map((value) => toStringValue(value))
+    .filter((value) => value.length > 0);
+
+  return [...new Set(normalized)];
+}
+
 function buildFilterExpression(options: BulletinStudentListOptions): string {
   const clauses = ['is_deleted != true'];
   const gradeId = toStringValue(options.gradeId);
   const semesterId = toStringValue(options.semesterId);
   const studentQuery = toStringValue(options.studentQuery);
+  const studentIds = normalizeFilterIds(options.studentIds);
 
   if (gradeId.length > 0) {
     clauses.push(`grade_id = "${escapeFilterValue(gradeId)}"`);
@@ -239,7 +251,12 @@ function buildFilterExpression(options: BulletinStudentListOptions): string {
     clauses.push(`semester_id = "${escapeFilterValue(semesterId)}"`);
   }
 
-  if (studentQuery.length > 0) {
+  if (studentIds.length > 0) {
+    const studentIdClause = studentIds
+      .map((studentId) => `student_id = "${escapeFilterValue(studentId)}"`)
+      .join(' || ');
+    clauses.push(`(${studentIdClause})`);
+  } else if (studentQuery.length > 0) {
     const escapedQuery = escapeFilterValue(studentQuery);
     clauses.push(`(student_id.name ~ "${escapedQuery}" || student_id.document_id ~ "${escapedQuery}")`);
   }

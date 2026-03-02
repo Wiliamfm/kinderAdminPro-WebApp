@@ -61,7 +61,10 @@ const pageFixture = {
 
 const formOptionsFixture = {
   bulletins: [{ id: 'b1', label: 'Académico: Notas de periodo' }],
-  students: [{ id: 's1', label: 'Ana Pérez' }],
+  students: [
+    { id: 's1', label: 'Ana Pérez' },
+    { id: 's2', label: 'Luis Díaz' },
+  ],
   grades: [{ id: 'g1', label: 'Primero A' }],
   semesters: [{ id: 'sem1', label: '2026-1' }],
 };
@@ -90,27 +93,27 @@ describe('ReportsStudentsPage', () => {
     render(() => <ReportsStudentsPage />);
 
     expect(await screen.findByText('Académico: Notas de periodo')).toBeInTheDocument();
-    expect(screen.getByText('Ana Pérez')).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: 'Ana Pérez' })).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: 'Primero A' })).toBeInTheDocument();
     expect(screen.getByText('95')).toBeInTheDocument();
   });
 
   it('requests initial list with created date descending defaults', async () => {
     render(() => <ReportsStudentsPage />);
-    await screen.findByText('Ana Pérez');
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
 
     expect(mocks.listBulletinsStudentsPage).toHaveBeenCalledWith(1, 10, {
       sortField: 'created_at',
       sortDirection: 'desc',
       gradeId: '',
       semesterId: '',
-      studentQuery: '',
+      studentIds: [],
     });
   });
 
   it('submits create modal payload', async () => {
     render(() => <ReportsStudentsPage />);
-    await screen.findByText('Ana Pérez');
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
 
     fireEvent.click(screen.getByText('Nuevo reporte'));
 
@@ -145,7 +148,7 @@ describe('ReportsStudentsPage', () => {
 
   it('submits edit modal payload', async () => {
     render(() => <ReportsStudentsPage />);
-    await screen.findByText('Ana Pérez');
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
 
     fireEvent.click(screen.getByRole('button', { name: 'Editar reporte rs1' }));
 
@@ -171,7 +174,7 @@ describe('ReportsStudentsPage', () => {
 
   it('soft deletes selected row', async () => {
     render(() => <ReportsStudentsPage />);
-    await screen.findByText('Ana Pérez');
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
 
     fireEvent.click(screen.getByRole('button', { name: 'Eliminar reporte rs1' }));
     fireEvent.click(screen.getByText('Eliminar'));
@@ -183,7 +186,7 @@ describe('ReportsStudentsPage', () => {
 
   it('requests sorting when clicking a sortable header', async () => {
     render(() => <ReportsStudentsPage />);
-    await screen.findByText('Ana Pérez');
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
 
     fireEvent.click(screen.getByRole('button', { name: 'Creado por' }));
 
@@ -193,7 +196,7 @@ describe('ReportsStudentsPage', () => {
         sortDirection: 'asc',
         gradeId: '',
         semesterId: '',
-        studentQuery: '',
+        studentIds: [],
       });
     });
   });
@@ -220,7 +223,7 @@ describe('ReportsStudentsPage', () => {
     });
 
     render(() => <ReportsStudentsPage />);
-    await screen.findByText('Ana Pérez');
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
 
     fireEvent.click(screen.getByText('Siguiente'));
 
@@ -230,18 +233,17 @@ describe('ReportsStudentsPage', () => {
         sortDirection: 'desc',
         gradeId: '',
         semesterId: '',
-        studentQuery: '',
+        studentIds: [],
       });
     });
   });
 
-  it('applies grade, semester and student filters with AND behavior', async () => {
+  it('applies grade and semester filters', async () => {
     render(() => <ReportsStudentsPage />);
-    await screen.findByText('Ana Pérez');
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
 
     fireEvent.change(screen.getByLabelText('Grado'), { target: { value: 'g1' } });
     fireEvent.change(screen.getByLabelText('Semestre'), { target: { value: 'sem1' } });
-    fireEvent.input(screen.getByLabelText('Estudiante (nombre o documento)'), { target: { value: '  Ana  ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
 
     await waitFor(() => {
@@ -250,18 +252,37 @@ describe('ReportsStudentsPage', () => {
         sortDirection: 'desc',
         gradeId: 'g1',
         semesterId: 'sem1',
-        studentQuery: 'Ana',
+        studentIds: [],
+      });
+    });
+  });
+
+  it('filters exactly by selected specific students', async () => {
+    render(() => <ReportsStudentsPage />);
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
+
+    const specificStudentInput = screen.getByLabelText('Seleccionar estudiantes específicos');
+    fireEvent.input(specificStudentInput, { target: { value: 'Ana Pérez · s1' } });
+    fireEvent.input(specificStudentInput, { target: { value: 'Luis Díaz · s2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
+
+    await waitFor(() => {
+      expect(mocks.listBulletinsStudentsPage).toHaveBeenLastCalledWith(1, 10, {
+        sortField: 'created_at',
+        sortDirection: 'desc',
+        gradeId: '',
+        semesterId: '',
+        studentIds: ['s1', 's2'],
       });
     });
   });
 
   it('clears filters and restores created date descending sort', async () => {
     render(() => <ReportsStudentsPage />);
-    await screen.findByText('Ana Pérez');
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
 
     fireEvent.change(screen.getByLabelText('Grado'), { target: { value: 'g1' } });
     fireEvent.change(screen.getByLabelText('Semestre'), { target: { value: 'sem1' } });
-    fireEvent.input(screen.getByLabelText('Estudiante (nombre o documento)'), { target: { value: 'Ana' } });
     fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
 
     await waitFor(() => {
@@ -270,7 +291,7 @@ describe('ReportsStudentsPage', () => {
         sortDirection: 'desc',
         gradeId: 'g1',
         semesterId: 'sem1',
-        studentQuery: 'Ana',
+        studentIds: [],
       });
     });
 
@@ -282,7 +303,7 @@ describe('ReportsStudentsPage', () => {
         sortDirection: 'asc',
         gradeId: 'g1',
         semesterId: 'sem1',
-        studentQuery: 'Ana',
+        studentIds: [],
       });
     });
 
@@ -294,14 +315,14 @@ describe('ReportsStudentsPage', () => {
         sortDirection: 'desc',
         gradeId: '',
         semesterId: '',
-        studentQuery: '',
+        studentIds: [],
       });
     });
   });
 
   it('blocks create submission for invalid note values', async () => {
     render(() => <ReportsStudentsPage />);
-    await screen.findByText('Ana Pérez');
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
 
     const assertInvalidNote = async (value: string, expectedMessage: string) => {
       fireEvent.click(screen.getByText('Nuevo reporte'));

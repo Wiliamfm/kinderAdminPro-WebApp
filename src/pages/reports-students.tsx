@@ -38,7 +38,7 @@ type BulletinStudentForm = {
 type ReportFilters = {
   gradeId: string;
   semesterId: string;
-  studentQuery: string;
+  studentIds: string[];
 };
 
 const BULLETIN_STUDENT_FIELDS = [
@@ -51,6 +51,11 @@ const BULLETIN_STUDENT_FIELDS = [
 
 type BulletinStudentField = (typeof BULLETIN_STUDENT_FIELDS)[number];
 type BulletinStudentSortKey = BulletinStudentListSortField;
+type StudentLookupOption = {
+  id: string;
+  label: string;
+  lookupValue: string;
+};
 
 const emptyForm: BulletinStudentForm = {
   bulletin_id: '',
@@ -65,7 +70,7 @@ function createEmptyReportFilters(): ReportFilters {
   return {
     gradeId: '',
     semesterId: '',
-    studentQuery: '',
+    studentIds: [],
   };
 }
 
@@ -203,6 +208,7 @@ export default function ReportsStudentsPage() {
   const [formOptionsLoaded, setFormOptionsLoaded] = createSignal(false);
   const [filterDraft, setFilterDraft] = createSignal<ReportFilters>(createEmptyReportFilters());
   const [appliedFilters, setAppliedFilters] = createSignal<ReportFilters>(createEmptyReportFilters());
+  const [studentLookupInput, setStudentLookupInput] = createSignal('');
 
   const loadFormOptions = async (force = false): Promise<void> => {
     if (!isAuthUserAdmin()) return;
@@ -239,10 +245,10 @@ export default function ReportsStudentsPage() {
         sortDirection: reportSort().direction,
         gradeId: filters.gradeId,
         semesterId: filters.semesterId,
-        studentQuery: filters.studentQuery,
+        studentIds: filters.studentIds,
       };
     },
-    ({ page, sortField, sortDirection, gradeId, semesterId, studentQuery }) => listBulletinsStudentsPage(
+    ({ page, sortField, sortDirection, gradeId, semesterId, studentIds }) => listBulletinsStudentsPage(
       page,
       DEFAULT_TABLE_PAGE_SIZE,
       {
@@ -250,7 +256,7 @@ export default function ReportsStudentsPage() {
         sortDirection,
         gradeId,
         semesterId,
-        studentQuery,
+        studentIds,
       },
     ),
   );
@@ -399,15 +405,60 @@ export default function ReportsStudentsPage() {
     setReportPage(1);
   };
 
-  const setFilterField = (field: keyof ReportFilters, value: string) => {
+  const setFilterField = (field: Exclude<keyof ReportFilters, 'studentIds'>, value: string) => {
     setFilterDraft((current) => ({ ...current, [field]: value }));
+  };
+
+  const setFilterStudentIds = (ids: string[]) => {
+    const normalizedIds = [...new Set(ids.map((id) => id.trim()).filter((id) => id.length > 0))];
+    setFilterDraft((current) => ({ ...current, studentIds: normalizedIds }));
+  };
+
+  const availableStudentLookupOptions = createMemo<StudentLookupOption[]>(() => {
+    const selectedIds = new Set(filterDraft().studentIds);
+
+    return formOptions().students
+      .filter((student) => !selectedIds.has(student.id))
+      .map((student) => ({
+        id: student.id,
+        label: student.label,
+        lookupValue: `${student.label} · ${student.id}`,
+      }));
+  });
+
+  const studentLookupOptions = createMemo<StudentLookupOption[]>(() => {
+    const query = studentLookupInput().trim().toLocaleLowerCase('es-CO');
+    if (query.length === 0) return [];
+
+    return availableStudentLookupOptions()
+      .filter((student) => student.label.toLocaleLowerCase('es-CO').includes(query))
+      .slice(0, 20);
+  });
+
+  const selectedSpecificStudents = createMemo(() => {
+    const optionsById = new Map(formOptions().students.map((student) => [student.id, student.label]));
+    return filterDraft().studentIds.map((studentId) => ({
+      id: studentId,
+      label: optionsById.get(studentId) ?? studentId,
+    }));
+  });
+
+  const tryAddSpecificStudent = (rawValue: string) => {
+    const value = rawValue.trim();
+    if (value.length === 0) return;
+
+    const matchedOption = availableStudentLookupOptions().find((option) => option.lookupValue === value);
+    if (!matchedOption) return;
+
+    setFilterStudentIds([...filterDraft().studentIds, matchedOption.id]);
+    setStudentLookupInput('');
   };
 
   const applyFilters = () => {
     const normalized: ReportFilters = {
       gradeId: filterDraft().gradeId.trim(),
       semesterId: filterDraft().semesterId.trim(),
-      studentQuery: filterDraft().studentQuery.trim(),
+      studentIds: [...new Set(filterDraft().studentIds.map((id) => id.trim()).filter((id) => id.length > 0))],
     };
 
     setFilterDraft(normalized);
@@ -419,6 +470,7 @@ export default function ReportsStudentsPage() {
     const emptyFilters = createEmptyReportFilters();
     setFilterDraft(emptyFilters);
     setAppliedFilters(emptyFilters);
+    setStudentLookupInput('');
     setReportSort({
       key: 'created_at',
       direction: 'desc',
@@ -479,7 +531,7 @@ export default function ReportsStudentsPage() {
 
           <div class="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
             <h3 class="text-sm font-semibold text-gray-700">Agrupar y filtrar resultados</h3>
-            <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
               <label class="block">
                 <span class="text-sm text-gray-700">Grado</span>
                 <select
@@ -510,16 +562,51 @@ export default function ReportsStudentsPage() {
                 </select>
               </label>
 
-              <label class="block">
-                <span class="text-sm text-gray-700">Estudiante (nombre o documento)</span>
+              <label class="block md:col-span-2">
+                <span class="text-sm text-gray-700">Seleccionar estudiantes específicos</span>
                 <input
                   type="text"
                   class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                  value={filterDraft().studentQuery}
-                  onInput={(event) => setFilterField('studentQuery', event.currentTarget.value)}
-                  disabled={bulletinsStudents.loading}
-                  placeholder="Ej. Ana o 12345"
+                  value={studentLookupInput()}
+                  onInput={(event) => {
+                    const nextValue = event.currentTarget.value;
+                    setStudentLookupInput(nextValue);
+                    tryAddSpecificStudent(nextValue);
+                  }}
+                  disabled={formOptionsLoading() || bulletinsStudents.loading}
+                  placeholder="Escribe para buscar estudiantes"
+                  list={studentLookupInput().trim().length > 0 ? 'reports-students-specific-student-list' : undefined}
+                  aria-label="Seleccionar estudiantes específicos"
                 />
+                <Show when={studentLookupInput().trim().length > 0 && studentLookupOptions().length > 0}>
+                  <datalist id="reports-students-specific-student-list">
+                    <For each={studentLookupOptions()}>
+                      {(option) => <option value={option.lookupValue}>{option.label}</option>}
+                    </For>
+                  </datalist>
+                </Show>
+                <p class="mt-1 text-xs text-gray-600">
+                  La lista aparece cuando comienzas a escribir. Seleccionar uno o más estudiantes aplica filtro exacto.
+                </p>
+                <Show when={selectedSpecificStudents().length > 0}>
+                  <div class="mt-2 flex flex-wrap gap-2">
+                    <For each={selectedSpecificStudents()}>
+                      {(student) => (
+                        <button
+                          type="button"
+                          class="inline-flex items-center gap-1 rounded-full border border-yellow-300 bg-white px-3 py-1 text-xs text-gray-700"
+                          onClick={() => {
+                            setFilterStudentIds(filterDraft().studentIds.filter((id) => id !== student.id));
+                          }}
+                          aria-label={`Quitar estudiante específico ${student.label}`}
+                        >
+                          <span>{student.label}</span>
+                          <span aria-hidden="true">×</span>
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                </Show>
               </label>
             </div>
 

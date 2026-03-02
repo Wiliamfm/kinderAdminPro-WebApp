@@ -297,7 +297,8 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - Data flow:
   - list queries are paginated and server-sorted with relation expansions for bulletin, category, student, grade, semester, and users,
   - default list sort is `created_at` descending; users can switch sort through column headers,
-  - list filters are server-side and combined with `AND` for `grade_id`, `semester_id`, and student search by `student_id.name` or `student_id.document_id`,
+  - list filters are server-side and combined with `AND` for `grade_id`, `semester_id`, and exact selected `student_id` values,
+  - filter form includes specific-student datalist search; suggestions appear only after typing and selecting one or more students applies exact `student_id` matches for those selections,
   - filter form uses explicit apply/clear actions; clear restores default filters and `created_at` descending sort,
   - create and update actions enforce audit metadata from authenticated user (`created_by`, `updated_by`),
   - delete action is logical delete (`is_deleted = true`) with `updated_by` refresh.
