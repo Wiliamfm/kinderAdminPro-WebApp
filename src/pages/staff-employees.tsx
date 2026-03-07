@@ -857,6 +857,7 @@ export default function StaffEmployeesPage() {
                   sort={employeeSort()}
                   onSort={handleEmployeeSort}
                 />
+                <th class="px-4 py-3 font-semibold">Documento</th>
                 <SortableHeaderCell
                   class="px-4 py-3 font-semibold"
                   label="Cargo"
@@ -899,7 +900,7 @@ export default function StaffEmployeesPage() {
             <tbody>
               <Show when={!employees.loading} fallback={
                 <tr>
-                  <td class="px-4 py-4 text-gray-600" colSpan={9}>
+                  <td class="px-4 py-4 text-gray-600" colSpan={10}>
                     Cargando personal...
                   </td>
                 </tr>
@@ -908,7 +909,7 @@ export default function StaffEmployeesPage() {
                   when={employeeRows().length > 0}
                   fallback={
                     <tr>
-                      <td class="px-4 py-4 text-gray-600" colSpan={9}>
+                      <td class="px-4 py-4 text-gray-600" colSpan={10}>
                         No hay empleados registrados.
                       </td>
                     </tr>
@@ -919,6 +920,7 @@ export default function StaffEmployeesPage() {
                       <tr class="border-t border-yellow-100 align-top">
                         <td class="px-4 py-3">{formatText(employee.name)}</td>
                         <td class="px-4 py-3">{formatSalary(employee.jobSalary)}</td>
+                        <td class="px-4 py-3">{formatText(employee.documentId)}</td>
                         <td class="px-4 py-3">{formatText(employee.jobName)}</td>
                         <td class="px-4 py-3">{formatText(employee.email)}</td>
                         <td class="px-4 py-3">{formatText(employee.phone)}</td>

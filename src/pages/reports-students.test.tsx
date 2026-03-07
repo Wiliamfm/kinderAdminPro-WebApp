@@ -48,6 +48,7 @@ const rowsFixture = [
     bulletin_label: 'Académico: Notas de periodo',
     student_id: 's1',
     student_name: 'Ana Pérez',
+    student_document_id: '1001',
     grade_id: 'g1',
     grade_name: 'Primero A',
     semester_id: 'sem1',
@@ -119,6 +120,7 @@ describe('ReportsStudentsPage', () => {
 
     expect(await screen.findByText('Académico: Notas de periodo')).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: 'Ana Pérez' })).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: '1001' })).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: 'Primero A' })).toBeInTheDocument();
     expect(screen.getByText('95')).toBeInTheDocument();
   });

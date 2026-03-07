@@ -6,6 +6,7 @@ export type EmployeeReportRecord = {
   id: string;
   employee_id: string;
   employee_name: string;
+  employee_document_id: string;
   job_id: string;
   job_name: string;
   semester_id: string;
@@ -159,6 +160,7 @@ function mapEmployeeReportRecord(
     id: record.id,
     employee_id: employeeId,
     employee_name: toStringValue(expandedEmployee?.name),
+    employee_document_id: toStringValue(expandedEmployee?.document_id),
     job_id: jobId,
     job_name: toStringValue(expandedJob?.name),
     semester_id: semesterId,

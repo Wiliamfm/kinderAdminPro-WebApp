@@ -46,6 +46,7 @@ const rowsFixture = [
     id: 'er1',
     employee_id: 'e1',
     employee_name: 'Ana Pérez',
+    employee_document_id: '9001',
     job_id: 'j1',
     job_name: 'Docente',
     semester_id: 'sem1',
@@ -114,6 +115,7 @@ describe('ReportsEmployeesPage', () => {
     render(() => <ReportsEmployeesPage />);
 
     expect(await screen.findByRole('cell', { name: 'Ana Pérez' })).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: '9001' })).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: 'Docente' })).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: '2026-1' })).toBeInTheDocument();
     expect(screen.getByText('Excelente rendimiento')).toBeInTheDocument();

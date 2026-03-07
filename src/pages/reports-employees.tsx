@@ -805,6 +805,7 @@ export default function ReportsEmployeesPage() {
                     sort={reportSort()}
                     onSort={handleSort}
                   />
+                  <th class="px-4 py-3 font-semibold">Documento</th>
                   <SortableHeaderCell
                     class="px-4 py-3 font-semibold"
                     label="Cargo"
@@ -862,7 +863,7 @@ export default function ReportsEmployeesPage() {
                   when={!employeeReports.loading}
                   fallback={(
                     <tr>
-                      <td class="px-4 py-4 text-gray-600" colSpan={9}>
+                      <td class="px-4 py-4 text-gray-600" colSpan={10}>
                         Cargando reportes de empleados...
                       </td>
                     </tr>
@@ -872,7 +873,7 @@ export default function ReportsEmployeesPage() {
                     when={!employeeReports.error}
                     fallback={(
                       <tr>
-                        <td class="px-4 py-4 text-red-700" colSpan={9}>
+                        <td class="px-4 py-4 text-red-700" colSpan={10}>
                           {getErrorMessage(employeeReports.error)}
                         </td>
                       </tr>
@@ -882,7 +883,7 @@ export default function ReportsEmployeesPage() {
                       when={rows().length > 0}
                       fallback={(
                         <tr>
-                          <td class="px-4 py-4 text-gray-600" colSpan={9}>
+                          <td class="px-4 py-4 text-gray-600" colSpan={10}>
                             No hay reportes registrados.
                           </td>
                         </tr>
@@ -892,6 +893,7 @@ export default function ReportsEmployeesPage() {
                         {(record) => (
                           <tr class="border-t border-yellow-100 align-top">
                             <td class="px-4 py-3">{formatText(record.employee_name)}</td>
+                            <td class="px-4 py-3">{formatText(record.employee_document_id)}</td>
                             <td class="px-4 py-3">{formatText(record.job_name)}</td>
                             <td class="px-4 py-3">{formatText(record.semester_name)}</td>
                             <td class="px-4 py-3">{formatText(record.comments)}</td>

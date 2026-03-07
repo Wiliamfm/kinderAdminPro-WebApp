@@ -8,6 +8,7 @@ export type BulletinStudentRecord = {
   bulletin_label: string;
   student_id: string;
   student_name: string;
+  student_document_id: string;
   grade_id: string;
   grade_name: string;
   semester_id: string;
@@ -205,6 +206,7 @@ function mapBulletinStudentRecord(
     bulletin_label: buildBulletinLabel(bulletinCategoryName, bulletinDescription, bulletinId),
     student_id: studentId,
     student_name: toStringValue(expandedStudent?.name),
+    student_document_id: toStringValue(expandedStudent?.document_id),
     grade_id: gradeId,
     grade_name: toStringValue(expandedGrade?.name),
     semester_id: semesterId,

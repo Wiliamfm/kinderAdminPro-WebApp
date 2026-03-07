@@ -866,6 +866,7 @@ export default function ReportsStudentsPage() {
                     sort={reportSort()}
                     onSort={handleSort}
                   />
+                  <th class="px-4 py-3 font-semibold">Documento</th>
                   <SortableHeaderCell
                     class="px-4 py-3 font-semibold"
                     label="Grado"
@@ -930,7 +931,7 @@ export default function ReportsStudentsPage() {
                   when={!bulletinsStudents.loading}
                   fallback={(
                     <tr>
-                      <td class="px-4 py-4 text-gray-600" colSpan={11}>
+                      <td class="px-4 py-4 text-gray-600" colSpan={12}>
                         Cargando reportes de estudiantes...
                       </td>
                     </tr>
@@ -940,7 +941,7 @@ export default function ReportsStudentsPage() {
                     when={!bulletinsStudents.error}
                     fallback={(
                       <tr>
-                        <td class="px-4 py-4 text-red-700" colSpan={11}>
+                        <td class="px-4 py-4 text-red-700" colSpan={12}>
                           {getErrorMessage(bulletinsStudents.error)}
                         </td>
                       </tr>
@@ -950,7 +951,7 @@ export default function ReportsStudentsPage() {
                       when={rows().length > 0}
                       fallback={(
                         <tr>
-                          <td class="px-4 py-4 text-gray-600" colSpan={11}>
+                          <td class="px-4 py-4 text-gray-600" colSpan={12}>
                             No hay reportes registrados.
                           </td>
                         </tr>
@@ -961,6 +962,7 @@ export default function ReportsStudentsPage() {
                           <tr class="border-t border-yellow-100 align-top">
                             <td class="px-4 py-3">{formatText(record.bulletin_label)}</td>
                             <td class="px-4 py-3">{formatText(record.student_name)}</td>
+                            <td class="px-4 py-3">{formatText(record.student_document_id)}</td>
                             <td class="px-4 py-3">{formatText(record.grade_name)}</td>
                             <td class="px-4 py-3">{formatText(record.semester_name)}</td>
                             <td class="px-4 py-3">{formatNote(record.note)}</td>

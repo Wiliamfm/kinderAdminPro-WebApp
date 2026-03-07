@@ -72,7 +72,7 @@ describe('employee-reports pocketbase client', () => {
           updated_at: '2026-03-02T00:00:00.000Z',
           is_deleted: false,
           expand: {
-            employee_id: { name: 'Ana Pérez' },
+            employee_id: { name: 'Ana Pérez', document_id: '9001' },
             job_id: { name: 'Docente' },
             semester_id: { name: '2026-1' },
             created_by: { name: 'Admin Uno' },
@@ -102,6 +102,7 @@ describe('employee-reports pocketbase client', () => {
     expect(result.items[0]).toEqual(expect.objectContaining({
       id: 'er1',
       employee_name: 'Ana Pérez',
+      employee_document_id: '9001',
       job_name: 'Docente',
       semester_name: '2026-1',
       comments: 'Excelente desempeño',

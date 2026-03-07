@@ -73,6 +73,7 @@ vi.mock('../lib/pocketbase/semesters', () => ({
 const employee = {
   id: 'e1',
   name: 'Ana',
+  documentId: '9001',
   jobId: 'j1',
   jobName: 'Docente',
   jobSalary: 1000,
@@ -150,6 +151,7 @@ describe('StaffEmployeesPage features', () => {
     mocks.createEmployee.mockResolvedValue({
       id: 'e2',
       name: 'New Employee',
+      documentId: '9002',
       jobId: 'j1',
       jobName: 'Docente',
       jobSalary: 1500,
