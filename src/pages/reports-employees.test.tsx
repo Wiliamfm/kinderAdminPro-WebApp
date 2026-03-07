@@ -113,6 +113,7 @@ const leaveAnalyticsFixture = [
   {
     id: 'leave-1',
     employeeId: 'e1',
+    semesterId: 'sem1',
     employeeName: 'Ana Pérez',
     employeeDocumentId: '9001',
     employeeActive: true,
@@ -310,6 +311,7 @@ describe('ReportsEmployeesPage', () => {
       {
         id: 'leave-1',
         employeeId: 'e1',
+        semesterId: 'sem1',
         employeeName: 'Ana Pérez',
         employeeDocumentId: '9001',
         employeeActive: true,
@@ -319,6 +321,7 @@ describe('ReportsEmployeesPage', () => {
       {
         id: 'leave-2',
         employeeId: 'e1',
+        semesterId: 'sem1',
         employeeName: 'Ana Pérez',
         employeeDocumentId: '9001',
         employeeActive: true,
@@ -328,6 +331,7 @@ describe('ReportsEmployeesPage', () => {
       {
         id: 'leave-3',
         employeeId: 'e2',
+        semesterId: 'sem1',
         employeeName: 'Luis Díaz',
         employeeDocumentId: '9002',
         employeeActive: false,
@@ -349,7 +353,7 @@ describe('ReportsEmployeesPage', () => {
     });
   });
 
-  it('includes inactive employees and cross-semester leave overlaps after selecting a historical semester', async () => {
+  it('includes inactive employees when a historical semester is selected', async () => {
     mocks.listEmployeeReportFormOptions.mockResolvedValue({
       employees: [
         { id: 'e1', label: '9001 (Ana Pérez)', documentId: '9001' },
@@ -377,6 +381,7 @@ describe('ReportsEmployeesPage', () => {
       {
         id: 'leave-1',
         employeeId: 'e1',
+        semesterId: 'sem2',
         employeeName: 'Ana Pérez',
         employeeDocumentId: '9001',
         employeeActive: true,
@@ -386,10 +391,11 @@ describe('ReportsEmployeesPage', () => {
       {
         id: 'leave-2',
         employeeId: 'e2',
+        semesterId: 'sem2',
         employeeName: 'Luis Díaz',
         employeeDocumentId: '9002',
         employeeActive: false,
-        startDateTime: '2026-05-30 08:00:00.000Z',
+        startDateTime: '2026-06-02 08:00:00.000Z',
         endDateTime: '2026-06-02 12:00:00.000Z',
       },
     ]);
@@ -436,6 +442,7 @@ describe('ReportsEmployeesPage', () => {
       {
         id: 'leave-1',
         employeeId: 'e1',
+        semesterId: 'sem2',
         employeeName: 'Ana Pérez',
         employeeDocumentId: '9001',
         employeeActive: true,

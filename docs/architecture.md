@@ -103,16 +103,27 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - employees include required unique `document_id` (numeric string, length `4-20`) with generated backfill for legacy rows.
 
 ## Leaves Feature Design
+- `leaves` collection stores employee leave records with admin-only access.
+- Data model:
+  - relation `employee_id` -> `employees` (n:1, required),
+  - relation `semester_id` -> `semesters` (n:1, required after legacy backfill),
+  - `start_datetime` (`date`, required),
+  - `end_datetime` (`date`, required).
 - UI location: `src/pages/staff-employees.tsx` modal under employee actions.
 - Table behavior:
   - sorted by `start_datetime` descending,
   - paginated (`10` rows/page),
   - row action to edit and prefill form.
 - Form behavior:
+  - loads selectable semester options from `semesters`,
+  - requires a semester selection,
+  - defaults new leaves to the current semester when one exists,
+  - preserves the saved semester when editing,
   - accepts `datetime-local` inputs,
   - converts local input to offset-aware ISO datetime before API calls (persisted as UTC `Z`),
   - validates `end > start`,
-  - blocks overlap using API check.
+  - blocks overlap using API check,
+  - blocks submission when no semesters exist.
 - Edit mode:
   - tracked with reactive state (`editingLeaveId`),
   - submit performs create or update depending on edit state.
@@ -348,11 +359,11 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - default chart scope shows all jobs and only the last 5 semesters from current option lists,
   - chart aggregation counts distinct employees (`employee_id`) per bucket to avoid duplicate report-row overcount,
   - chart analytics data is fetched from `employee_reports` with minimal fields (`employee_id`, `job_id`, `semester_id`) and `is_deleted != true`,
-  - leave analytics data is fetched separately from `leaves` with expanded employee metadata (`name`, `document_id`, `active`) plus leave datetime range,
-  - leave chart semester options include `isCurrent`, `startDate`, and `endDate` metadata so the page can determine the preferred semester without a second semester query,
-  - leave membership in a semester is derived by inclusive datetime-range overlap (`leave.start <= semester.end` and `leave.end >= semester.start`),
-  - leave chart counts leave records per employee, not distinct employees or leave duration,
-  - the initial leave chart selects the current semester and filters to active employees only; if there is no current semester, it falls back to the most recent semester by `end_date`,
+- leave analytics data is fetched separately from `leaves` with expanded employee metadata (`name`, `document_id`, `active`) plus persisted `semester_id`,
+- leave chart semester options include `isCurrent`, `startDate`, and `endDate` metadata so the page can determine the preferred semester without a second semester query,
+- leave chart filters rows by persisted `leaves.semester_id`,
+- leave chart counts leave records per employee, not distinct employees or leave duration,
+- the initial leave chart selects the current semester and filters to active employees only; if there is no current semester, it falls back to the most recent semester by `end_date`,
   - once the leave-chart semester selector changes, historical views include both active and inactive employees so older leave records remain visible,
   - create and update actions enforce audit metadata from authenticated user (`created_by`, `updated_by`),
   - delete action is logical delete (`is_deleted = true`) with `updated_by` refresh.

@@ -4,12 +4,14 @@ import type { PaginatedListResult } from '../table/pagination';
 type PbLeaveRecord = {
   id: string;
   employee_id: string;
+  semester_id?: string | string[];
   start_datetime: string;
   end_datetime: string;
 };
 
 type PbLeavePayload = {
   employee_id: string;
+  semester_id: string;
   start_datetime: string;
   end_datetime: string;
 };
@@ -17,6 +19,7 @@ type PbLeavePayload = {
 export type LeaveAnalyticsRecord = {
   id: string;
   employeeId: string;
+  semesterId: string;
   employeeName: string;
   employeeDocumentId: string;
   employeeActive: boolean;
@@ -27,12 +30,14 @@ export type LeaveAnalyticsRecord = {
 export type LeaveRecord = {
   id: string;
   employeeId: string;
+  semesterId: string;
   start_datetime: string;
   end_datetime: string;
 };
 
 export type LeaveCreateInput = {
   employeeId: string;
+  semesterId: string;
   start_datetime: string;
   end_datetime: string;
 };
@@ -56,9 +61,19 @@ function mapLeaveRecord(
   return {
     id: record.id,
     employeeId: toStringValue(record.get?.('employee_id') ?? record.employee_id),
+    semesterId: toRelationIdValue(record.get?.('semester_id') ?? record.semester_id),
     start_datetime: toStringValue(record.get?.('start_datetime') ?? record.start_datetime),
     end_datetime: toStringValue(record.get?.('end_datetime') ?? record.end_datetime),
   };
+}
+
+function toRelationIdValue(value: unknown): string {
+  if (typeof value === 'string') return value.trim();
+  if (Array.isArray(value)) {
+    const firstValue = value[0];
+    return typeof firstValue === 'string' ? firstValue.trim() : '';
+  }
+  return '';
 }
 
 function toBooleanValue(value: unknown): boolean {
@@ -89,6 +104,7 @@ function mapLeaveAnalyticsRecord(
   return {
     id: record.id,
     employeeId: toStringValue(record.get?.('employee_id') ?? record.employee_id),
+    semesterId: toRelationIdValue(record.get?.('semester_id') ?? record.semester_id),
     employeeName: toStringValue(expandedEmployee?.name),
     employeeDocumentId: toStringValue(expandedEmployee?.document_id),
     employeeActive: toBooleanValue(expandedEmployee?.active),
@@ -99,7 +115,8 @@ function mapLeaveAnalyticsRecord(
 
 function mapLeavePayload(payload: LeaveCreateInput): PbLeavePayload {
   return {
-    employee_id: payload.employeeId,
+    employee_id: payload.employeeId.trim(),
+    semester_id: payload.semesterId.trim(),
     start_datetime: payload.start_datetime,
     end_datetime: payload.end_datetime,
   };
@@ -165,7 +182,7 @@ export async function listLeaveAnalyticsRecords(): Promise<LeaveAnalyticsRecord[
     const records = await pb.collection('leaves').getFullList({
       sort: '-start_datetime',
       expand: 'employee_id',
-      fields: 'id,employee_id,start_datetime,end_datetime,expand.employee_id.name,expand.employee_id.document_id,expand.employee_id.active',
+      fields: 'id,employee_id,semester_id,start_datetime,end_datetime,expand.employee_id.name,expand.employee_id.document_id,expand.employee_id.active',
       requestKey: 'reports-employees-leaves-analytics-list',
     });
 
@@ -174,6 +191,7 @@ export async function listLeaveAnalyticsRecords(): Promise<LeaveAnalyticsRecord[
       .filter((record) => (
         record.id.length > 0
         && record.employeeId.length > 0
+        && record.semesterId.length > 0
         && record.startDateTime.length > 0
         && record.endDateTime.length > 0
       ));

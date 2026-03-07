@@ -1,5 +1,5 @@
 import { useNavigate } from '@solidjs/router';
-import { createMemo, createResource, createSignal, For, Show } from 'solid-js';
+import { createEffect, createMemo, createResource, createSignal, For, Show } from 'solid-js';
 import InlineFieldAlert from '../components/InlineFieldAlert';
 import Modal from '../components/Modal';
 import PaginationControls from '../components/PaginationControls';
@@ -40,7 +40,7 @@ import {
   type InvoiceSortField,
 } from '../lib/pocketbase/invoices';
 import { createInvoiceFile } from '../lib/pocketbase/invoice-files';
-import { getCurrentSemester } from '../lib/pocketbase/semesters';
+import { getCurrentSemester, listSemesterOptions } from '../lib/pocketbase/semesters';
 import {
   createEmployeeUser,
   resendUserOnboarding,
@@ -68,7 +68,7 @@ const CREATE_EMPLOYEE_FIELDS = [
 ] as const;
 type CreateEmployeeField = (typeof CREATE_EMPLOYEE_FIELDS)[number];
 
-const LEAVE_FIELDS = ['start_datetime', 'end_datetime'] as const;
+const LEAVE_FIELDS = ['semesterId', 'start_datetime', 'end_datetime'] as const;
 type LeaveField = (typeof LEAVE_FIELDS)[number];
 
 const CREATE_CV_FIELDS = ['cv'] as const;
@@ -131,6 +131,7 @@ const LEAVES_PAGE_SIZE = DEFAULT_TABLE_PAGE_SIZE;
 const INVOICES_PAGE_SIZE = DEFAULT_TABLE_PAGE_SIZE;
 const emptyLeaveForm: LeaveCreateInput = {
   employeeId: '',
+  semesterId: '',
   start_datetime: '',
   end_datetime: '',
 };
@@ -209,6 +210,10 @@ function parseLocalDateTime(value: string): Date | null {
 
 function validateLeaveForm(current: LeaveCreateInput): FieldErrorMap<LeaveField> {
   const errors: FieldErrorMap<LeaveField> = {};
+  if (current.semesterId.trim().length === 0) {
+    errors.semesterId = 'Semestre es obligatorio.';
+  }
+
   const startValue = current.start_datetime.trim();
   const endValue = current.end_datetime.trim();
 
@@ -323,6 +328,21 @@ export default function StaffEmployeesPage() {
         sortDirection,
       },
     ),
+  );
+  const [leaveSemesters] = createResource(
+    () => {
+      const target = leaveTarget();
+      return target ? target.id : undefined;
+    },
+    () => listSemesterOptions(),
+  );
+  const [currentLeaveSemester] = createResource(
+    () => {
+      const target = leaveTarget();
+      if (!target || editingLeaveId()) return undefined;
+      return target.id;
+    },
+    () => getCurrentSemester(),
   );
   const [invoices, { refetch: refetchInvoices }] = createResource(
     () => {
@@ -523,6 +543,7 @@ export default function StaffEmployeesPage() {
     setLeaveTouched(createInitialTouchedMap(LEAVE_FIELDS));
     setLeaveForm({
       employeeId: employee.id,
+      semesterId: '',
       start_datetime: '',
       end_datetime: '',
     });
@@ -579,12 +600,13 @@ export default function StaffEmployeesPage() {
     setLeaveTouched(createInitialTouchedMap(LEAVE_FIELDS));
     setLeaveForm((current) => ({
       ...current,
+      semesterId: leave.semesterId,
       start_datetime: toDateTimeLocalValue(leave.start_datetime),
       end_datetime: toDateTimeLocalValue(leave.end_datetime),
     }));
   };
 
-  const updateLeaveField = (field: 'start_datetime' | 'end_datetime', value: string) => {
+  const updateLeaveField = (field: LeaveField, value: string) => {
     setLeaveForm((current) => ({
       ...current,
       [field]: value,
@@ -594,7 +616,22 @@ export default function StaffEmployeesPage() {
     setLeaveAsyncError(null);
   };
   const leaveFieldErrors = createMemo(() => validateLeaveForm(leaveForm()));
+  const leaveSemesterOptions = () => leaveSemesters() ?? [];
+  const leaveSemesterAvailabilityError = createMemo(() => {
+    if (!leaveTarget()) return undefined;
+    if (leaveSemesters.error) return getErrorMessage(leaveSemesters.error);
+    if (!leaveSemesters.loading && leaveSemesterOptions().length === 0) {
+      return 'No hay semestres registrados. Debes crear uno antes de guardar una licencia.';
+    }
+
+    return undefined;
+  });
   const leaveFieldError = (field: LeaveField) => {
+    if (field === 'semesterId') {
+      return leaveSemesterAvailabilityError()
+        ?? (leaveTouched().semesterId ? leaveFieldErrors().semesterId : undefined);
+    }
+
     const clientError = leaveTouched()[field] ? leaveFieldErrors()[field] : undefined;
     if (field === 'end_datetime' && !clientError && leaveTouched().end_datetime) {
       return leaveAsyncError() ?? undefined;
@@ -602,11 +639,40 @@ export default function StaffEmployeesPage() {
     return clientError;
   };
 
+  createEffect(() => {
+    const target = leaveTarget();
+    const currentSemester = currentLeaveSemester();
+    if (!target || !currentSemester || editingLeaveId()) return;
+
+    setLeaveForm((current) => {
+      if (
+        current.employeeId !== target.id
+        || current.semesterId.trim().length > 0
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        semesterId: currentSemester.id,
+      };
+    });
+  });
+
   const submitLeave = async () => {
     const target = leaveTarget();
     if (!target) return;
 
     setLeaveTouched((current) => touchAllFields(current));
+    if (leaveSemesters.loading) {
+      setLeaveError('Cargando semestres. Intenta nuevamente.');
+      return;
+    }
+    const semesterAvailabilityError = leaveSemesterAvailabilityError();
+    if (semesterAvailabilityError) {
+      setLeaveError(semesterAvailabilityError);
+      return;
+    }
     if (hasAnyError(leaveFieldErrors())) return;
     const start = parseLocalDateTime(leaveForm().start_datetime.trim());
     const end = parseLocalDateTime(leaveForm().end_datetime.trim());
@@ -619,6 +685,7 @@ export default function StaffEmployeesPage() {
     try {
       const payload: LeaveCreateInput = {
         employeeId: target.id,
+        semesterId: leaveForm().semesterId.trim(),
         start_datetime: start.toISOString(),
         end_datetime: end.toISOString(),
       };
@@ -644,6 +711,7 @@ export default function StaffEmployeesPage() {
       setEditingLeaveId(null);
       setLeaveForm((current) => ({
         ...current,
+        semesterId: currentLeaveSemester()?.id ?? '',
         start_datetime: '',
         end_datetime: '',
       }));
@@ -1216,8 +1284,30 @@ export default function StaffEmployeesPage() {
             No tienes permisos para gestionar licencias.
           </div>
         }>
-          <div class="space-y-4">
-            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div class="space-y-4">
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <label class="block">
+                <span class="text-sm text-gray-700">Semestre</span>
+                <select
+                  class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  classList={{ 'field-input-invalid': !!leaveFieldError('semesterId') }}
+                  value={leaveForm().semesterId}
+                  onChange={(event) => updateLeaveField('semesterId', event.currentTarget.value)}
+                  disabled={leaveBusy() || leaveSemesters.loading || leaveSemesterOptions().length === 0}
+                  aria-invalid={!!leaveFieldError('semesterId')}
+                  aria-describedby={leaveFieldError('semesterId') ? 'leave-semester-error' : undefined}
+                >
+                  <option value="">
+                    {leaveSemesters.loading ? 'Cargando semestres...' : 'Selecciona un semestre'}
+                  </option>
+                  <For each={leaveSemesterOptions()}>
+                    {(semester) => (
+                      <option value={semester.id}>{semester.name}</option>
+                    )}
+                  </For>
+                </select>
+                <InlineFieldAlert id="leave-semester-error" message={leaveFieldError('semesterId')} />
+              </label>
               <label class="block">
                 <span class="text-sm text-gray-700">Inicio de licencia</span>
                 <input

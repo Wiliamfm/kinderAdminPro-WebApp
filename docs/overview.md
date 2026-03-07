@@ -39,7 +39,10 @@ Primary functional areas exposed through routes:
 - Manage employee leaves from the employee list modal:
   - create leave,
   - edit existing leave,
+  - require relation `semester_id` to `semesters`,
+  - default new leaves to the current semester when available,
   - validate date order and overlap,
+  - block saving when no semesters exist,
   - paginate leave history.
 - Manage enrollment students data in PocketBase `students` collection:
   - admin-only CRUD access,
@@ -113,9 +116,9 @@ Primary functional areas exposed through routes:
   - specific-employee suggestions are shown only after typing a document.
   - section includes an `Exportar` action that generates a CSV for all rows matching current applied filters (or all rows when filters are empty),
   - employee export includes columns `employee`, `document`, `job`, `semester`, `comments`, and `created`.
-  - analytics section includes employee-count charts by `job` and by `semester`, plus a leave-count chart by employee,
-  - leave analytics derive semester membership from overlap between leave datetime range and semester start/end dates,
-  - leave chart defaults to the current semester with active employees only when `semesters.is_current = true`,
+- analytics section includes employee-count charts by `job` and by `semester`, plus a leave-count chart by employee,
+- leave analytics use the persisted `leaves.semester_id` relation for semester filtering,
+- leave chart defaults to the current semester with active employees only when `semesters.is_current = true`,
   - when no current semester exists, the leave chart falls back to the latest semester by end date,
   - after manually changing the leave-chart semester selector, the chart includes both active and inactive employees so historical leave records remain visible.
 - Store employee invoices in PocketBase:

@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => {
     updateInvoice: vi.fn(),
     createInvoiceFile: vi.fn(),
     getCurrentSemester: vi.fn(),
+    listSemesterOptions: vi.fn(),
   };
 });
 
@@ -68,6 +69,7 @@ vi.mock('../lib/pocketbase/invoice-files', () => ({
 
 vi.mock('../lib/pocketbase/semesters', () => ({
   getCurrentSemester: mocks.getCurrentSemester,
+  listSemesterOptions: mocks.listSemesterOptions,
 }));
 
 const employee = {
@@ -109,6 +111,26 @@ const employeePageFixture = {
   totalItems: 1,
   totalPages: 1,
 };
+const semesterOptionsFixture = [
+  {
+    id: 'sem-current',
+    name: '2026-A',
+    start_date: '2026-01-01T00:00:00.000Z',
+    end_date: '2026-06-30T23:59:59.000Z',
+    is_current: true,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'sem-old',
+    name: '2025-B',
+    start_date: '2025-07-01T00:00:00.000Z',
+    end_date: '2025-12-31T23:59:59.000Z',
+    is_current: false,
+    created_at: '2025-07-01T00:00:00.000Z',
+    updated_at: '2025-07-01T00:00:00.000Z',
+  },
+];
 const defaultLeavesSort = {
   sortField: 'start_datetime',
   sortDirection: 'desc',
@@ -141,6 +163,7 @@ describe('StaffEmployeesPage features', () => {
       created_at: '2026-01-01T00:00:00.000Z',
       updated_at: '2026-01-01T00:00:00.000Z',
     });
+    mocks.listSemesterOptions.mockResolvedValue(semesterOptionsFixture);
     mocks.createEmployeeUser.mockResolvedValue({
       id: 'u2',
       email: 'new@test.com',
@@ -170,12 +193,14 @@ describe('StaffEmployeesPage features', () => {
     mocks.createEmployeeLeave.mockResolvedValue({
       id: 'leave-1',
       employeeId: 'e1',
+      semesterId: 'sem-current',
       start_datetime: '2026-02-20T10:00:00.000Z',
       end_datetime: '2026-02-20T12:00:00.000Z',
     });
     mocks.updateEmployeeLeave.mockResolvedValue({
       id: 'leave-1',
       employeeId: 'e1',
+      semesterId: 'sem-current',
       start_datetime: '2026-02-20T10:00:00.000Z',
       end_datetime: '2026-02-20T12:00:00.000Z',
     });
@@ -451,9 +476,18 @@ describe('StaffEmployeesPage features', () => {
   it('opens leaves modal with form and table', async () => {
     await openLeavesModal();
 
+    expect(screen.getByText('Semestre')).toBeInTheDocument();
     expect(screen.getByText('Inicio de licencia')).toBeInTheDocument();
     expect(screen.getByText('Fin de licencia')).toBeInTheDocument();
     expect(screen.getByText('Este empleado no tiene licencias registradas.')).toBeInTheDocument();
+  });
+
+  it('defaults new leave semester to the current semester', async () => {
+    await openLeavesModal();
+
+    await waitFor(() => {
+      expect((screen.getByLabelText('Semestre') as HTMLSelectElement).value).toBe('sem-current');
+    });
   });
 
   it('blocks submit when end datetime is not later than start datetime', async () => {
@@ -470,6 +504,33 @@ describe('StaffEmployeesPage features', () => {
       await screen.findByText('La fecha de fin debe ser posterior a la fecha de inicio.'),
     ).toBeInTheDocument();
     expect(mocks.createEmployeeLeave).not.toHaveBeenCalled();
+  });
+
+  it('blocks submit when semester is missing', async () => {
+    mocks.getCurrentSemester.mockResolvedValue(null);
+    await openLeavesModal();
+
+    fireEvent.input(screen.getByLabelText('Inicio de licencia'), {
+      target: { value: '2026-02-20T10:00' },
+    });
+    fireEvent.input(screen.getByLabelText('Fin de licencia'), {
+      target: { value: '2026-02-20T12:00' },
+    });
+    fireEvent.click(screen.getByText('Guardar licencia'));
+
+    expect(await screen.findByText('Semestre es obligatorio.')).toBeInTheDocument();
+    expect(mocks.createEmployeeLeave).not.toHaveBeenCalled();
+  });
+
+  it('blocks leave workflow when no semesters are available', async () => {
+    mocks.getCurrentSemester.mockResolvedValue(null);
+    mocks.listSemesterOptions.mockResolvedValue([]);
+
+    await openLeavesModal();
+
+    expect(
+      await screen.findByText('No hay semestres registrados. Debes crear uno antes de guardar una licencia.'),
+    ).toBeInTheDocument();
   });
 
   it('blocks submit when overlap exists', async () => {
@@ -506,6 +567,7 @@ describe('StaffEmployeesPage features', () => {
 
     expect(mocks.createEmployeeLeave).toHaveBeenCalledWith({
       employeeId: 'e1',
+      semesterId: 'sem-current',
       start_datetime: new Date('2026-02-20T10:00').toISOString(),
       end_datetime: new Date('2026-02-20T12:00').toISOString(),
     });
@@ -523,6 +585,7 @@ describe('StaffEmployeesPage features', () => {
         {
           id: 'leave-42',
           employeeId: 'e1',
+          semesterId: 'sem-old',
           start_datetime: '2026-02-20T10:00:00.000Z',
           end_datetime: '2026-02-20T12:00:00.000Z',
         },
@@ -536,9 +599,11 @@ describe('StaffEmployeesPage features', () => {
     await openLeavesModal();
     fireEvent.click(screen.getByLabelText('Editar licencia leave-42'));
 
+    const semesterInput = screen.getByLabelText('Semestre') as HTMLSelectElement;
     const startInput = screen.getByLabelText('Inicio de licencia') as HTMLInputElement;
     const endInput = screen.getByLabelText('Fin de licencia') as HTMLInputElement;
 
+    expect(semesterInput.value).toBe('sem-old');
     expect(new Date(startInput.value).toISOString()).toBe('2026-02-20T10:00:00.000Z');
     expect(new Date(endInput.value).toISOString()).toBe('2026-02-20T12:00:00.000Z');
     expect(screen.getByText('Actualizar licencia')).toBeInTheDocument();
@@ -550,6 +615,7 @@ describe('StaffEmployeesPage features', () => {
         {
           id: 'leave-42',
           employeeId: 'e1',
+          semesterId: 'sem-old',
           start_datetime: '2026-02-20T10:00:00.000Z',
           end_datetime: '2026-02-20T12:00:00.000Z',
         },
@@ -575,6 +641,7 @@ describe('StaffEmployeesPage features', () => {
     const updatePayload = updateCall[1];
     expect(mocks.updateEmployeeLeave).toHaveBeenCalledWith('leave-42', {
       employeeId: 'e1',
+      semesterId: 'sem-old',
       start_datetime: updatePayload.start_datetime,
       end_datetime: new Date('2026-02-20T13:00').toISOString(),
     });

@@ -117,6 +117,19 @@ export async function listSemestersPage(
   }
 }
 
+export async function listSemesterOptions(): Promise<SemesterRecord[]> {
+  try {
+    const records = await pb.collection('semesters').getFullList({
+      sort: '-start_date',
+      fields: 'id,name,start_date,end_date,is_current,created_at,updated_at',
+    });
+
+    return records.map((record) => mapSemesterRecord(record));
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
 export async function getSemesterById(id: string): Promise<SemesterRecord> {
   try {
     const record = await pb.collection('semesters').getOne(id);

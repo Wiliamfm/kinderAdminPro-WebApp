@@ -28,7 +28,7 @@ On initial page load, the leave analytics chart SHALL default to the current sem
 - **THEN** the leave chart automatically selects the semester with the most recent `end_date`
 
 ### Requirement: Leave analytics SHALL include historical employee leave records for manual semester filtering
-When an admin explicitly selects a semester in the leave analytics filter, the chart SHALL include leave records from any employee whose leave overlaps that semester, regardless of the employee's current `active` status. This historical view MUST not be restricted to currently active employees.
+When an admin explicitly selects a semester in the leave analytics filter, the chart SHALL include leave records from any employee assigned to that semester, regardless of the employee's current `active` status. This historical view MUST not be restricted to currently active employees.
 
 #### Scenario: Historical semester includes inactive employees
 - **WHEN** an admin selects a past semester that contains leave records for an employee who is now inactive
@@ -38,14 +38,13 @@ When an admin explicitly selects a semester in the leave analytics filter, the c
 - **WHEN** an admin changes the leave chart semester filter after the initial page load
 - **THEN** the chart recomputes the dataset for the selected semester without applying the default active-only restriction
 
-### Requirement: Semester-filtered leave analytics SHALL use overlapping leave dates
-The system SHALL treat a leave record as part of a semester whenever the leave date range overlaps the semester date range. A leave record that overlaps more than one semester MUST be counted in each overlapping semester's dataset.
+### Requirement: Semester-filtered leave analytics SHALL use persisted leave semester assignments
+The system SHALL treat a leave record as part of a semester according to the leave record's persisted `semester_id`. Semester analytics MUST filter by the explicit relation instead of deriving semester membership from leave date overlap.
 
-#### Scenario: Leave overlaps a semester boundary
-- **WHEN** a leave starts before a semester ends and ends after that semester starts
-- **THEN** the leave is included in that semester's chart results
+#### Scenario: Leave appears in its assigned semester
+- **WHEN** a leave record is stored with `semester_id = "sem2"`
+- **THEN** the leave is counted only when semester `sem2` is selected in the chart
 
-#### Scenario: Leave spans two semesters
-- **WHEN** a leave overlaps two semester date ranges
-- **THEN** the leave is included when either semester is selected
-
+#### Scenario: Historical filter does not require active status
+- **WHEN** an inactive employee has a leave assigned to the selected semester
+- **THEN** the leave is included in the selected semester chart results

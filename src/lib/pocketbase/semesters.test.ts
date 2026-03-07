@@ -3,6 +3,7 @@ import {
   createSemester,
   getCurrentSemester,
   getSemesterById,
+  listSemesterOptions,
   listSemestersPage,
   updateSemester,
 } from './semesters';
@@ -151,6 +152,38 @@ describe('semesters pocketbase client', () => {
     expect(result).toBeNull();
   });
 
+  it('lists semester options for selector use cases', async () => {
+    hoisted.getFullList.mockResolvedValue([
+      {
+        id: 's1',
+        name: '2026-A',
+        start_date: '2026-01-15T05:00:00.000Z',
+        end_date: '2026-06-15T05:00:00.000Z',
+        is_current: true,
+        created_at: '2026-01-01T10:00:00.000Z',
+        updated_at: '2026-02-01T10:00:00.000Z',
+      },
+    ]);
+
+    const result = await listSemesterOptions();
+
+    expect(hoisted.getFullList).toHaveBeenCalledWith({
+      sort: '-start_date',
+      fields: 'id,name,start_date,end_date,is_current,created_at,updated_at',
+    });
+    expect(result).toEqual([
+      {
+        id: 's1',
+        name: '2026-A',
+        start_date: '2026-01-15T05:00:00.000Z',
+        end_date: '2026-06-15T05:00:00.000Z',
+        is_current: true,
+        created_at: '2026-01-01T10:00:00.000Z',
+        updated_at: '2026-02-01T10:00:00.000Z',
+      },
+    ]);
+  });
+
   it('creates and updates semesters with trimmed payload', async () => {
     hoisted.create.mockResolvedValue({
       id: 's1',
@@ -271,6 +304,16 @@ describe('semesters pocketbase client', () => {
     hoisted.normalizePocketBaseError.mockReturnValue(normalized);
 
     await expect(listSemestersPage(1, 10)).rejects.toEqual(normalized);
+    expect(hoisted.normalizePocketBaseError).toHaveBeenCalledWith(rawError);
+  });
+
+  it('normalizes and rethrows selector loading errors', async () => {
+    const rawError = new Error('selector');
+    const normalized = { message: 'normalized selector', status: 500, isAbort: false };
+    hoisted.getFullList.mockRejectedValue(rawError);
+    hoisted.normalizePocketBaseError.mockReturnValue(normalized);
+
+    await expect(listSemesterOptions()).rejects.toEqual(normalized);
     expect(hoisted.normalizePocketBaseError).toHaveBeenCalledWith(rawError);
   });
 });

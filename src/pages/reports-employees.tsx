@@ -146,33 +146,6 @@ function buildPersonLookupLabel(documentId: string, name: string, fallbackId: st
   return fallbackId;
 }
 
-function normalizeDateTimeInput(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) return '';
-
-  // PocketBase commonly returns UTC datetimes as `YYYY-MM-DD HH:mm:ss.sssZ`.
-  // Normalizing the separator keeps parsing consistent across browsers.
-  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?$/.test(trimmed)) {
-    return trimmed.replace(' ', 'T');
-  }
-
-  return trimmed;
-}
-
-function parseDateValue(value: string): number | null {
-  const parsed = Date.parse(normalizeDateTimeInput(value));
-  return Number.isNaN(parsed) ? null : parsed;
-}
-
-function rangesOverlap(
-  rangeStart: number,
-  rangeEnd: number,
-  targetStart: number,
-  targetEnd: number,
-): boolean {
-  return rangeStart <= targetEnd && rangeEnd >= targetStart;
-}
-
 function hasChartData(points: BarChartPoint[]): boolean {
   return points.some((point) => point.value > 0);
 }
@@ -497,9 +470,6 @@ export default function ReportsEmployeesPage() {
   const semesterLabelById = createMemo(() => (
     new Map(formOptions().semesters.map((semester) => [semester.id, semester.label]))
   ));
-  const semesterById = createMemo(() => (
-    new Map(formOptions().semesters.map((semester) => [semester.id, semester]))
-  ));
   const jobIdsOrdered = createMemo(() => (
     formOptions().jobs
       .map((job) => job.id.trim())
@@ -635,23 +605,15 @@ export default function ReportsEmployeesPage() {
   });
 
   const leaveChartPoints = createMemo<BarChartPoint[]>(() => {
-    const selectedSemester = semesterById().get(leaveChartSemesterId().trim());
-    if (!selectedSemester) return [];
-
-    const semesterStart = parseDateValue(selectedSemester.startDate);
-    const semesterEnd = parseDateValue(selectedSemester.endDate);
-    if (semesterStart === null || semesterEnd === null) return [];
+    const selectedSemesterId = leaveChartSemesterId().trim();
+    if (selectedSemesterId.length === 0) return [];
 
     const countsByEmployeeId = new Map<string, { label: string; value: number }>();
     const activeOnly = leaveChartUsesActiveEmployeesOnly();
 
     for (const row of leaveAnalyticsRows()) {
       if (activeOnly && !row.employeeActive) continue;
-
-      const leaveStart = parseDateValue(row.startDateTime);
-      const leaveEnd = parseDateValue(row.endDateTime);
-      if (leaveStart === null || leaveEnd === null) continue;
-      if (!rangesOverlap(leaveStart, leaveEnd, semesterStart, semesterEnd)) continue;
+      if (row.semesterId !== selectedSemesterId) continue;
 
       const employeeId = row.employeeId.trim();
       if (employeeId.length === 0) continue;

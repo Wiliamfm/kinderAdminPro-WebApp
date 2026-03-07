@@ -53,6 +53,7 @@ describe('leaves pocketbase client', () => {
         {
           id: 'l1',
           employee_id: 'e1',
+          semester_id: 'sem1',
           start_datetime: '2026-02-01T10:00:00.000Z',
           end_datetime: '2026-02-01T12:00:00.000Z',
         },
@@ -70,6 +71,7 @@ describe('leaves pocketbase client', () => {
     expect(result.items[0]).toMatchObject({
       id: 'l1',
       employeeId: 'e1',
+      semesterId: 'sem1',
     });
     expect(hoisted.filter).toHaveBeenCalledWith('employee_id = {:employeeId}', {
       employeeId: 'e1',
@@ -105,12 +107,14 @@ describe('leaves pocketbase client', () => {
     hoisted.create.mockResolvedValue({
       id: 'l2',
       employee_id: 'e1',
+      semester_id: 'sem1',
       start_datetime: '2026-02-02T10:00:00.000Z',
       end_datetime: '2026-02-02T12:00:00.000Z',
     });
 
     const payload = {
       employeeId: 'e1',
+      semesterId: 'sem1',
       start_datetime: '2026-02-02T10:00:00.000Z',
       end_datetime: '2026-02-02T12:00:00.000Z',
     };
@@ -118,6 +122,7 @@ describe('leaves pocketbase client', () => {
 
     expect(hoisted.create).toHaveBeenCalledWith({
       employee_id: 'e1',
+      semester_id: 'sem1',
       start_datetime: '2026-02-02T10:00:00.000Z',
       end_datetime: '2026-02-02T12:00:00.000Z',
     });
@@ -128,12 +133,14 @@ describe('leaves pocketbase client', () => {
     hoisted.update.mockResolvedValue({
       id: 'l2',
       employee_id: 'e1',
+      semester_id: 'sem1',
       start_datetime: '2026-02-02T10:00:00.000Z',
       end_datetime: '2026-02-02T14:00:00.000Z',
     });
 
     const payload = {
       employeeId: 'e1',
+      semesterId: 'sem1',
       start_datetime: '2026-02-02T10:00:00.000Z',
       end_datetime: '2026-02-02T14:00:00.000Z',
     };
@@ -141,6 +148,7 @@ describe('leaves pocketbase client', () => {
 
     expect(hoisted.update).toHaveBeenCalledWith('l2', {
       employee_id: 'e1',
+      semester_id: 'sem1',
       start_datetime: '2026-02-02T10:00:00.000Z',
       end_datetime: '2026-02-02T14:00:00.000Z',
     });
@@ -152,6 +160,7 @@ describe('leaves pocketbase client', () => {
       {
         id: 'l1',
         employee_id: 'e1',
+        semester_id: 'sem1',
         start_datetime: '2026-02-01T10:00:00.000Z',
         end_datetime: '2026-02-01T12:00:00.000Z',
         expand: {
@@ -165,6 +174,7 @@ describe('leaves pocketbase client', () => {
       {
         id: 'l2',
         employee_id: '',
+        semester_id: 'sem2',
         start_datetime: '2026-02-03T10:00:00.000Z',
         end_datetime: '2026-02-03T12:00:00.000Z',
       },
@@ -175,13 +185,14 @@ describe('leaves pocketbase client', () => {
     expect(hoisted.getFullList).toHaveBeenCalledWith({
       sort: '-start_datetime',
       expand: 'employee_id',
-      fields: 'id,employee_id,start_datetime,end_datetime,expand.employee_id.name,expand.employee_id.document_id,expand.employee_id.active',
+      fields: 'id,employee_id,semester_id,start_datetime,end_datetime,expand.employee_id.name,expand.employee_id.document_id,expand.employee_id.active',
       requestKey: 'reports-employees-leaves-analytics-list',
     });
     expect(result).toEqual([
       {
         id: 'l1',
         employeeId: 'e1',
+        semesterId: 'sem1',
         employeeName: 'Ana Pérez',
         employeeDocumentId: '9001',
         employeeActive: true,
