@@ -146,8 +146,21 @@ function buildPersonLookupLabel(documentId: string, name: string, fallbackId: st
   return fallbackId;
 }
 
+function normalizeDateTimeInput(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return '';
+
+  // PocketBase commonly returns UTC datetimes as `YYYY-MM-DD HH:mm:ss.sssZ`.
+  // Normalizing the separator keeps parsing consistent across browsers.
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?$/.test(trimmed)) {
+    return trimmed.replace(' ', 'T');
+  }
+
+  return trimmed;
+}
+
 function parseDateValue(value: string): number | null {
-  const parsed = Date.parse(value);
+  const parsed = Date.parse(normalizeDateTimeInput(value));
   return Number.isNaN(parsed) ? null : parsed;
 }
 

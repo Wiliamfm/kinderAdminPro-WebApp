@@ -361,15 +361,15 @@ describe('ReportsEmployeesPage', () => {
           id: 'sem1',
           label: '2026-1',
           isCurrent: true,
-          startDate: '2026-01-15T00:00:00.000Z',
-          endDate: '2026-05-31T23:59:59.000Z',
+          startDate: '2026-01-15 00:00:00.000Z',
+          endDate: '2026-05-31 23:59:59.000Z',
         },
         {
           id: 'sem2',
           label: '2026-2',
           isCurrent: false,
-          startDate: '2026-06-01T00:00:00.000Z',
-          endDate: '2026-11-30T23:59:59.000Z',
+          startDate: '2026-06-01 00:00:00.000Z',
+          endDate: '2026-11-30 23:59:59.000Z',
         },
       ],
     });
@@ -380,8 +380,8 @@ describe('ReportsEmployeesPage', () => {
         employeeName: 'Ana Pérez',
         employeeDocumentId: '9001',
         employeeActive: true,
-        startDateTime: '2026-06-10T08:00:00.000Z',
-        endDateTime: '2026-06-10T12:00:00.000Z',
+        startDateTime: '2026-06-10 08:00:00.000Z',
+        endDateTime: '2026-06-10 12:00:00.000Z',
       },
       {
         id: 'leave-2',
@@ -389,8 +389,8 @@ describe('ReportsEmployeesPage', () => {
         employeeName: 'Luis Díaz',
         employeeDocumentId: '9002',
         employeeActive: false,
-        startDateTime: '2026-05-30T08:00:00.000Z',
-        endDateTime: '2026-06-02T12:00:00.000Z',
+        startDateTime: '2026-05-30 08:00:00.000Z',
+        endDateTime: '2026-06-02 12:00:00.000Z',
       },
     ]);
 

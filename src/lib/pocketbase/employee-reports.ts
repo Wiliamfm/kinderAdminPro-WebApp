@@ -87,8 +87,19 @@ function toBooleanValue(value: unknown): boolean {
   return value === true;
 }
 
+function normalizeDateTimeInput(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return '';
+
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?$/.test(trimmed)) {
+    return trimmed.replace(' ', 'T');
+  }
+
+  return trimmed;
+}
+
 function toTimeValue(value: string): number {
-  const parsed = Date.parse(value);
+  const parsed = Date.parse(normalizeDateTimeInput(value));
   return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
 }
 
