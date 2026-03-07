@@ -519,9 +519,7 @@ export default function ReportsStudentsPage() {
       selectedSemesterId.length === 0 || row.semester_id === selectedSemesterId
     ));
 
-    const visibleGradeIds = selectedSemesterId.length === 0
-      ? getLastItems(gradeIdsOrdered(), 5)
-      : gradeIdsOrdered();
+    const visibleGradeIds = gradeIdsOrdered();
 
     if (visibleGradeIds.length === 0) return [];
 
@@ -596,7 +594,7 @@ export default function ReportsStudentsPage() {
           {
             label: selectedSemesterId.length > 0
               ? `Estudiantes (${semesterLabel})`
-              : 'Estudiantes (últimos 5 grados)',
+              : 'Estudiantes (todos los grados)',
             data: points.map((point) => point.value),
             backgroundColor: '#facc15',
             borderColor: '#ca8a04',

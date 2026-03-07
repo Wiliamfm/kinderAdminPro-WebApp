@@ -302,7 +302,7 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - filter form uses explicit apply/clear actions; clear restores default filters and `created_at` descending sort,
   - chart section below the table renders two vertical bar charts (Chart.js): students by grade and students by semester,
   - charts use cross-filters: semester select filters the grade chart, and grade select filters the semester chart,
-  - default chart scope shows only the last 5 grades and last 5 semesters from current option lists,
+  - default chart scope shows all grades and only the last 5 semesters from current option lists,
   - chart aggregation counts distinct students (`student_id`) per bucket to avoid duplicate report-row overcount,
   - chart analytics data is fetched from `bulletins_students` with minimal fields (`student_id`, `grade_id`, `semester_id`) and `is_deleted != true`,
   - create and update actions enforce audit metadata from authenticated user (`created_by`, `updated_by`),

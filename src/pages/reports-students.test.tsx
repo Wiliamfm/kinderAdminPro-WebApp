@@ -136,7 +136,7 @@ describe('ReportsStudentsPage', () => {
     });
   });
 
-  it('builds initial charts using last 5 grades and semesters with distinct student counts', async () => {
+  it('builds initial charts using all grades and last 5 semesters with distinct student counts', async () => {
     mocks.listBulletinStudentFormOptions.mockResolvedValue({
       bulletins: [{ id: 'b1', label: 'Académico: Notas de periodo' }],
       students: [{ id: 's1', label: 'Ana Pérez' }],
@@ -170,12 +170,12 @@ describe('ReportsStudentsPage', () => {
     await screen.findByRole('cell', { name: 'Ana Pérez' });
 
     await waitFor(() => {
-      const byGrade = findChartConfigByLabel('Estudiantes (últimos 5 grados)') as {
+      const byGrade = findChartConfigByLabel('Estudiantes (todos los grados)') as {
         data: { labels: string[]; datasets: Array<{ data: number[] }> };
       };
       expect(byGrade).toBeDefined();
-      expect(byGrade.data.labels).toEqual(['Grado 2', 'Grado 3', 'Grado 4', 'Grado 5', 'Grado 6']);
-      expect(byGrade.data.datasets[0]?.data).toEqual([2, 0, 0, 1, 1]);
+      expect(byGrade.data.labels).toEqual(['Grado 1', 'Grado 2', 'Grado 3', 'Grado 4', 'Grado 5', 'Grado 6']);
+      expect(byGrade.data.datasets[0]?.data).toEqual([1, 2, 0, 0, 1, 1]);
     });
 
     await waitFor(() => {

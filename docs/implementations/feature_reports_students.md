@@ -19,7 +19,7 @@ The page must follow the existing bulletins CRUD table patterns:
 - a chart section below the table with:
   - students by grade (semester cross-filter),
   - students by semester (grade cross-filter),
-  - default last-5 grade/semester view,
+  - default all-grades + last-5 semesters view,
   - distinct-student aggregation by `student_id`.
 
 Chosen decisions:
@@ -158,7 +158,7 @@ In `src/pages/reports-students.tsx`:
   - `Grado (para gráfico por semestre)`,
 - draw two vertical bar charts with Chart.js,
 - use distinct `student_id` counting per bucket to avoid duplicate row overcount,
-- default to last 5 grades/semesters when the related chart filter is `Todos`.
+- default to all grades and last 5 semesters when the related chart filter is `Todos`.
 
 ## Test Cases And Scenarios
 
@@ -182,7 +182,7 @@ Create `src/pages/reports-students.test.tsx`:
 - delete flow triggers soft-delete call,
 - sortable header changes request sort params,
 - pagination triggers page fetch,
-- initial chart render uses last 5 grades/semesters,
+- initial chart render uses all grades and last 5 semesters,
 - chart cross-filters recalculate buckets correctly,
 - chart empty state renders when analytics query has no rows,
 - validation blocks invalid `note` values (empty, zero, negative, non-integer where applicable).
