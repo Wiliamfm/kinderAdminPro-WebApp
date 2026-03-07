@@ -1182,58 +1182,6 @@ export default function ReportsEmployeesPage() {
               La gráfica de licencias inicia en el semestre actual con empleados activos. Al cambiar el semestre se incluyen históricos activos e inactivos.
             </p>
 
-            <div class="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-3">
-              <label class="block">
-                <span class="text-sm text-gray-700">Semestre (para gráfico por cargo)</span>
-                <select
-                  class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                  value={jobChartSemesterId()}
-                  onChange={(event) => setJobChartSemesterId(event.currentTarget.value)}
-                  disabled={formOptionsLoading() || employeeReportsAnalytics.loading}
-                >
-                  <option value="">Todos los semestres</option>
-                  <For each={formOptions().semesters}>
-                    {(semester) => <option value={semester.id}>{semester.label}</option>}
-                  </For>
-                </select>
-              </label>
-
-              <label class="block">
-                <span class="text-sm text-gray-700">Semestre (para gráfico de licencias)</span>
-                <select
-                  class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                  value={leaveChartSemesterId()}
-                  onChange={(event) => {
-                    setLeaveChartSemesterTouched(true);
-                    setLeaveChartSemesterId(event.currentTarget.value);
-                  }}
-                  disabled={formOptionsLoading() || leaveAnalytics.loading || formOptions().semesters.length === 0}
-                >
-                  <option value="">
-                    {formOptionsLoading() ? 'Cargando semestres...' : 'Selecciona un semestre'}
-                  </option>
-                  <For each={formOptions().semesters}>
-                    {(semester) => <option value={semester.id}>{semester.label}</option>}
-                  </For>
-                </select>
-              </label>
-
-              <label class="block">
-                <span class="text-sm text-gray-700">Cargo (para gráfico por semestre)</span>
-                <select
-                  class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                  value={semesterChartJobId()}
-                  onChange={(event) => setSemesterChartJobId(event.currentTarget.value)}
-                  disabled={formOptionsLoading() || employeeReportsAnalytics.loading}
-                >
-                  <option value="">Todos los cargos</option>
-                  <For each={formOptions().jobs}>
-                    {(job) => <option value={job.id}>{job.label}</option>}
-                  </For>
-                </select>
-              </label>
-            </div>
-
             <Show
               when={!employeeReportsAnalytics.loading && !leaveAnalytics.loading}
               fallback={(
@@ -1253,6 +1201,21 @@ export default function ReportsEmployeesPage() {
                 <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
                   <div class="rounded-lg border border-yellow-200 bg-white p-4">
                     <h4 class="text-sm font-semibold text-gray-700">Empleados por cargo</h4>
+                    <label class="mt-3 block">
+                      <span class="text-sm text-gray-700">Filtro por semestre</span>
+                      <select
+                        aria-label="Semestre (para gráfico por cargo)"
+                        class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                        value={jobChartSemesterId()}
+                        onChange={(event) => setJobChartSemesterId(event.currentTarget.value)}
+                        disabled={formOptionsLoading() || employeeReportsAnalytics.loading}
+                      >
+                        <option value="">Todos los semestres</option>
+                        <For each={formOptions().semesters}>
+                          {(semester) => <option value={semester.id}>{semester.label}</option>}
+                        </For>
+                      </select>
+                    </label>
                     <Show
                       when={hasChartData(jobChartPoints())}
                       fallback={(
@@ -1273,6 +1236,26 @@ export default function ReportsEmployeesPage() {
 
                   <div class="rounded-lg border border-yellow-200 bg-white p-4">
                     <h4 class="text-sm font-semibold text-gray-700">Licencias por empleado</h4>
+                    <label class="mt-3 block">
+                      <span class="text-sm text-gray-700">Filtro por semestre</span>
+                      <select
+                        aria-label="Semestre (para gráfico de licencias)"
+                        class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                        value={leaveChartSemesterId()}
+                        onChange={(event) => {
+                          setLeaveChartSemesterTouched(true);
+                          setLeaveChartSemesterId(event.currentTarget.value);
+                        }}
+                        disabled={formOptionsLoading() || leaveAnalytics.loading || formOptions().semesters.length === 0}
+                      >
+                        <option value="">
+                          {formOptionsLoading() ? 'Cargando semestres...' : 'Selecciona un semestre'}
+                        </option>
+                        <For each={formOptions().semesters}>
+                          {(semester) => <option value={semester.id}>{semester.label}</option>}
+                        </For>
+                      </select>
+                    </label>
                     <Show
                       when={hasChartData(leaveChartPoints())}
                       fallback={(
@@ -1297,6 +1280,21 @@ export default function ReportsEmployeesPage() {
 
                   <div class="rounded-lg border border-yellow-200 bg-white p-4">
                     <h4 class="text-sm font-semibold text-gray-700">Empleados por semestre</h4>
+                    <label class="mt-3 block">
+                      <span class="text-sm text-gray-700">Filtro por cargo</span>
+                      <select
+                        aria-label="Cargo (para gráfico por semestre)"
+                        class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                        value={semesterChartJobId()}
+                        onChange={(event) => setSemesterChartJobId(event.currentTarget.value)}
+                        disabled={formOptionsLoading() || employeeReportsAnalytics.loading}
+                      >
+                        <option value="">Todos los cargos</option>
+                        <For each={formOptions().jobs}>
+                          {(job) => <option value={job.id}>{job.label}</option>}
+                        </For>
+                      </select>
+                    </label>
                     <Show
                       when={hasChartData(semesterChartPoints())}
                       fallback={(

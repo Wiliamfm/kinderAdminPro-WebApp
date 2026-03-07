@@ -1056,38 +1056,6 @@ export default function ReportsStudentsPage() {
               Visualiza el número de estudiantes únicos por grado y por semestre.
             </p>
 
-            <div class="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
-              <label class="block">
-                <span class="text-sm text-gray-700">Semestre (para gráfico por grado)</span>
-                <select
-                  class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                  value={gradeChartSemesterId()}
-                  onChange={(event) => setGradeChartSemesterId(event.currentTarget.value)}
-                  disabled={formOptionsLoading() || bulletinsStudentsAnalytics.loading}
-                >
-                  <option value="">Todos los semestres</option>
-                  <For each={formOptions().semesters}>
-                    {(semester) => <option value={semester.id}>{semester.label}</option>}
-                  </For>
-                </select>
-              </label>
-
-              <label class="block">
-                <span class="text-sm text-gray-700">Grado (para gráfico por semestre)</span>
-                <select
-                  class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                  value={semesterChartGradeId()}
-                  onChange={(event) => setSemesterChartGradeId(event.currentTarget.value)}
-                  disabled={formOptionsLoading() || bulletinsStudentsAnalytics.loading}
-                >
-                  <option value="">Todos los grados</option>
-                  <For each={formOptions().grades}>
-                    {(grade) => <option value={grade.id}>{grade.label}</option>}
-                  </For>
-                </select>
-              </label>
-            </div>
-
             <Show
               when={!bulletinsStudentsAnalytics.loading}
               fallback={(
@@ -1115,6 +1083,21 @@ export default function ReportsStudentsPage() {
                   <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
                     <div class="rounded-lg border border-yellow-200 bg-white p-4">
                       <h4 class="text-sm font-semibold text-gray-700">Estudiantes por grado</h4>
+                      <label class="mt-3 block">
+                        <span class="text-sm text-gray-700">Filtro por semestre</span>
+                        <select
+                          aria-label="Semestre (para gráfico por grado)"
+                          class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                          value={gradeChartSemesterId()}
+                          onChange={(event) => setGradeChartSemesterId(event.currentTarget.value)}
+                          disabled={formOptionsLoading() || bulletinsStudentsAnalytics.loading}
+                        >
+                          <option value="">Todos los semestres</option>
+                          <For each={formOptions().semesters}>
+                            {(semester) => <option value={semester.id}>{semester.label}</option>}
+                          </For>
+                        </select>
+                      </label>
                       <div class="mt-3 h-72">
                         <canvas
                           ref={(element) => setGradeChartCanvas(element)}
@@ -1126,6 +1109,21 @@ export default function ReportsStudentsPage() {
 
                     <div class="rounded-lg border border-yellow-200 bg-white p-4">
                       <h4 class="text-sm font-semibold text-gray-700">Estudiantes por semestre</h4>
+                      <label class="mt-3 block">
+                        <span class="text-sm text-gray-700">Filtro por grado</span>
+                        <select
+                          aria-label="Grado (para gráfico por semestre)"
+                          class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                          value={semesterChartGradeId()}
+                          onChange={(event) => setSemesterChartGradeId(event.currentTarget.value)}
+                          disabled={formOptionsLoading() || bulletinsStudentsAnalytics.loading}
+                        >
+                          <option value="">Todos los grados</option>
+                          <For each={formOptions().grades}>
+                            {(grade) => <option value={grade.id}>{grade.label}</option>}
+                          </For>
+                        </select>
+                      </label>
                       <div class="mt-3 h-72">
                         <canvas
                           ref={(element) => setSemesterChartCanvas(element)}
