@@ -1,6 +1,6 @@
 # Architecture Reference
 
-Last updated: 2026-03-01
+Last updated: 2026-03-07
 
 ## Purpose
 Provide a stable technical reference for module responsibilities, data flow, and key design constraints.
@@ -309,6 +309,39 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - delete action is logical delete (`is_deleted = true`) with `updated_by` refresh.
 - Routing:
   - `/reports/students`.
+
+## Reports Employees Data Model
+- `employee_reports` collection stores report rows linking employee, job, and semester.
+- Access rules:
+  - `listRule`, `viewRule`, `createRule`, `updateRule`, `deleteRule`: `@request.auth.is_admin = true`.
+- Fields:
+  - `employee_id` (required relation to `employees`, `maxSelect = 1`, `cascadeDelete = false`),
+  - `job_id` (required relation to `employee_jobs`, `maxSelect = 1`, `cascadeDelete = false`),
+  - `semester_id` (required relation to `semesters`, `maxSelect = 1`, `cascadeDelete = false`),
+  - `comments` (optional text),
+  - `created_by` (required relation to `users`, `maxSelect = 1`),
+  - `updated_by` (required relation to `users`, `maxSelect = 1`),
+  - `created_at` (autodate, set on create),
+  - `updated_at` (autodate, set on create and update),
+  - `is_deleted` (bool used for soft delete, where active list filters `is_deleted != true`).
+- Frontend modules:
+  - list/create/edit/delete page: `src/pages/reports-employees.tsx`,
+  - wrapper/API access: `src/lib/pocketbase/employee-reports.ts`.
+- Data flow:
+  - list queries are paginated and server-sorted with relation expansions for employee, job, semester, and users,
+  - default list sort is `created_at` descending; users can switch sort through column headers,
+  - list filters are server-side and combined with `AND` for `job_id`, `semester_id`, and exact selected `employee_id` values,
+  - filter form includes specific-employee datalist search; suggestions appear only after typing and selecting one or more employees applies exact `employee_id` matches for those selections,
+  - filter form uses explicit apply/clear actions; clear restores default filters and `created_at` descending sort,
+  - chart section below the table renders two vertical bar charts (Chart.js): employees by job and employees by semester,
+  - charts use cross-filters: semester select filters the job chart, and job select filters the semester chart,
+  - default chart scope shows all jobs and only the last 5 semesters from current option lists,
+  - chart aggregation counts distinct employees (`employee_id`) per bucket to avoid duplicate report-row overcount,
+  - chart analytics data is fetched from `employee_reports` with minimal fields (`employee_id`, `job_id`, `semester_id`) and `is_deleted != true`,
+  - create and update actions enforce audit metadata from authenticated user (`created_by`, `updated_by`),
+  - delete action is logical delete (`is_deleted = true`) with `updated_by` refresh.
+- Routing:
+  - `/reports/employees`.
 
 ## Testing Architecture
 - Runner: Vitest (`vitest.config.ts`).

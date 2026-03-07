@@ -83,6 +83,11 @@ export const sectionIndexByPage: Record<string, SectionIndexEntry> = {
         href: '/reports/students',
         requiresAdmin: true,
       },
+      {
+        label: 'Empleados',
+        href: '/reports/employees',
+        requiresAdmin: true,
+      },
       { label: 'Volver al inicio', href: '/' },
     ],
   },
