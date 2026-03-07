@@ -6,11 +6,15 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   isAuthUserAdmin: vi.fn(),
   listBulletinsStudentsPage: vi.fn(),
+  listBulletinsStudentsForExport: vi.fn(),
   listBulletinStudentFormOptions: vi.fn(),
   listBulletinStudentsAnalyticsRecords: vi.fn(),
   createBulletinStudent: vi.fn(),
   updateBulletinStudent: vi.fn(),
   softDeleteBulletinStudent: vi.fn(),
+  buildStudentsExportPdfBlob: vi.fn(),
+  downloadBlobFile: vi.fn(),
+  formatFileTimestamp: vi.fn(),
   chartCtor: vi.fn(),
   chartDestroy: vi.fn(),
 }));
@@ -25,11 +29,21 @@ vi.mock('../lib/pocketbase/auth', () => ({
 
 vi.mock('../lib/pocketbase/bulletins-students', () => ({
   listBulletinsStudentsPage: mocks.listBulletinsStudentsPage,
+  listBulletinsStudentsForExport: mocks.listBulletinsStudentsForExport,
   listBulletinStudentFormOptions: mocks.listBulletinStudentFormOptions,
   listBulletinStudentsAnalyticsRecords: mocks.listBulletinStudentsAnalyticsRecords,
   createBulletinStudent: mocks.createBulletinStudent,
   updateBulletinStudent: mocks.updateBulletinStudent,
   softDeleteBulletinStudent: mocks.softDeleteBulletinStudent,
+}));
+
+vi.mock('../lib/reports/students-export', () => ({
+  buildStudentsExportPdfBlob: mocks.buildStudentsExportPdfBlob,
+}));
+
+vi.mock('../lib/reports/download', () => ({
+  downloadBlobFile: mocks.downloadBlobFile,
+  formatFileTimestamp: mocks.formatFileTimestamp,
 }));
 
 vi.mock('chart.js/auto', () => {
@@ -99,11 +113,14 @@ describe('ReportsStudentsPage', () => {
     vi.clearAllMocks();
     mocks.isAuthUserAdmin.mockReturnValue(true);
     mocks.listBulletinsStudentsPage.mockResolvedValue(pageFixture);
+    mocks.listBulletinsStudentsForExport.mockResolvedValue(rowsFixture);
     mocks.listBulletinStudentFormOptions.mockResolvedValue(formOptionsFixture);
     mocks.listBulletinStudentsAnalyticsRecords.mockResolvedValue(analyticsFixture);
     mocks.createBulletinStudent.mockResolvedValue(rowsFixture[0]);
     mocks.updateBulletinStudent.mockResolvedValue(rowsFixture[0]);
     mocks.softDeleteBulletinStudent.mockResolvedValue(undefined);
+    mocks.buildStudentsExportPdfBlob.mockReturnValue(new Blob(['pdf'], { type: 'application/pdf' }));
+    mocks.formatFileTimestamp.mockReturnValue('20260307_1000');
   });
 
   it('redirects non-admin users to reports index', async () => {
@@ -478,6 +495,53 @@ describe('ReportsStudentsPage', () => {
         studentIds: [],
       });
     });
+  });
+
+  it('exports students report with applied filters', async () => {
+    render(() => <ReportsStudentsPage />);
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
+
+    fireEvent.change(screen.getByLabelText('Grado'), { target: { value: 'g1' } });
+    fireEvent.change(screen.getByLabelText('Semestre'), { target: { value: 'sem1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
+
+    await waitFor(() => {
+      expect(mocks.listBulletinsStudentsPage).toHaveBeenLastCalledWith(1, 10, {
+        sortField: 'created_at',
+        sortDirection: 'desc',
+        gradeId: 'g1',
+        semesterId: 'sem1',
+        studentIds: [],
+      });
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Exportar' }));
+
+    await waitFor(() => {
+      expect(mocks.listBulletinsStudentsForExport).toHaveBeenCalledWith({
+        gradeId: 'g1',
+        semesterId: 'sem1',
+        studentIds: [],
+      });
+    });
+
+    expect(mocks.buildStudentsExportPdfBlob).toHaveBeenCalledWith(rowsFixture, expect.any(Date));
+    expect(mocks.downloadBlobFile).toHaveBeenCalledWith(
+      'reportes_estudiantes_20260307_1000.pdf',
+      expect.any(Blob),
+    );
+  });
+
+  it('shows message when there is no data to export', async () => {
+    mocks.listBulletinsStudentsForExport.mockResolvedValueOnce([]);
+    render(() => <ReportsStudentsPage />);
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Exportar' }));
+
+    expect(await screen.findByText('No hay datos para exportar con los filtros aplicados.')).toBeInTheDocument();
+    expect(mocks.buildStudentsExportPdfBlob).not.toHaveBeenCalled();
+    expect(mocks.downloadBlobFile).not.toHaveBeenCalled();
   });
 
   it('blocks create submission for invalid note values', async () => {

@@ -3,6 +3,7 @@ import {
   createBulletinStudent,
   listBulletinStudentFormOptions,
   listBulletinStudentsAnalyticsRecords,
+  listBulletinsStudentsForExport,
   listBulletinsStudentsPage,
   softDeleteBulletinStudent,
   updateBulletinStudent,
@@ -139,6 +140,57 @@ describe('bulletins-students pocketbase client', () => {
       expand: 'bulletin_id,bulletin_id.category_id,student_id,grade_id,semester_id,created_by,updated_by',
       requestKey: 'reports-students-table-list',
     });
+  });
+
+  it('lists bulletin student records for export with applied filters', async () => {
+    hoisted.getFullList.mockResolvedValue([
+      {
+        id: 'bs1',
+        bulletin_id: 'b1',
+        student_id: 's1',
+        grade_id: 'g1',
+        semester_id: 'sem1',
+        note: 95,
+        comments: ' Excelente ',
+        created_by: 'u1',
+        updated_by: 'u2',
+        created_at: '2026-03-01T00:00:00.000Z',
+        updated_at: '2026-03-02T00:00:00.000Z',
+        is_deleted: false,
+        expand: {
+          bulletin_id: {
+            description: 'Notas de periodo',
+            expand: {
+              category_id: { name: 'Académico' },
+            },
+          },
+          student_id: { name: 'Ana Pérez', document_id: '1001' },
+          grade_id: { name: 'Primero A' },
+          semester_id: { name: '2026-1' },
+          created_by: { name: 'Admin Uno' },
+          updated_by: { email: 'admin2@example.com' },
+        },
+      },
+    ]);
+
+    const result = await listBulletinsStudentsForExport({
+      gradeId: ' g1 ',
+      semesterId: ' sem1 ',
+      studentIds: [' s1 ', 's1'],
+    });
+
+    expect(hoisted.getFullList).toHaveBeenCalledWith({
+      sort: '-created_at',
+      filter: 'is_deleted != true && grade_id = "g1" && semester_id = "sem1" && (student_id = "s1")',
+      expand: 'bulletin_id,bulletin_id.category_id,student_id,grade_id,semester_id,created_by,updated_by',
+      requestKey: 'reports-students-export-list',
+    });
+    expect(result[0]).toEqual(expect.objectContaining({
+      bulletin_category_name: 'Académico',
+      bulletin_description: 'Notas de periodo',
+      bulletin_label: 'Académico: Notas de periodo',
+      student_name: 'Ana Pérez',
+    }));
   });
 
   it('builds filter clauses for grade, semester and student query', async () => {

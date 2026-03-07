@@ -6,11 +6,15 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   isAuthUserAdmin: vi.fn(),
   listEmployeeReportsPage: vi.fn(),
+  listEmployeeReportsForExport: vi.fn(),
   listEmployeeReportFormOptions: vi.fn(),
   listEmployeeReportsAnalyticsRecords: vi.fn(),
   createEmployeeReport: vi.fn(),
   updateEmployeeReport: vi.fn(),
   softDeleteEmployeeReport: vi.fn(),
+  buildEmployeeReportsCsv: vi.fn(),
+  downloadBlobFile: vi.fn(),
+  formatFileTimestamp: vi.fn(),
   chartCtor: vi.fn(),
   chartDestroy: vi.fn(),
 }));
@@ -25,11 +29,21 @@ vi.mock('../lib/pocketbase/auth', () => ({
 
 vi.mock('../lib/pocketbase/employee-reports', () => ({
   listEmployeeReportsPage: mocks.listEmployeeReportsPage,
+  listEmployeeReportsForExport: mocks.listEmployeeReportsForExport,
   listEmployeeReportFormOptions: mocks.listEmployeeReportFormOptions,
   listEmployeeReportsAnalyticsRecords: mocks.listEmployeeReportsAnalyticsRecords,
   createEmployeeReport: mocks.createEmployeeReport,
   updateEmployeeReport: mocks.updateEmployeeReport,
   softDeleteEmployeeReport: mocks.softDeleteEmployeeReport,
+}));
+
+vi.mock('../lib/reports/employees-export', () => ({
+  buildEmployeeReportsCsv: mocks.buildEmployeeReportsCsv,
+}));
+
+vi.mock('../lib/reports/download', () => ({
+  downloadBlobFile: mocks.downloadBlobFile,
+  formatFileTimestamp: mocks.formatFileTimestamp,
 }));
 
 vi.mock('chart.js/auto', () => {
@@ -95,11 +109,14 @@ describe('ReportsEmployeesPage', () => {
     vi.clearAllMocks();
     mocks.isAuthUserAdmin.mockReturnValue(true);
     mocks.listEmployeeReportsPage.mockResolvedValue(pageFixture);
+    mocks.listEmployeeReportsForExport.mockResolvedValue(rowsFixture);
     mocks.listEmployeeReportFormOptions.mockResolvedValue(formOptionsFixture);
     mocks.listEmployeeReportsAnalyticsRecords.mockResolvedValue(analyticsFixture);
     mocks.createEmployeeReport.mockResolvedValue(rowsFixture[0]);
     mocks.updateEmployeeReport.mockResolvedValue(rowsFixture[0]);
     mocks.softDeleteEmployeeReport.mockResolvedValue(undefined);
+    mocks.buildEmployeeReportsCsv.mockReturnValue('Empleado,Documento\r\nAna Pérez,9001');
+    mocks.formatFileTimestamp.mockReturnValue('20260307_1000');
   });
 
   it('redirects non-admin users to reports index', async () => {
@@ -451,6 +468,67 @@ describe('ReportsEmployeesPage', () => {
         employeeIds: [],
       });
     });
+  });
+
+  it('exports employees report with applied filters and current sort', async () => {
+    render(() => <ReportsEmployeesPage />);
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
+
+    fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'j1' } });
+    fireEvent.change(screen.getByLabelText('Semestre'), { target: { value: 'sem1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
+
+    await waitFor(() => {
+      expect(mocks.listEmployeeReportsPage).toHaveBeenLastCalledWith(1, 10, {
+        sortField: 'created_at',
+        sortDirection: 'desc',
+        jobId: 'j1',
+        semesterId: 'sem1',
+        employeeIds: [],
+      });
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cargo' }));
+
+    await waitFor(() => {
+      expect(mocks.listEmployeeReportsPage).toHaveBeenLastCalledWith(1, 10, {
+        sortField: 'job_name',
+        sortDirection: 'asc',
+        jobId: 'j1',
+        semesterId: 'sem1',
+        employeeIds: [],
+      });
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Exportar' }));
+
+    await waitFor(() => {
+      expect(mocks.listEmployeeReportsForExport).toHaveBeenCalledWith({
+        sortField: 'job_name',
+        sortDirection: 'asc',
+        jobId: 'j1',
+        semesterId: 'sem1',
+        employeeIds: [],
+      });
+    });
+
+    expect(mocks.buildEmployeeReportsCsv).toHaveBeenCalledWith(rowsFixture);
+    expect(mocks.downloadBlobFile).toHaveBeenCalledWith(
+      'reportes_empleados_20260307_1000.csv',
+      expect.any(Blob),
+    );
+  });
+
+  it('shows message when there is no data to export', async () => {
+    mocks.listEmployeeReportsForExport.mockResolvedValueOnce([]);
+    render(() => <ReportsEmployeesPage />);
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Exportar' }));
+
+    expect(await screen.findByText('No hay datos para exportar con los filtros aplicados.')).toBeInTheDocument();
+    expect(mocks.buildEmployeeReportsCsv).not.toHaveBeenCalled();
+    expect(mocks.downloadBlobFile).not.toHaveBeenCalled();
   });
 
   it('blocks create submission for required relation fields', async () => {

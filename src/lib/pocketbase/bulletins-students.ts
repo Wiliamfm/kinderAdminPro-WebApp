@@ -5,6 +5,8 @@ import { getAuthUserId } from './users';
 export type BulletinStudentRecord = {
   id: string;
   bulletin_id: string;
+  bulletin_category_name: string;
+  bulletin_description: string;
   bulletin_label: string;
   student_id: string;
   student_name: string;
@@ -57,6 +59,8 @@ export type BulletinStudentListOptions = {
   studentQuery?: string;
   studentIds?: string[];
 };
+
+export type BulletinStudentExportOptions = BulletinStudentListOptions;
 
 export type PaginatedBulletinsStudentsResult = PaginatedListResult<BulletinStudentRecord>;
 
@@ -203,6 +207,8 @@ function mapBulletinStudentRecord(
   return {
     id: record.id,
     bulletin_id: bulletinId,
+    bulletin_category_name: bulletinCategoryName,
+    bulletin_description: bulletinDescription,
     bulletin_label: buildBulletinLabel(bulletinCategoryName, bulletinDescription, bulletinId),
     student_id: studentId,
     student_name: toStringValue(expandedStudent?.name),
@@ -330,6 +336,27 @@ export async function listBulletinsStudentsPage(
       totalItems: result.totalItems,
       totalPages: result.totalPages,
     };
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
+export async function listBulletinsStudentsForExport(
+  options: BulletinStudentExportOptions = {},
+): Promise<BulletinStudentRecord[]> {
+  try {
+    const sortField = options.sortField ?? 'created_at';
+    const sortDirection = options.sortDirection ?? 'desc';
+    const filterExpression = buildFilterExpression(options);
+
+    const records = await pb.collection('bulletins_students').getFullList({
+      sort: buildSortExpression(sortField, sortDirection),
+      filter: filterExpression,
+      expand: 'bulletin_id,bulletin_id.category_id,student_id,grade_id,semester_id,created_by,updated_by',
+      requestKey: 'reports-students-export-list',
+    });
+
+    return records.map((record) => mapBulletinStudentRecord(record));
   } catch (error) {
     throw normalizePocketBaseError(error);
   }

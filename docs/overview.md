@@ -96,6 +96,8 @@ Primary functional areas exposed through routes:
   - includes an apply/clear filter form to group results by `grade` and `semester`,
   - filter form provides a datalist-based student picker by `students.document_id` for exact filtering by one or more specific students,
   - specific-student suggestions are shown only after typing a document.
+  - section includes an `Exportar` action that generates a single PDF for all rows matching current applied filters (or all rows when filters are empty),
+  - student export groups rows by `grade` and `semester`, sorts bulletin rows by category and description, and includes student/document plus bulletin category, description, note, and comments.
 - Manage employee administrative reports in PocketBase:
   - `employee_reports` collection stores the relation between employee, job, and semester,
   - required relations: `employee_id`, `job_id`, `semester_id`,
@@ -109,6 +111,8 @@ Primary functional areas exposed through routes:
   - includes an apply/clear filter form to group results by `job` and `semester`,
   - filter form provides a datalist-based employee picker by `employees.document_id` for exact filtering by one or more specific employees,
   - specific-employee suggestions are shown only after typing a document.
+  - section includes an `Exportar` action that generates a CSV for all rows matching current applied filters (or all rows when filters are empty),
+  - employee export includes columns `employee`, `document`, `job`, `semester`, `comments`, and `created`.
 - Store employee invoices in PocketBase:
   - `invoices` links each invoice to one employee (`employee_id`),
   - `invoices` links each invoice to one semester (`semester_id`, required relation to `semesters`),

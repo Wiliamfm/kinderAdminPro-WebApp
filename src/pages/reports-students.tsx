@@ -17,6 +17,7 @@ import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
   createBulletinStudent,
   listBulletinStudentFormOptions,
+  listBulletinsStudentsForExport,
   listBulletinStudentsAnalyticsRecords,
   listBulletinsStudentsPage,
   softDeleteBulletinStudent,
@@ -26,6 +27,8 @@ import {
   type BulletinStudentListSortField,
   type BulletinStudentRecord,
 } from '../lib/pocketbase/bulletins-students';
+import { downloadBlobFile, formatFileTimestamp } from '../lib/reports/download';
+import { buildStudentsExportPdfBlob } from '../lib/reports/students-export';
 import { clampPage, DEFAULT_TABLE_PAGE_SIZE } from '../lib/table/pagination';
 import { toggleSort, type SortState } from '../lib/table/sorting';
 
@@ -292,6 +295,7 @@ export default function ReportsStudentsPage() {
   const [createTouched, setCreateTouched] = createSignal(createInitialTouchedMap(BULLETIN_STUDENT_FIELDS));
   const [createBusy, setCreateBusy] = createSignal(false);
   const [createError, setCreateError] = createSignal<string | null>(null);
+  const [exportBusy, setExportBusy] = createSignal(false);
 
   const [editTarget, setEditTarget] = createSignal<BulletinStudentRecord | null>(null);
   const [editForm, setEditForm] = createSignal<BulletinStudentForm>(emptyForm);
@@ -696,6 +700,33 @@ export default function ReportsStudentsPage() {
     setReportPage(1);
   };
 
+  const exportReports = async () => {
+    setExportBusy(true);
+    setActionError(null);
+
+    try {
+      const filters = appliedFilters();
+      const records = await listBulletinsStudentsForExport({
+        gradeId: filters.gradeId,
+        semesterId: filters.semesterId,
+        studentIds: filters.studentIds,
+      });
+
+      if (records.length === 0) {
+        setActionError('No hay datos para exportar con los filtros aplicados.');
+        return;
+      }
+
+      const generatedAt = new Date();
+      const pdfBlob = buildStudentsExportPdfBlob(records, generatedAt);
+      downloadBlobFile(`reportes_estudiantes_${formatFileTimestamp(generatedAt)}.pdf`, pdfBlob);
+    } catch (error) {
+      setActionError(getErrorMessage(error));
+    } finally {
+      setExportBusy(false);
+    }
+  };
+
   return (
     <section class="min-h-screen bg-yellow-50 p-4 sm:p-6 lg:p-8 text-gray-800">
       <div class="mx-auto max-w-[1280px] space-y-6">
@@ -726,19 +757,29 @@ export default function ReportsStudentsPage() {
               </p>
             </div>
 
-            <button
-              type="button"
-              class="rounded-lg bg-yellow-600 px-4 py-2 text-sm text-white transition-colors hover:bg-yellow-700"
-              onClick={() => {
-                void loadFormOptions();
-                setCreateOpen(true);
-                setCreateError(null);
-                setCreateForm(emptyForm);
-                setCreateTouched(createInitialTouchedMap(BULLETIN_STUDENT_FIELDS));
-              }}
-            >
-              Nuevo reporte
-            </button>
+            <div class="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                class="rounded-lg border border-yellow-300 bg-white px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-yellow-100 disabled:cursor-not-allowed disabled:text-gray-400"
+                onClick={exportReports}
+                disabled={exportBusy() || bulletinsStudents.loading}
+              >
+                {exportBusy() ? 'Exportando...' : 'Exportar'}
+              </button>
+              <button
+                type="button"
+                class="rounded-lg bg-yellow-600 px-4 py-2 text-sm text-white transition-colors hover:bg-yellow-700"
+                onClick={() => {
+                  void loadFormOptions();
+                  setCreateOpen(true);
+                  setCreateError(null);
+                  setCreateForm(emptyForm);
+                  setCreateTouched(createInitialTouchedMap(BULLETIN_STUDENT_FIELDS));
+                }}
+              >
+                Nuevo reporte
+              </button>
+            </div>
           </div>
 
           <Show when={actionError()}>
@@ -1005,7 +1046,7 @@ export default function ReportsStudentsPage() {
             class="mt-3 flex items-center justify-between"
             page={currentPage()}
             totalPages={totalPages()}
-            busy={bulletinsStudents.loading || createBusy() || editBusy() || deleteBusy()}
+            busy={bulletinsStudents.loading || createBusy() || editBusy() || deleteBusy() || exportBusy()}
             onPageChange={(nextPage) => setReportPage(nextPage)}
           />
 

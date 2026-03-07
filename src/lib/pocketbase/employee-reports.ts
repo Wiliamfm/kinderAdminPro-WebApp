@@ -51,6 +51,8 @@ export type EmployeeReportListOptions = {
   employeeIds?: string[];
 };
 
+export type EmployeeReportExportOptions = EmployeeReportListOptions;
+
 export type PaginatedEmployeeReportsResult = PaginatedListResult<EmployeeReportRecord>;
 
 export type EmployeeReportOption = {
@@ -279,6 +281,27 @@ export async function listEmployeeReportsPage(
       totalItems: result.totalItems,
       totalPages: result.totalPages,
     };
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
+export async function listEmployeeReportsForExport(
+  options: EmployeeReportExportOptions = {},
+): Promise<EmployeeReportRecord[]> {
+  try {
+    const sortField = options.sortField ?? 'created_at';
+    const sortDirection = options.sortDirection ?? 'desc';
+    const filterExpression = buildFilterExpression(options);
+
+    const records = await pb.collection('employee_reports').getFullList({
+      sort: buildSortExpression(sortField, sortDirection),
+      filter: filterExpression,
+      expand: 'employee_id,job_id,semester_id,created_by,updated_by',
+      requestKey: 'reports-employees-export-list',
+    });
+
+    return records.map((record) => mapEmployeeReportRecord(record));
   } catch (error) {
     throw normalizePocketBaseError(error);
   }

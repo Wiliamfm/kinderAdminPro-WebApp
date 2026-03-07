@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createEmployeeReport,
   listEmployeeReportFormOptions,
+  listEmployeeReportsForExport,
   listEmployeeReportsAnalyticsRecords,
   listEmployeeReportsPage,
   softDeleteEmployeeReport,
@@ -129,6 +130,51 @@ describe('employee-reports pocketbase client', () => {
       expand: 'employee_id,job_id,semester_id,created_by,updated_by',
       requestKey: 'reports-employees-table-list',
     });
+  });
+
+  it('lists employee report records for export with applied filters and sort', async () => {
+    hoisted.getFullList.mockResolvedValue([
+      {
+        id: 'er1',
+        employee_id: 'e1',
+        job_id: 'j1',
+        semester_id: 'sem1',
+        comments: ' Excelente desempeño ',
+        created_by: 'u1',
+        updated_by: 'u2',
+        created_at: '2026-03-01T00:00:00.000Z',
+        updated_at: '2026-03-02T00:00:00.000Z',
+        is_deleted: false,
+        expand: {
+          employee_id: { name: 'Ana Pérez', document_id: '9001' },
+          job_id: { name: 'Docente' },
+          semester_id: { name: '2026-1' },
+          created_by: { name: 'Admin Uno' },
+          updated_by: { email: 'admin2@example.com' },
+        },
+      },
+    ]);
+
+    const result = await listEmployeeReportsForExport({
+      sortField: 'job_name',
+      sortDirection: 'asc',
+      jobId: ' j1 ',
+      semesterId: ' sem1 ',
+      employeeIds: [' e1 ', 'e1'],
+    });
+
+    expect(hoisted.getFullList).toHaveBeenCalledWith({
+      sort: 'job_id.name',
+      filter: 'is_deleted != true && job_id = "j1" && semester_id = "sem1" && (employee_id = "e1")',
+      expand: 'employee_id,job_id,semester_id,created_by,updated_by',
+      requestKey: 'reports-employees-export-list',
+    });
+    expect(result[0]).toEqual(expect.objectContaining({
+      employee_name: 'Ana Pérez',
+      job_name: 'Docente',
+      semester_name: '2026-1',
+      comments: 'Excelente desempeño',
+    }));
   });
 
   it('builds filter clauses for job, semester and employee query', async () => {
