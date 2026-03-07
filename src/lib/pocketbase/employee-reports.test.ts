@@ -338,7 +338,22 @@ describe('employee-reports pocketbase client', () => {
 
       if (name === 'semesters') {
         return {
-          getFullList: vi.fn().mockResolvedValue([{ id: 'sem1', name: '2026-1' }]),
+          getFullList: vi.fn().mockResolvedValue([
+            {
+              id: 'sem2',
+              name: '2026-2',
+              start_date: '2026-06-01T00:00:00.000Z',
+              end_date: '2026-11-30T23:59:59.000Z',
+              is_current: false,
+            },
+            {
+              id: 'sem1',
+              name: '2026-1',
+              start_date: '2026-01-15T00:00:00.000Z',
+              end_date: '2026-05-31T23:59:59.000Z',
+              is_current: true,
+            },
+          ]),
         };
       }
 
@@ -350,7 +365,22 @@ describe('employee-reports pocketbase client', () => {
     expect(options).toEqual({
       employees: [{ id: 'e1', label: '10001 (Ana Pérez)', documentId: '10001' }],
       jobs: [{ id: 'j1', label: 'Docente' }],
-      semesters: [{ id: 'sem1', label: '2026-1' }],
+      semesters: [
+        {
+          id: 'sem1',
+          label: '2026-1',
+          isCurrent: true,
+          startDate: '2026-01-15T00:00:00.000Z',
+          endDate: '2026-05-31T23:59:59.000Z',
+        },
+        {
+          id: 'sem2',
+          label: '2026-2',
+          isCurrent: false,
+          startDate: '2026-06-01T00:00:00.000Z',
+          endDate: '2026-11-30T23:59:59.000Z',
+        },
+      ],
     });
   });
 

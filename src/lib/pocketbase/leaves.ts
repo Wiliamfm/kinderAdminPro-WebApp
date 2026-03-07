@@ -14,6 +14,16 @@ type PbLeavePayload = {
   end_datetime: string;
 };
 
+export type LeaveAnalyticsRecord = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  employeeDocumentId: string;
+  employeeActive: boolean;
+  startDateTime: string;
+  endDateTime: string;
+};
+
 export type LeaveRecord = {
   id: string;
   employeeId: string;
@@ -48,6 +58,42 @@ function mapLeaveRecord(
     employeeId: toStringValue(record.get?.('employee_id') ?? record.employee_id),
     start_datetime: toStringValue(record.get?.('start_datetime') ?? record.start_datetime),
     end_datetime: toStringValue(record.get?.('end_datetime') ?? record.end_datetime),
+  };
+}
+
+function toBooleanValue(value: unknown): boolean {
+  return value === true;
+}
+
+function getExpandedChild(
+  record: Record<string, unknown> & { get?: (key: string) => unknown },
+  key: string,
+): Record<string, unknown> | null {
+  const expand = ((record as { expand?: Record<string, unknown> }).expand
+    ?? record.get?.('expand')) as Record<string, unknown> | undefined;
+  const value = expand?.[key] ?? record[key];
+
+  if (Array.isArray(value)) {
+    const first = value[0];
+    return first && typeof first === 'object' ? first as Record<string, unknown> : null;
+  }
+
+  return value && typeof value === 'object' ? value as Record<string, unknown> : null;
+}
+
+function mapLeaveAnalyticsRecord(
+  record: Record<string, unknown> & { id: string; get?: (key: string) => unknown },
+): LeaveAnalyticsRecord {
+  const expandedEmployee = getExpandedChild(record, 'employee_id');
+
+  return {
+    id: record.id,
+    employeeId: toStringValue(record.get?.('employee_id') ?? record.employee_id),
+    employeeName: toStringValue(expandedEmployee?.name),
+    employeeDocumentId: toStringValue(expandedEmployee?.document_id),
+    employeeActive: toBooleanValue(expandedEmployee?.active),
+    startDateTime: toStringValue(record.get?.('start_datetime') ?? record.start_datetime),
+    endDateTime: toStringValue(record.get?.('end_datetime') ?? record.end_datetime),
   };
 }
 
@@ -109,6 +155,28 @@ export async function updateEmployeeLeave(
   try {
     const record = await pb.collection('leaves').update(id, mapLeavePayload(payload));
     return mapLeaveRecord(record);
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
+export async function listLeaveAnalyticsRecords(): Promise<LeaveAnalyticsRecord[]> {
+  try {
+    const records = await pb.collection('leaves').getFullList({
+      sort: '-start_datetime',
+      expand: 'employee_id',
+      fields: 'id,employee_id,start_datetime,end_datetime,expand.employee_id.name,expand.employee_id.document_id,expand.employee_id.active',
+      requestKey: 'reports-employees-leaves-analytics-list',
+    });
+
+    return records
+      .map((record) => mapLeaveAnalyticsRecord(record))
+      .filter((record) => (
+        record.id.length > 0
+        && record.employeeId.length > 0
+        && record.startDateTime.length > 0
+        && record.endDateTime.length > 0
+      ));
   } catch (error) {
     throw normalizePocketBaseError(error);
   }

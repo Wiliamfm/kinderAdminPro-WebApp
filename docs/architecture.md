@@ -343,11 +343,17 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - filter form uses explicit apply/clear actions; clear restores default filters and `created_at` descending sort,
   - export action fetches all rows matching currently applied filters (ignoring pagination) and generates one CSV file,
   - employee CSV export uses current table sort and includes columns `Empleado`, `Documento`, `Cargo`, `Semestre`, `Comentarios`, `Creado`,
-  - chart section below the table renders two vertical bar charts (Chart.js): employees by job and employees by semester,
+  - chart section below the table renders three vertical bar charts (Chart.js): employees by job, employees by semester, and leaves by employee,
   - charts use cross-filters: semester select filters the job chart, and job select filters the semester chart,
   - default chart scope shows all jobs and only the last 5 semesters from current option lists,
   - chart aggregation counts distinct employees (`employee_id`) per bucket to avoid duplicate report-row overcount,
   - chart analytics data is fetched from `employee_reports` with minimal fields (`employee_id`, `job_id`, `semester_id`) and `is_deleted != true`,
+  - leave analytics data is fetched separately from `leaves` with expanded employee metadata (`name`, `document_id`, `active`) plus leave datetime range,
+  - leave chart semester options include `isCurrent`, `startDate`, and `endDate` metadata so the page can determine the preferred semester without a second semester query,
+  - leave membership in a semester is derived by inclusive datetime-range overlap (`leave.start <= semester.end` and `leave.end >= semester.start`),
+  - leave chart counts leave records per employee, not distinct employees or leave duration,
+  - the initial leave chart selects the current semester and filters to active employees only; if there is no current semester, it falls back to the most recent semester by `end_date`,
+  - once the leave-chart semester selector changes, historical views include both active and inactive employees so older leave records remain visible,
   - create and update actions enforce audit metadata from authenticated user (`created_by`, `updated_by`),
   - delete action is logical delete (`is_deleted = true`) with `updated_by` refresh.
 - Routing:

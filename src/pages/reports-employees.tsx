@@ -27,6 +27,10 @@ import {
   type EmployeeReportListSortField,
   type EmployeeReportRecord,
 } from '../lib/pocketbase/employee-reports';
+import {
+  listLeaveAnalyticsRecords,
+  type LeaveAnalyticsRecord,
+} from '../lib/pocketbase/leaves';
 import { downloadBlobFile, formatFileTimestamp } from '../lib/reports/download';
 import { buildEmployeeReportsCsv } from '../lib/reports/employees-export';
 import { clampPage, DEFAULT_TABLE_PAGE_SIZE } from '../lib/table/pagination';
@@ -129,6 +133,37 @@ function formatDateTime(value: unknown): string {
   }).format(parsed);
 }
 
+function buildPersonLookupLabel(documentId: string, name: string, fallbackId: string): string {
+  const normalizedDocumentId = documentId.trim();
+  const normalizedName = name.trim();
+
+  if (normalizedDocumentId.length > 0 && normalizedName.length > 0) {
+    return `${normalizedDocumentId} (${normalizedName})`;
+  }
+
+  if (normalizedDocumentId.length > 0) return normalizedDocumentId;
+  if (normalizedName.length > 0) return normalizedName;
+  return fallbackId;
+}
+
+function parseDateValue(value: string): number | null {
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function rangesOverlap(
+  rangeStart: number,
+  rangeEnd: number,
+  targetStart: number,
+  targetEnd: number,
+): boolean {
+  return rangeStart <= targetEnd && rangeEnd >= targetStart;
+}
+
+function hasChartData(points: BarChartPoint[]): boolean {
+  return points.some((point) => point.value > 0);
+}
+
 function validateForm(form: EmployeeReportForm): FieldErrorMap<EmployeeReportField> {
   const errors: FieldErrorMap<EmployeeReportField> = {};
 
@@ -229,13 +264,21 @@ export default function ReportsEmployeesPage() {
     () => (isAuthUserAdmin() ? true : undefined),
     () => listEmployeeReportsAnalyticsRecords(),
   );
+  const [leaveAnalytics] = createResource(
+    () => (isAuthUserAdmin() ? true : undefined),
+    () => listLeaveAnalyticsRecords(),
+  );
 
   const [jobChartSemesterId, setJobChartSemesterId] = createSignal('');
   const [semesterChartJobId, setSemesterChartJobId] = createSignal('');
+  const [leaveChartSemesterId, setLeaveChartSemesterId] = createSignal('');
+  const [leaveChartSemesterTouched, setLeaveChartSemesterTouched] = createSignal(false);
   const [jobChartCanvas, setJobChartCanvas] = createSignal<HTMLCanvasElement | undefined>(undefined);
   const [semesterChartCanvas, setSemesterChartCanvas] = createSignal<HTMLCanvasElement | undefined>(undefined);
+  const [leaveChartCanvas, setLeaveChartCanvas] = createSignal<HTMLCanvasElement | undefined>(undefined);
   let jobChartInstance: Chart | null = null;
   let semesterChartInstance: Chart | null = null;
+  let leaveChartInstance: Chart | null = null;
 
   const [createOpen, setCreateOpen] = createSignal(false);
   const [createForm, setCreateForm] = createSignal<EmployeeReportForm>(emptyForm);
@@ -433,10 +476,16 @@ export default function ReportsEmployeesPage() {
   const analyticsRows = createMemo<EmployeeReportAnalyticsRecord[]>(() => (
     employeeReportsAnalytics.latest ?? []
   ));
+  const leaveAnalyticsRows = createMemo<LeaveAnalyticsRecord[]>(() => (
+    leaveAnalytics.latest ?? []
+  ));
 
   const jobLabelById = createMemo(() => new Map(formOptions().jobs.map((job) => [job.id, job.label])));
   const semesterLabelById = createMemo(() => (
     new Map(formOptions().semesters.map((semester) => [semester.id, semester.label]))
+  ));
+  const semesterById = createMemo(() => (
+    new Map(formOptions().semesters.map((semester) => [semester.id, semester]))
   ));
   const jobIdsOrdered = createMemo(() => (
     formOptions().jobs
@@ -448,6 +497,16 @@ export default function ReportsEmployeesPage() {
       .map((semester) => semester.id.trim())
       .filter((id) => id.length > 0)
   ));
+  const currentLeaveSemesterId = createMemo(() => (
+    formOptions().semesters.find((semester) => semester.isCurrent)?.id.trim() ?? ''
+  ));
+  const preferredLeaveSemesterId = createMemo(() => {
+    const currentSemester = formOptions().semesters.find((semester) => (
+      semester.isCurrent && semester.id.trim().length > 0
+    ));
+    if (currentSemester) return currentSemester.id.trim();
+    return formOptions().semesters.at(-1)?.id.trim() ?? '';
+  });
 
   createEffect(() => {
     const selectedSemesterId = jobChartSemesterId().trim();
@@ -462,6 +521,34 @@ export default function ReportsEmployeesPage() {
     if (selectedJobId.length === 0) return;
     if (!jobIdsOrdered().includes(selectedJobId)) {
       setSemesterChartJobId('');
+    }
+  });
+
+  createEffect(() => {
+    const validSemesterIds = semesterIdsOrdered();
+    const selectedSemesterId = leaveChartSemesterId().trim();
+    const preferredSemesterId = preferredLeaveSemesterId().trim();
+
+    if (validSemesterIds.length === 0) {
+      if (selectedSemesterId.length > 0) {
+        setLeaveChartSemesterId('');
+      }
+      if (leaveChartSemesterTouched()) {
+        setLeaveChartSemesterTouched(false);
+      }
+      return;
+    }
+
+    if (selectedSemesterId.length === 0) {
+      if (preferredSemesterId.length > 0) {
+        setLeaveChartSemesterId(preferredSemesterId);
+      }
+      return;
+    }
+
+    if (!validSemesterIds.includes(selectedSemesterId)) {
+      setLeaveChartSemesterTouched(false);
+      setLeaveChartSemesterId(preferredSemesterId);
     }
   });
 
@@ -525,6 +612,61 @@ export default function ReportsEmployeesPage() {
     }));
   });
 
+  const leaveChartUsesActiveEmployeesOnly = createMemo(() => {
+    const currentSemesterId = currentLeaveSemesterId().trim();
+    const selectedSemesterId = leaveChartSemesterId().trim();
+
+    return !leaveChartSemesterTouched()
+      && currentSemesterId.length > 0
+      && selectedSemesterId === currentSemesterId;
+  });
+
+  const leaveChartPoints = createMemo<BarChartPoint[]>(() => {
+    const selectedSemester = semesterById().get(leaveChartSemesterId().trim());
+    if (!selectedSemester) return [];
+
+    const semesterStart = parseDateValue(selectedSemester.startDate);
+    const semesterEnd = parseDateValue(selectedSemester.endDate);
+    if (semesterStart === null || semesterEnd === null) return [];
+
+    const countsByEmployeeId = new Map<string, { label: string; value: number }>();
+    const activeOnly = leaveChartUsesActiveEmployeesOnly();
+
+    for (const row of leaveAnalyticsRows()) {
+      if (activeOnly && !row.employeeActive) continue;
+
+      const leaveStart = parseDateValue(row.startDateTime);
+      const leaveEnd = parseDateValue(row.endDateTime);
+      if (leaveStart === null || leaveEnd === null) continue;
+      if (!rangesOverlap(leaveStart, leaveEnd, semesterStart, semesterEnd)) continue;
+
+      const employeeId = row.employeeId.trim();
+      if (employeeId.length === 0) continue;
+
+      const current = countsByEmployeeId.get(employeeId);
+      if (current) {
+        current.value += 1;
+        continue;
+      }
+
+      countsByEmployeeId.set(employeeId, {
+        label: buildPersonLookupLabel(row.employeeDocumentId, row.employeeName, employeeId),
+        value: 1,
+      });
+    }
+
+    return [...countsByEmployeeId.values()]
+      .sort((left, right) => {
+        const valueDifference = right.value - left.value;
+        if (valueDifference !== 0) return valueDifference;
+        return left.label.localeCompare(right.label, 'es-CO');
+      })
+      .map((point) => ({
+        label: point.label,
+        value: point.value,
+      }));
+  });
+
   createEffect(() => {
     const canvas = jobChartCanvas();
     const points = jobChartPoints();
@@ -535,7 +677,7 @@ export default function ReportsEmployeesPage() {
     jobChartInstance?.destroy();
     jobChartInstance = null;
 
-    if (points.length === 0) return;
+    if (!hasChartData(points)) return;
 
     const semesterLabel = semesterLabelById().get(selectedSemesterId) ?? selectedSemesterId;
     jobChartInstance = new Chart(canvas, {
@@ -580,7 +722,7 @@ export default function ReportsEmployeesPage() {
     semesterChartInstance?.destroy();
     semesterChartInstance = null;
 
-    if (points.length === 0) return;
+    if (!hasChartData(points)) return;
 
     const jobLabel = jobLabelById().get(selectedJobId) ?? selectedJobId;
     semesterChartInstance = new Chart(canvas, {
@@ -615,11 +757,58 @@ export default function ReportsEmployeesPage() {
     });
   });
 
+  createEffect(() => {
+    const canvas = leaveChartCanvas();
+    const points = leaveChartPoints();
+    const selectedSemesterId = leaveChartSemesterId().trim();
+
+    if (!canvas) return;
+
+    leaveChartInstance?.destroy();
+    leaveChartInstance = null;
+
+    if (!hasChartData(points)) return;
+
+    const semesterLabel = semesterLabelById().get(selectedSemesterId) ?? selectedSemesterId;
+    leaveChartInstance = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: points.map((point) => point.label),
+        datasets: [
+          {
+            label: leaveChartUsesActiveEmployeesOnly()
+              ? `Licencias (${semesterLabel}, empleados activos)`
+              : `Licencias (${semesterLabel})`,
+            data: points.map((point) => point.value),
+            backgroundColor: '#fda4af',
+            borderColor: '#e11d48',
+            borderWidth: 1,
+            borderRadius: 6,
+            maxBarThickness: 48,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { precision: 0, stepSize: 1 },
+          },
+        },
+      },
+    });
+  });
+
   onCleanup(() => {
     jobChartInstance?.destroy();
     semesterChartInstance?.destroy();
+    leaveChartInstance?.destroy();
     jobChartInstance = null;
     semesterChartInstance = null;
+    leaveChartInstance = null;
   });
 
   const applyFilters = () => {
@@ -985,12 +1174,15 @@ export default function ReportsEmployeesPage() {
           />
 
           <div class="mt-8 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
-            <h3 class="text-sm font-semibold text-gray-700">Distribución de empleados</h3>
+            <h3 class="text-sm font-semibold text-gray-700">Analítica de empleados</h3>
             <p class="mt-1 text-xs text-gray-600">
-              Visualiza el número de empleados únicos por cargo y por semestre.
+              Visualiza empleados únicos por cargo y semestre, junto con las licencias por empleado.
+            </p>
+            <p class="mt-2 text-xs text-gray-600">
+              La gráfica de licencias inicia en el semestre actual con empleados activos. Al cambiar el semestre se incluyen históricos activos e inactivos.
             </p>
 
-            <div class="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <div class="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-3">
               <label class="block">
                 <span class="text-sm text-gray-700">Semestre (para gráfico por cargo)</span>
                 <select
@@ -1000,6 +1192,26 @@ export default function ReportsEmployeesPage() {
                   disabled={formOptionsLoading() || employeeReportsAnalytics.loading}
                 >
                   <option value="">Todos los semestres</option>
+                  <For each={formOptions().semesters}>
+                    {(semester) => <option value={semester.id}>{semester.label}</option>}
+                  </For>
+                </select>
+              </label>
+
+              <label class="block">
+                <span class="text-sm text-gray-700">Semestre (para gráfico de licencias)</span>
+                <select
+                  class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                  value={leaveChartSemesterId()}
+                  onChange={(event) => {
+                    setLeaveChartSemesterTouched(true);
+                    setLeaveChartSemesterId(event.currentTarget.value);
+                  }}
+                  disabled={formOptionsLoading() || leaveAnalytics.loading || formOptions().semesters.length === 0}
+                >
+                  <option value="">
+                    {formOptionsLoading() ? 'Cargando semestres...' : 'Selecciona un semestre'}
+                  </option>
                   <For each={formOptions().semesters}>
                     {(semester) => <option value={semester.id}>{semester.label}</option>}
                   </For>
@@ -1023,32 +1235,32 @@ export default function ReportsEmployeesPage() {
             </div>
 
             <Show
-              when={!employeeReportsAnalytics.loading}
+              when={!employeeReportsAnalytics.loading && !leaveAnalytics.loading}
               fallback={(
                 <div class="mt-4 rounded-lg border border-yellow-200 bg-white px-4 py-3 text-sm text-gray-600">
-                  Cargando gráficas de empleados...
+                  Cargando gráficas de empleados y licencias...
                 </div>
               )}
             >
               <Show
-                when={!employeeReportsAnalytics.error}
+                when={!employeeReportsAnalytics.error && !leaveAnalytics.error}
                 fallback={(
                   <div class="mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    {getErrorMessage(employeeReportsAnalytics.error)}
+                    {getErrorMessage(employeeReportsAnalytics.error ?? leaveAnalytics.error)}
                   </div>
                 )}
               >
-                <Show
-                  when={analyticsRows().length > 0}
-                  fallback={(
-                    <div class="mt-4 rounded-lg border border-yellow-200 bg-white px-4 py-3 text-sm text-gray-600">
-                      No hay datos suficientes para generar las gráficas.
-                    </div>
-                  )}
-                >
-                  <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
-                    <div class="rounded-lg border border-yellow-200 bg-white p-4">
-                      <h4 class="text-sm font-semibold text-gray-700">Empleados por cargo</h4>
+                <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
+                  <div class="rounded-lg border border-yellow-200 bg-white p-4">
+                    <h4 class="text-sm font-semibold text-gray-700">Empleados por cargo</h4>
+                    <Show
+                      when={hasChartData(jobChartPoints())}
+                      fallback={(
+                        <div class="mt-3 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-gray-600">
+                          No hay datos suficientes para esta gráfica.
+                        </div>
+                      )}
+                    >
                       <div class="mt-3 h-72">
                         <canvas
                           ref={(element) => setJobChartCanvas(element)}
@@ -1056,10 +1268,43 @@ export default function ReportsEmployeesPage() {
                           aria-label="Gráfico de empleados por cargo"
                         />
                       </div>
-                    </div>
+                    </Show>
+                  </div>
 
-                    <div class="rounded-lg border border-yellow-200 bg-white p-4">
-                      <h4 class="text-sm font-semibold text-gray-700">Empleados por semestre</h4>
+                  <div class="rounded-lg border border-yellow-200 bg-white p-4">
+                    <h4 class="text-sm font-semibold text-gray-700">Licencias por empleado</h4>
+                    <Show
+                      when={hasChartData(leaveChartPoints())}
+                      fallback={(
+                        <div class="mt-3 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-gray-600">
+                          {formOptions().semesters.length === 0
+                            ? 'No hay semestres disponibles para generar la gráfica de licencias.'
+                            : leaveChartUsesActiveEmployeesOnly()
+                              ? 'No hay licencias registradas para empleados activos en el semestre seleccionado.'
+                              : 'No hay licencias registradas para el semestre seleccionado.'}
+                        </div>
+                      )}
+                    >
+                      <div class="mt-3 h-72">
+                        <canvas
+                          ref={(element) => setLeaveChartCanvas(element)}
+                          role="img"
+                          aria-label="Gráfico de licencias por empleado"
+                        />
+                      </div>
+                    </Show>
+                  </div>
+
+                  <div class="rounded-lg border border-yellow-200 bg-white p-4">
+                    <h4 class="text-sm font-semibold text-gray-700">Empleados por semestre</h4>
+                    <Show
+                      when={hasChartData(semesterChartPoints())}
+                      fallback={(
+                        <div class="mt-3 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-gray-600">
+                          No hay datos suficientes para esta gráfica.
+                        </div>
+                      )}
+                    >
                       <div class="mt-3 h-72">
                         <canvas
                           ref={(element) => setSemesterChartCanvas(element)}
@@ -1067,9 +1312,9 @@ export default function ReportsEmployeesPage() {
                           aria-label="Gráfico de empleados por semestre"
                         />
                       </div>
-                    </div>
+                    </Show>
                   </div>
-                </Show>
+                </div>
               </Show>
             </Show>
           </div>

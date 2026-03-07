@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createEmployeeLeave,
   hasLeaveOverlap,
+  listLeaveAnalyticsRecords,
   listEmployeeLeaves,
   updateEmployeeLeave,
 } from './leaves';
 
 const hoisted = vi.hoisted(() => {
   const getList = vi.fn();
+  const getFullList = vi.fn();
   const create = vi.fn();
   const update = vi.fn();
   const filter = vi.fn();
@@ -16,6 +18,7 @@ const hoisted = vi.hoisted(() => {
   const pb = {
     collection: vi.fn(() => ({
       getList,
+      getFullList,
       create,
       update,
     })),
@@ -24,6 +27,7 @@ const hoisted = vi.hoisted(() => {
 
   return {
     getList,
+    getFullList,
     create,
     update,
     filter,
@@ -143,6 +147,50 @@ describe('leaves pocketbase client', () => {
     expect(result.id).toBe('l2');
   });
 
+  it('lists leave analytics rows with employee metadata and excludes incomplete rows', async () => {
+    hoisted.getFullList.mockResolvedValue([
+      {
+        id: 'l1',
+        employee_id: 'e1',
+        start_datetime: '2026-02-01T10:00:00.000Z',
+        end_datetime: '2026-02-01T12:00:00.000Z',
+        expand: {
+          employee_id: {
+            name: 'Ana Pérez',
+            document_id: '9001',
+            active: true,
+          },
+        },
+      },
+      {
+        id: 'l2',
+        employee_id: '',
+        start_datetime: '2026-02-03T10:00:00.000Z',
+        end_datetime: '2026-02-03T12:00:00.000Z',
+      },
+    ]);
+
+    const result = await listLeaveAnalyticsRecords();
+
+    expect(hoisted.getFullList).toHaveBeenCalledWith({
+      sort: '-start_datetime',
+      expand: 'employee_id',
+      fields: 'id,employee_id,start_datetime,end_datetime,expand.employee_id.name,expand.employee_id.document_id,expand.employee_id.active',
+      requestKey: 'reports-employees-leaves-analytics-list',
+    });
+    expect(result).toEqual([
+      {
+        id: 'l1',
+        employeeId: 'e1',
+        employeeName: 'Ana Pérez',
+        employeeDocumentId: '9001',
+        employeeActive: true,
+        startDateTime: '2026-02-01T10:00:00.000Z',
+        endDateTime: '2026-02-01T12:00:00.000Z',
+      },
+    ]);
+  });
+
   it('returns true when overlap exists', async () => {
     hoisted.filter.mockReturnValue('overlap-filter');
     hoisted.getList.mockResolvedValue({
@@ -192,6 +240,16 @@ describe('leaves pocketbase client', () => {
         excludeLeaveId: 'leave-1',
       },
     );
+  });
+
+  it('normalizes and rethrows analytics errors', async () => {
+    const rawError = new Error('analytics failed');
+    const normalized = { message: 'normalized analytics', status: 500, isAbort: false };
+    hoisted.getFullList.mockRejectedValue(rawError);
+    hoisted.normalizePocketBaseError.mockReturnValue(normalized);
+
+    await expect(listLeaveAnalyticsRecords()).rejects.toEqual(normalized);
+    expect(hoisted.normalizePocketBaseError).toHaveBeenCalledWith(rawError);
   });
 
   it('normalizes and rethrows errors', async () => {

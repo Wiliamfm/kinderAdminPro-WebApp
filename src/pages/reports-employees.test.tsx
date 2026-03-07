@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   listEmployeeReportsForExport: vi.fn(),
   listEmployeeReportFormOptions: vi.fn(),
   listEmployeeReportsAnalyticsRecords: vi.fn(),
+  listLeaveAnalyticsRecords: vi.fn(),
   createEmployeeReport: vi.fn(),
   updateEmployeeReport: vi.fn(),
   softDeleteEmployeeReport: vi.fn(),
@@ -35,6 +36,10 @@ vi.mock('../lib/pocketbase/employee-reports', () => ({
   createEmployeeReport: mocks.createEmployeeReport,
   updateEmployeeReport: mocks.updateEmployeeReport,
   softDeleteEmployeeReport: mocks.softDeleteEmployeeReport,
+}));
+
+vi.mock('../lib/pocketbase/leaves', () => ({
+  listLeaveAnalyticsRecords: mocks.listLeaveAnalyticsRecords,
 }));
 
 vi.mock('../lib/reports/employees-export', () => ({
@@ -90,12 +95,30 @@ const formOptionsFixture = {
     { id: 'e2', label: '9002 (Luis Díaz)', documentId: '9002' },
   ],
   jobs: [{ id: 'j1', label: 'Docente' }],
-  semesters: [{ id: 'sem1', label: '2026-1' }],
+  semesters: [{
+    id: 'sem1',
+    label: '2026-1',
+    isCurrent: true,
+    startDate: '2026-01-15T00:00:00.000Z',
+    endDate: '2026-05-31T23:59:59.000Z',
+  }],
 };
 
 const analyticsFixture = [
   { employee_id: 'e1', job_id: 'j1', semester_id: 'sem1' },
   { employee_id: 'e1', job_id: 'j1', semester_id: 'sem1' },
+];
+
+const leaveAnalyticsFixture = [
+  {
+    id: 'leave-1',
+    employeeId: 'e1',
+    employeeName: 'Ana Pérez',
+    employeeDocumentId: '9001',
+    employeeActive: true,
+    startDateTime: '2026-02-10T08:00:00.000Z',
+    endDateTime: '2026-02-10T12:00:00.000Z',
+  },
 ];
 
 function findChartConfigByLabel(label: string) {
@@ -112,6 +135,7 @@ describe('ReportsEmployeesPage', () => {
     mocks.listEmployeeReportsForExport.mockResolvedValue(rowsFixture);
     mocks.listEmployeeReportFormOptions.mockResolvedValue(formOptionsFixture);
     mocks.listEmployeeReportsAnalyticsRecords.mockResolvedValue(analyticsFixture);
+    mocks.listLeaveAnalyticsRecords.mockResolvedValue(leaveAnalyticsFixture);
     mocks.createEmployeeReport.mockResolvedValue(rowsFixture[0]);
     mocks.updateEmployeeReport.mockResolvedValue(rowsFixture[0]);
     mocks.softDeleteEmployeeReport.mockResolvedValue(undefined);
@@ -160,12 +184,12 @@ describe('ReportsEmployeesPage', () => {
         { id: 'j3', label: 'Cargo 3' },
       ],
       semesters: [
-        { id: 'sem1', label: '2026-1' },
-        { id: 'sem2', label: '2026-2' },
-        { id: 'sem3', label: '2026-3' },
-        { id: 'sem4', label: '2026-4' },
-        { id: 'sem5', label: '2026-5' },
-        { id: 'sem6', label: '2026-6' },
+        { id: 'sem1', label: '2026-1', isCurrent: false, startDate: '2026-01-01T00:00:00.000Z', endDate: '2026-01-31T23:59:59.000Z' },
+        { id: 'sem2', label: '2026-2', isCurrent: false, startDate: '2026-02-01T00:00:00.000Z', endDate: '2026-02-28T23:59:59.000Z' },
+        { id: 'sem3', label: '2026-3', isCurrent: false, startDate: '2026-03-01T00:00:00.000Z', endDate: '2026-03-31T23:59:59.000Z' },
+        { id: 'sem4', label: '2026-4', isCurrent: false, startDate: '2026-04-01T00:00:00.000Z', endDate: '2026-04-30T23:59:59.000Z' },
+        { id: 'sem5', label: '2026-5', isCurrent: false, startDate: '2026-05-01T00:00:00.000Z', endDate: '2026-05-31T23:59:59.000Z' },
+        { id: 'sem6', label: '2026-6', isCurrent: false, startDate: '2026-06-01T00:00:00.000Z', endDate: '2026-06-30T23:59:59.000Z' },
       ],
     });
     mocks.listEmployeeReportsAnalyticsRecords.mockResolvedValue([
@@ -207,12 +231,12 @@ describe('ReportsEmployeesPage', () => {
         { id: 'j3', label: 'Cargo 3' },
       ],
       semesters: [
-        { id: 'sem1', label: '2026-1' },
-        { id: 'sem2', label: '2026-2' },
-        { id: 'sem3', label: '2026-3' },
-        { id: 'sem4', label: '2026-4' },
-        { id: 'sem5', label: '2026-5' },
-        { id: 'sem6', label: '2026-6' },
+        { id: 'sem1', label: '2026-1', isCurrent: false, startDate: '2026-01-01T00:00:00.000Z', endDate: '2026-01-31T23:59:59.000Z' },
+        { id: 'sem2', label: '2026-2', isCurrent: false, startDate: '2026-02-01T00:00:00.000Z', endDate: '2026-02-28T23:59:59.000Z' },
+        { id: 'sem3', label: '2026-3', isCurrent: false, startDate: '2026-03-01T00:00:00.000Z', endDate: '2026-03-31T23:59:59.000Z' },
+        { id: 'sem4', label: '2026-4', isCurrent: false, startDate: '2026-04-01T00:00:00.000Z', endDate: '2026-04-30T23:59:59.000Z' },
+        { id: 'sem5', label: '2026-5', isCurrent: false, startDate: '2026-05-01T00:00:00.000Z', endDate: '2026-05-31T23:59:59.000Z' },
+        { id: 'sem6', label: '2026-6', isCurrent: false, startDate: '2026-06-01T00:00:00.000Z', endDate: '2026-06-30T23:59:59.000Z' },
       ],
     });
     mocks.listEmployeeReportsAnalyticsRecords.mockResolvedValue([
@@ -261,11 +285,183 @@ describe('ReportsEmployeesPage', () => {
     });
   });
 
+  it('builds the default leave chart with current semester active employees only', async () => {
+    mocks.listEmployeeReportFormOptions.mockResolvedValue({
+      employees: [{ id: 'e1', label: '9001 (Ana Pérez)', documentId: '9001' }],
+      jobs: [{ id: 'j1', label: 'Docente' }],
+      semesters: [
+        {
+          id: 'sem1',
+          label: '2026-1',
+          isCurrent: true,
+          startDate: '2026-01-15T00:00:00.000Z',
+          endDate: '2026-05-31T23:59:59.000Z',
+        },
+        {
+          id: 'sem2',
+          label: '2026-2',
+          isCurrent: false,
+          startDate: '2026-06-01T00:00:00.000Z',
+          endDate: '2026-11-30T23:59:59.000Z',
+        },
+      ],
+    });
+    mocks.listLeaveAnalyticsRecords.mockResolvedValue([
+      {
+        id: 'leave-1',
+        employeeId: 'e1',
+        employeeName: 'Ana Pérez',
+        employeeDocumentId: '9001',
+        employeeActive: true,
+        startDateTime: '2026-03-10T08:00:00.000Z',
+        endDateTime: '2026-03-10T12:00:00.000Z',
+      },
+      {
+        id: 'leave-2',
+        employeeId: 'e1',
+        employeeName: 'Ana Pérez',
+        employeeDocumentId: '9001',
+        employeeActive: true,
+        startDateTime: '2026-04-01T08:00:00.000Z',
+        endDateTime: '2026-04-01T12:00:00.000Z',
+      },
+      {
+        id: 'leave-3',
+        employeeId: 'e2',
+        employeeName: 'Luis Díaz',
+        employeeDocumentId: '9002',
+        employeeActive: false,
+        startDateTime: '2026-03-12T08:00:00.000Z',
+        endDateTime: '2026-03-12T12:00:00.000Z',
+      },
+    ]);
+
+    render(() => <ReportsEmployeesPage />);
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
+
+    await waitFor(() => {
+      const leaveChart = findChartConfigByLabel('Licencias (2026-1, empleados activos)') as {
+        data: { labels: string[]; datasets: Array<{ data: number[] }> };
+      };
+      expect(leaveChart).toBeDefined();
+      expect(leaveChart.data.labels).toEqual(['9001 (Ana Pérez)']);
+      expect(leaveChart.data.datasets[0]?.data).toEqual([2]);
+    });
+  });
+
+  it('includes inactive employees and cross-semester leave overlaps after selecting a historical semester', async () => {
+    mocks.listEmployeeReportFormOptions.mockResolvedValue({
+      employees: [
+        { id: 'e1', label: '9001 (Ana Pérez)', documentId: '9001' },
+        { id: 'e2', label: '9002 (Luis Díaz)', documentId: '9002' },
+      ],
+      jobs: [{ id: 'j1', label: 'Docente' }],
+      semesters: [
+        {
+          id: 'sem1',
+          label: '2026-1',
+          isCurrent: true,
+          startDate: '2026-01-15T00:00:00.000Z',
+          endDate: '2026-05-31T23:59:59.000Z',
+        },
+        {
+          id: 'sem2',
+          label: '2026-2',
+          isCurrent: false,
+          startDate: '2026-06-01T00:00:00.000Z',
+          endDate: '2026-11-30T23:59:59.000Z',
+        },
+      ],
+    });
+    mocks.listLeaveAnalyticsRecords.mockResolvedValue([
+      {
+        id: 'leave-1',
+        employeeId: 'e1',
+        employeeName: 'Ana Pérez',
+        employeeDocumentId: '9001',
+        employeeActive: true,
+        startDateTime: '2026-06-10T08:00:00.000Z',
+        endDateTime: '2026-06-10T12:00:00.000Z',
+      },
+      {
+        id: 'leave-2',
+        employeeId: 'e2',
+        employeeName: 'Luis Díaz',
+        employeeDocumentId: '9002',
+        employeeActive: false,
+        startDateTime: '2026-05-30T08:00:00.000Z',
+        endDateTime: '2026-06-02T12:00:00.000Z',
+      },
+    ]);
+
+    render(() => <ReportsEmployeesPage />);
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
+
+    fireEvent.change(screen.getByLabelText('Semestre (para gráfico de licencias)'), {
+      target: { value: 'sem2' },
+    });
+
+    await waitFor(() => {
+      const leaveChart = findChartConfigByLabel('Licencias (2026-2)') as {
+        data: { labels: string[]; datasets: Array<{ data: number[] }> };
+      };
+      expect(leaveChart).toBeDefined();
+      expect(leaveChart.data.labels).toEqual(['9001 (Ana Pérez)', '9002 (Luis Díaz)']);
+      expect(leaveChart.data.datasets[0]?.data).toEqual([1, 1]);
+    });
+  });
+
+  it('falls back to the latest semester when no current semester exists', async () => {
+    mocks.listEmployeeReportFormOptions.mockResolvedValue({
+      employees: [{ id: 'e1', label: '9001 (Ana Pérez)', documentId: '9001' }],
+      jobs: [{ id: 'j1', label: 'Docente' }],
+      semesters: [
+        {
+          id: 'sem1',
+          label: '2025-2',
+          isCurrent: false,
+          startDate: '2025-01-15T00:00:00.000Z',
+          endDate: '2025-05-31T23:59:59.000Z',
+        },
+        {
+          id: 'sem2',
+          label: '2025-3',
+          isCurrent: false,
+          startDate: '2025-06-01T00:00:00.000Z',
+          endDate: '2025-11-30T23:59:59.000Z',
+        },
+      ],
+    });
+    mocks.listLeaveAnalyticsRecords.mockResolvedValue([
+      {
+        id: 'leave-1',
+        employeeId: 'e1',
+        employeeName: 'Ana Pérez',
+        employeeDocumentId: '9001',
+        employeeActive: true,
+        startDateTime: '2025-07-10T08:00:00.000Z',
+        endDateTime: '2025-07-10T12:00:00.000Z',
+      },
+    ]);
+
+    render(() => <ReportsEmployeesPage />);
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
+
+    await waitFor(() => {
+      const leaveChart = findChartConfigByLabel('Licencias (2025-3)') as {
+        data: { labels: string[]; datasets: Array<{ data: number[] }> };
+      };
+      expect(leaveChart).toBeDefined();
+      expect(leaveChart.data.labels).toEqual(['9001 (Ana Pérez)']);
+      expect(leaveChart.data.datasets[0]?.data).toEqual([1]);
+    });
+  });
+
   it('shows empty chart state when there are no analytics rows', async () => {
     mocks.listEmployeeReportsAnalyticsRecords.mockResolvedValue([]);
     render(() => <ReportsEmployeesPage />);
 
-    expect(await screen.findByText('No hay datos suficientes para generar las gráficas.')).toBeInTheDocument();
+    expect(await screen.findAllByText('No hay datos suficientes para esta gráfica.')).toHaveLength(2);
   });
 
   it('submits create modal payload', async () => {

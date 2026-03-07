@@ -61,10 +61,16 @@ export type EmployeeReportOption = {
   documentId?: string;
 };
 
+export type EmployeeReportSemesterOption = EmployeeReportOption & {
+  isCurrent: boolean;
+  startDate: string;
+  endDate: string;
+};
+
 export type EmployeeReportFormOptions = {
   employees: EmployeeReportOption[];
   jobs: EmployeeReportOption[];
-  semesters: EmployeeReportOption[];
+  semesters: EmployeeReportSemesterOption[];
 };
 
 export type EmployeeReportAnalyticsRecord = {
@@ -79,6 +85,11 @@ function toStringValue(value: unknown): string {
 
 function toBooleanValue(value: unknown): boolean {
   return value === true;
+}
+
+function toTimeValue(value: string): number {
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
 }
 
 function getExpandContainer(record: Record<string, unknown> & { get?: (key: string) => unknown }) {
@@ -379,9 +390,27 @@ export async function listEmployeeReportFormOptions(): Promise<EmployeeReportFor
         sort: 'name',
       }),
       pb.collection('semesters').getFullList({
-        sort: 'name',
+        sort: 'end_date',
       }),
     ]);
+
+    const semesterOptions = semesters
+      .map((record) => ({
+        id: toStringValue(record.id),
+        label: toStringValue(record.get?.('name') ?? record.name) || toStringValue(record.id),
+        isCurrent: toBooleanValue(record.get?.('is_current') ?? record.is_current),
+        startDate: toStringValue(record.get?.('start_date') ?? record.start_date),
+        endDate: toStringValue(record.get?.('end_date') ?? record.end_date),
+      }))
+      .sort((left, right) => {
+        const endDifference = toTimeValue(left.endDate) - toTimeValue(right.endDate);
+        if (endDifference !== 0) return endDifference;
+
+        const startDifference = toTimeValue(left.startDate) - toTimeValue(right.startDate);
+        if (startDifference !== 0) return startDifference;
+
+        return left.label.localeCompare(right.label, 'es-CO');
+      });
 
     return {
       employees: employees.map((record) => ({
@@ -397,10 +426,7 @@ export async function listEmployeeReportFormOptions(): Promise<EmployeeReportFor
         id: toStringValue(record.id),
         label: toStringValue(record.get?.('name') ?? record.name) || toStringValue(record.id),
       })),
-      semesters: semesters.map((record) => ({
-        id: toStringValue(record.id),
-        label: toStringValue(record.get?.('name') ?? record.name) || toStringValue(record.id),
-      })),
+      semesters: semesterOptions,
     };
   } catch (error) {
     throw normalizePocketBaseError(error);
