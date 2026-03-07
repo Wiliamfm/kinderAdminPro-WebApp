@@ -53,6 +53,7 @@ type EmployeeReportSortKey = EmployeeReportListSortField;
 type EmployeeLookupOption = {
   id: string;
   label: string;
+  documentId: string;
   lookupValue: string;
 };
 
@@ -392,7 +393,8 @@ export default function ReportsEmployeesPage() {
       .map((employee) => ({
         id: employee.id,
         label: employee.label,
-        lookupValue: `${employee.label} · ${employee.id}`,
+        documentId: employee.documentId?.trim() ?? '',
+        lookupValue: employee.label,
       }));
   });
 
@@ -401,7 +403,7 @@ export default function ReportsEmployeesPage() {
     if (query.length === 0) return [];
 
     return availableEmployeeLookupOptions()
-      .filter((employee) => employee.label.toLocaleLowerCase('es-CO').includes(query))
+      .filter((employee) => employee.documentId.toLocaleLowerCase('es-CO').includes(query))
       .slice(0, 20);
   });
 
@@ -736,7 +738,7 @@ export default function ReportsEmployeesPage() {
                     tryAddSpecificEmployee(nextValue);
                   }}
                   disabled={formOptionsLoading() || employeeReports.loading}
-                  placeholder="Escribe para buscar empleados"
+                  placeholder="Escribe para buscar por documento"
                   list={employeeLookupInput().trim().length > 0 ? 'reports-employees-specific-employee-list' : undefined}
                   aria-label="Seleccionar empleados específicos"
                 />
@@ -748,7 +750,7 @@ export default function ReportsEmployeesPage() {
                   </datalist>
                 </Show>
                 <p class="mt-1 text-xs text-gray-600">
-                  La lista aparece cuando comienzas a escribir. Seleccionar uno o más empleados aplica filtro exacto.
+                  La lista aparece cuando escribes un documento. Seleccionar uno o más empleados aplica filtro exacto.
                 </p>
                 <Show when={selectedSpecificEmployees().length > 0}>
                   <div class="mt-2 flex flex-wrap gap-2">

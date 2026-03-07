@@ -57,6 +57,7 @@ type BulletinStudentSortKey = BulletinStudentListSortField;
 type StudentLookupOption = {
   id: string;
   label: string;
+  documentId: string;
   lookupValue: string;
 };
 
@@ -447,7 +448,8 @@ export default function ReportsStudentsPage() {
       .map((student) => ({
         id: student.id,
         label: student.label,
-        lookupValue: `${student.label} · ${student.id}`,
+        documentId: student.documentId?.trim() ?? '',
+        lookupValue: student.label,
       }));
   });
 
@@ -456,7 +458,7 @@ export default function ReportsStudentsPage() {
     if (query.length === 0) return [];
 
     return availableStudentLookupOptions()
-      .filter((student) => student.label.toLocaleLowerCase('es-CO').includes(query))
+      .filter((student) => student.documentId.toLocaleLowerCase('es-CO').includes(query))
       .slice(0, 20);
   });
 
@@ -790,7 +792,7 @@ export default function ReportsStudentsPage() {
                     tryAddSpecificStudent(nextValue);
                   }}
                   disabled={formOptionsLoading() || bulletinsStudents.loading}
-                  placeholder="Escribe para buscar estudiantes"
+                  placeholder="Escribe para buscar por documento"
                   list={studentLookupInput().trim().length > 0 ? 'reports-students-specific-student-list' : undefined}
                   aria-label="Seleccionar estudiantes específicos"
                 />
@@ -802,7 +804,7 @@ export default function ReportsStudentsPage() {
                   </datalist>
                 </Show>
                 <p class="mt-1 text-xs text-gray-600">
-                  La lista aparece cuando comienzas a escribir. Seleccionar uno o más estudiantes aplica filtro exacto.
+                  La lista aparece cuando escribes un documento. Seleccionar uno o más estudiantes aplica filtro exacto.
                 </p>
                 <Show when={selectedSpecificStudents().length > 0}>
                   <div class="mt-2 flex flex-wrap gap-2">

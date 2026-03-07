@@ -4,6 +4,7 @@ import type { PaginatedListResult } from '../table/pagination';
 export type EmployeeRecord = {
   id: string;
   name: string;
+  documentId: string;
   email: string;
   phone: string;
   address: string;
@@ -19,6 +20,7 @@ export type EmployeeRecord = {
 
 export type EmployeeUpdateInput = {
   name: string;
+  documentId: string;
   email: string;
   phone: string;
   address: string;
@@ -51,6 +53,7 @@ export type PaginatedEmployeesResult = PaginatedListResult<EmployeeRecord>;
 
 type PbEmployeeCreatePayload = {
   name: string;
+  document_id: string;
   email: string;
   phone: string;
   address: string;
@@ -62,6 +65,7 @@ type PbEmployeeCreatePayload = {
 
 type PbEmployeeUpdatePayload = {
   name: string;
+  document_id: string;
   email: string;
   phone: string;
   address: string;
@@ -133,6 +137,7 @@ function mapEmployeeRecord(
   return {
     id: record.id,
     name: toStringValue(record.get?.('name') ?? record.name),
+    documentId: toStringValue(record.get?.('document_id') ?? record.document_id),
     email: toStringValue(record.get?.('email') ?? record.email),
     phone: toStringValue(record.get?.('phone') ?? record.phone),
     address: toStringValue(record.get?.('address') ?? record.address),
@@ -150,6 +155,7 @@ function mapEmployeeRecord(
 function mapEmployeeCreatePayload(payload: EmployeeCreateInput): PbEmployeeCreatePayload {
   return {
     name: payload.name,
+    document_id: payload.documentId.trim(),
     email: payload.email,
     phone: payload.phone,
     address: payload.address,
@@ -163,6 +169,7 @@ function mapEmployeeCreatePayload(payload: EmployeeCreateInput): PbEmployeeCreat
 function mapEmployeeUpdatePayload(payload: EmployeeUpdateInput): PbEmployeeUpdatePayload {
   return {
     name: payload.name,
+    document_id: payload.documentId.trim(),
     email: payload.email,
     phone: payload.phone,
     address: payload.address,

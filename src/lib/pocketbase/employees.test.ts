@@ -58,6 +58,7 @@ describe('employees pocketbase client', () => {
       {
         id: 'e1',
         name: 'Ana',
+        document_id: '123456',
         email: 'ana@test.com',
         phone: '300',
         address: 'Calle 1',
@@ -77,6 +78,7 @@ describe('employees pocketbase client', () => {
       {
         id: 'e2',
         name: 'Inactive',
+        document_id: '654321',
         email: 'inactive@test.com',
         phone: '301',
         address: 'Calle 2',
@@ -93,6 +95,7 @@ describe('employees pocketbase client', () => {
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
       id: 'e1',
+      documentId: '123456',
       userId: 'u1',
       jobId: 'j1',
       jobName: 'Docente',
@@ -110,6 +113,7 @@ describe('employees pocketbase client', () => {
         {
           id: 'e1',
           name: 'Ana',
+          document_id: '123456',
           email: 'ana@test.com',
           phone: '300',
           address: 'Calle 1',
@@ -157,6 +161,7 @@ describe('employees pocketbase client', () => {
     hoisted.getOne.mockResolvedValue({
       id: 'e1',
       name: 'Ana',
+      document_id: '123456',
       email: 'ana@test.com',
       phone: '300',
       address: 'Calle 1',
@@ -186,6 +191,7 @@ describe('employees pocketbase client', () => {
     hoisted.getOne.mockResolvedValue({
       id: 'e1',
       name: 'Ana',
+      document_id: '123456',
       email: 'ana@test.com',
       phone: '300',
       address: 'Calle 1',
@@ -213,6 +219,7 @@ describe('employees pocketbase client', () => {
     hoisted.create.mockResolvedValue({
       id: 'e3',
       name: 'Ana',
+      document_id: '123456',
       email: 'ana@test.com',
       phone: '300',
       address: 'Calle 1',
@@ -231,6 +238,7 @@ describe('employees pocketbase client', () => {
 
     const result = await createEmployee({
       name: 'Ana',
+      documentId: '123456',
       email: 'ana@test.com',
       phone: '300',
       address: 'Calle 1',
@@ -242,6 +250,7 @@ describe('employees pocketbase client', () => {
     expect(hoisted.create).toHaveBeenCalledWith(
       {
         name: 'Ana',
+        document_id: '123456',
         email: 'ana@test.com',
         phone: '300',
         address: 'Calle 1',
@@ -262,6 +271,7 @@ describe('employees pocketbase client', () => {
     hoisted.create.mockResolvedValue({
       id: 'e3',
       name: 'Ana',
+      document_id: '123456',
       email: 'ana@test.com',
       phone: '300',
       address: 'Calle 1',
@@ -282,6 +292,7 @@ describe('employees pocketbase client', () => {
     const cv = new File(['pdf-content'], 'ana_cv.pdf', { type: 'application/pdf' });
     await createEmployee({
       name: 'Ana',
+      documentId: '123456',
       email: 'ana@test.com',
       phone: '300',
       address: 'Calle 1',
@@ -294,6 +305,7 @@ describe('employees pocketbase client', () => {
     const payload = hoisted.create.mock.calls[0][0];
     expect(payload).toBeInstanceOf(FormData);
     expect(payload.get('name')).toBe('Ana');
+    expect(payload.get('document_id')).toBe('123456');
     expect(payload.get('job_id')).toBe('j1');
     expect(payload.get('user_id')).toBe('u3');
     expect(payload.get('active')).toBe('true');
@@ -304,6 +316,7 @@ describe('employees pocketbase client', () => {
     hoisted.update.mockResolvedValue({
       id: 'e1',
       name: 'Ana',
+      document_id: '123456',
       email: 'ana@test.com',
       phone: '300',
       address: 'Calle 1',
@@ -322,6 +335,7 @@ describe('employees pocketbase client', () => {
 
     const updated = await updateEmployee('e1', {
       name: 'Ana',
+      documentId: '123456',
       email: 'ana@test.com',
       phone: '300',
       address: 'Calle 1',
@@ -344,6 +358,7 @@ describe('employees pocketbase client', () => {
     hoisted.update.mockResolvedValue({
       id: 'e1',
       name: 'Ana',
+      document_id: '123456',
       email: 'ana@test.com',
       phone: '300',
       address: 'Calle 1',
@@ -364,6 +379,7 @@ describe('employees pocketbase client', () => {
     const cv = new File(['pdf-content'], 'ana_cv_new.pdf', { type: 'application/pdf' });
     await updateEmployee('e1', {
       name: 'Ana',
+      documentId: '123456',
       email: 'ana@test.com',
       phone: '300',
       address: 'Calle 1',

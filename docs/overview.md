@@ -29,6 +29,7 @@ Primary functional areas exposed through routes:
   - create linked auth user (`users`) with default `is_admin = false`,
   - persist `employees.user_id` relation,
   - persist `employees.job_id` relation,
+  - require unique numeric `employees.document_id` (length `4-20`),
   - optionally upload `employees.cv` (PDF only, max 10 MB),
   - send password setup email,
   - allow admin resend of onboarding invite.
@@ -93,8 +94,8 @@ Primary functional areas exposed through routes:
   - workflow is available in `/reports/students` with sortable and paginated table plus create/edit/delete modals,
   - table default order is `created_at` descending,
   - includes an apply/clear filter form to group results by `grade` and `semester`,
-  - filter form provides a datalist-based student picker for exact filtering by one or more specific students,
-  - specific-student suggestions are shown only after typing in the search box.
+  - filter form provides a datalist-based student picker by `students.document_id` for exact filtering by one or more specific students,
+  - specific-student suggestions are shown only after typing a document.
 - Manage employee administrative reports in PocketBase:
   - `employee_reports` collection stores the relation between employee, job, and semester,
   - required relations: `employee_id`, `job_id`, `semester_id`,
@@ -106,8 +107,8 @@ Primary functional areas exposed through routes:
   - workflow is available in `/reports/employees` with sortable and paginated table plus create/edit/delete modals,
   - table default order is `created_at` descending,
   - includes an apply/clear filter form to group results by `job` and `semester`,
-  - filter form provides a datalist-based employee picker for exact filtering by one or more specific employees,
-  - specific-employee suggestions are shown only after typing in the search box.
+  - filter form provides a datalist-based employee picker by `employees.document_id` for exact filtering by one or more specific employees,
+  - specific-employee suggestions are shown only after typing a document.
 - Store employee invoices in PocketBase:
   - `invoices` links each invoice to one employee (`employee_id`),
   - `invoices` links each invoice to one semester (`semester_id`, required relation to `semesters`),

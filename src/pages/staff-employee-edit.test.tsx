@@ -27,6 +27,7 @@ vi.mock('../lib/pocketbase/employee-jobs', () => ({
 const employeeFixture = {
   id: 'e1',
   name: 'Ana',
+  documentId: '9001',
   jobId: 'j1',
   jobName: 'Docente',
   jobSalary: 1500,
@@ -56,6 +57,7 @@ describe('StaffEmployeeEditPage', () => {
     render(() => <StaffEmployeeEditPage />);
 
     expect(await screen.findByDisplayValue('Ana')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('9001')).toBeInTheDocument();
     expect(screen.getByDisplayValue('ana@test.com')).toBeInTheDocument();
     expect(screen.getByDisplayValue('3001234567')).toBeInTheDocument();
   });

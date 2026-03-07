@@ -147,7 +147,7 @@ describe('employee-reports pocketbase client', () => {
 
     expect(hoisted.getList).toHaveBeenCalledWith(1, 10, {
       sort: '-created_at',
-      filter: 'is_deleted != true && job_id = "j1" && semester_id = "sem1" && (employee_id.name ~ "Ana \\"123\\" \\\\ x" || employee_id.email ~ "Ana \\"123\\" \\\\ x")',
+      filter: 'is_deleted != true && job_id = "j1" && semester_id = "sem1" && employee_id.document_id ~ "Ana \\"123\\" \\\\ x"',
       expand: 'employee_id,job_id,semester_id,created_by,updated_by',
       requestKey: 'reports-employees-table-list',
     });
@@ -275,7 +275,11 @@ describe('employee-reports pocketbase client', () => {
     hoisted.pb.collection.mockImplementation((name: string) => {
       if (name === 'employees') {
         return {
-          getFullList: vi.fn().mockResolvedValue([{ id: 'e1', name: 'Ana Pérez' }]),
+          getFullList: vi.fn().mockResolvedValue([{
+            id: 'e1',
+            name: 'Ana Pérez',
+            document_id: '10001',
+          }]),
         };
       }
 
@@ -297,7 +301,7 @@ describe('employee-reports pocketbase client', () => {
     const options = await listEmployeeReportFormOptions();
 
     expect(options).toEqual({
-      employees: [{ id: 'e1', label: 'Ana Pérez' }],
+      employees: [{ id: 'e1', label: '10001 (Ana Pérez)', documentId: '10001' }],
       jobs: [{ id: 'j1', label: 'Docente' }],
       semesters: [{ id: 'sem1', label: '2026-1' }],
     });

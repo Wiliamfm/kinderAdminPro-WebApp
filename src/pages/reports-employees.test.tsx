@@ -71,8 +71,8 @@ const pageFixture = {
 
 const formOptionsFixture = {
   employees: [
-    { id: 'e1', label: 'Ana Pérez' },
-    { id: 'e2', label: 'Luis Díaz' },
+    { id: 'e1', label: '9001 (Ana Pérez)', documentId: '9001' },
+    { id: 'e2', label: '9002 (Luis Díaz)', documentId: '9002' },
   ],
   jobs: [{ id: 'j1', label: 'Docente' }],
   semesters: [{ id: 'sem1', label: '2026-1' }],
@@ -134,7 +134,7 @@ describe('ReportsEmployeesPage', () => {
 
   it('builds initial charts using all jobs and last 5 semesters with distinct employee counts', async () => {
     mocks.listEmployeeReportFormOptions.mockResolvedValue({
-      employees: [{ id: 'e1', label: 'Ana Pérez' }],
+      employees: [{ id: 'e1', label: '9001 (Ana Pérez)', documentId: '9001' }],
       jobs: [
         { id: 'j1', label: 'Cargo 1' },
         { id: 'j2', label: 'Cargo 2' },
@@ -181,7 +181,7 @@ describe('ReportsEmployeesPage', () => {
 
   it('updates charts when cross-filters change', async () => {
     mocks.listEmployeeReportFormOptions.mockResolvedValue({
-      employees: [{ id: 'e1', label: 'Ana Pérez' }],
+      employees: [{ id: 'e1', label: '9001 (Ana Pérez)', documentId: '9001' }],
       jobs: [
         { id: 'j1', label: 'Cargo 1' },
         { id: 'j2', label: 'Cargo 2' },
@@ -393,8 +393,8 @@ describe('ReportsEmployeesPage', () => {
     await screen.findByRole('cell', { name: 'Ana Pérez' });
 
     const specificEmployeeInput = screen.getByLabelText('Seleccionar empleados específicos');
-    fireEvent.input(specificEmployeeInput, { target: { value: 'Ana Pérez · e1' } });
-    fireEvent.input(specificEmployeeInput, { target: { value: 'Luis Díaz · e2' } });
+    fireEvent.input(specificEmployeeInput, { target: { value: '9001 (Ana Pérez)' } });
+    fireEvent.input(specificEmployeeInput, { target: { value: '9002 (Luis Díaz)' } });
     fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
 
     await waitFor(() => {

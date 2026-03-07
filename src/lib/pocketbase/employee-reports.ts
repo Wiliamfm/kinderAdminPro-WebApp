@@ -55,6 +55,7 @@ export type PaginatedEmployeeReportsResult = PaginatedListResult<EmployeeReportR
 export type EmployeeReportOption = {
   id: string;
   label: string;
+  documentId?: string;
 };
 
 export type EmployeeReportFormOptions = {
@@ -123,6 +124,19 @@ function getUserDisplayName(record: Record<string, unknown> | null, fallbackId: 
   const email = toStringValue(record.email);
   if (email.length > 0) return email;
 
+  return fallbackId;
+}
+
+function buildPersonLookupLabel(documentId: string, name: string, fallbackId: string): string {
+  const normalizedDocumentId = documentId.trim();
+  const normalizedName = name.trim();
+
+  if (normalizedDocumentId.length > 0 && normalizedName.length > 0) {
+    return `${normalizedDocumentId} (${normalizedName})`;
+  }
+
+  if (normalizedDocumentId.length > 0) return normalizedDocumentId;
+  if (normalizedName.length > 0) return normalizedName;
   return fallbackId;
 }
 
@@ -215,7 +229,7 @@ function buildFilterExpression(options: EmployeeReportListOptions): string {
     clauses.push(`(${employeeIdClause})`);
   } else if (employeeQuery.length > 0) {
     const escapedQuery = escapeFilterValue(employeeQuery);
-    clauses.push(`(employee_id.name ~ "${escapedQuery}" || employee_id.email ~ "${escapedQuery}")`);
+    clauses.push(`employee_id.document_id ~ "${escapedQuery}"`);
   }
 
   return clauses.join(' && ');
@@ -347,7 +361,12 @@ export async function listEmployeeReportFormOptions(): Promise<EmployeeReportFor
     return {
       employees: employees.map((record) => ({
         id: toStringValue(record.id),
-        label: toStringValue(record.get?.('name') ?? record.name) || toStringValue(record.id),
+        label: buildPersonLookupLabel(
+          toStringValue(record.get?.('document_id') ?? record.document_id),
+          toStringValue(record.get?.('name') ?? record.name),
+          toStringValue(record.id),
+        ),
+        documentId: toStringValue(record.get?.('document_id') ?? record.document_id),
       })),
       jobs: jobs.map((record) => ({
         id: toStringValue(record.id),

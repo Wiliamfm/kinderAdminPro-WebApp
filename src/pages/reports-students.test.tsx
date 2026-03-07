@@ -75,8 +75,8 @@ const pageFixture = {
 const formOptionsFixture = {
   bulletins: [{ id: 'b1', label: 'Académico: Notas de periodo' }],
   students: [
-    { id: 's1', label: 'Ana Pérez' },
-    { id: 's2', label: 'Luis Díaz' },
+    { id: 's1', label: '1001 (Ana Pérez)', documentId: '1001' },
+    { id: 's2', label: '1002 (Luis Díaz)', documentId: '1002' },
   ],
   grades: [{ id: 'g1', label: 'Primero A' }],
   semesters: [{ id: 'sem1', label: '2026-1' }],
@@ -139,7 +139,7 @@ describe('ReportsStudentsPage', () => {
   it('builds initial charts using all grades and last 5 semesters with distinct student counts', async () => {
     mocks.listBulletinStudentFormOptions.mockResolvedValue({
       bulletins: [{ id: 'b1', label: 'Académico: Notas de periodo' }],
-      students: [{ id: 's1', label: 'Ana Pérez' }],
+      students: [{ id: 's1', label: '1001 (Ana Pérez)', documentId: '1001' }],
       grades: [
         { id: 'g1', label: 'Grado 1' },
         { id: 'g2', label: 'Grado 2' },
@@ -191,7 +191,7 @@ describe('ReportsStudentsPage', () => {
   it('updates charts when cross-filters change', async () => {
     mocks.listBulletinStudentFormOptions.mockResolvedValue({
       bulletins: [{ id: 'b1', label: 'Académico: Notas de periodo' }],
-      students: [{ id: 's1', label: 'Ana Pérez' }],
+      students: [{ id: 's1', label: '1001 (Ana Pérez)', documentId: '1001' }],
       grades: [
         { id: 'g1', label: 'Grado 1' },
         { id: 'g2', label: 'Grado 2' },
@@ -420,8 +420,8 @@ describe('ReportsStudentsPage', () => {
     await screen.findByRole('cell', { name: 'Ana Pérez' });
 
     const specificStudentInput = screen.getByLabelText('Seleccionar estudiantes específicos');
-    fireEvent.input(specificStudentInput, { target: { value: 'Ana Pérez · s1' } });
-    fireEvent.input(specificStudentInput, { target: { value: 'Luis Díaz · s2' } });
+    fireEvent.input(specificStudentInput, { target: { value: '1001 (Ana Pérez)' } });
+    fireEvent.input(specificStudentInput, { target: { value: '1002 (Luis Díaz)' } });
     fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
 
     await waitFor(() => {

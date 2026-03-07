@@ -47,6 +47,7 @@ function formatSalary(value: number | string): string {
 
 const emptyForm: EmployeeUpdateInput = {
   name: '',
+  documentId: '',
   jobId: '',
   email: '',
   phone: '',
@@ -56,6 +57,7 @@ const emptyForm: EmployeeUpdateInput = {
 
 const REQUIRED_FIELDS = [
   'name',
+  'documentId',
   'jobId',
   'email',
   'phone',
@@ -65,18 +67,24 @@ const REQUIRED_FIELDS = [
 type RequiredField = (typeof REQUIRED_FIELDS)[number];
 const CV_FIELDS = ['cv'] as const;
 type CvField = (typeof CV_FIELDS)[number];
+const DOCUMENT_ID_REGEX = /^[0-9]{4,20}$/;
 const MAX_PDF_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
 function validateForm(current: EmployeeUpdateInput): FieldErrorMap<RequiredField> {
   const errors: FieldErrorMap<RequiredField> = {};
 
   if (current.name.trim().length === 0) errors.name = 'Nombre es obligatorio.';
+  if (current.documentId.trim().length === 0) errors.documentId = 'Documento es obligatorio.';
   if (current.jobId.trim().length === 0) errors.jobId = 'Cargo es obligatorio.';
   if (current.email.trim().length === 0) errors.email = 'Correo es obligatorio.';
   if (current.phone.trim().length === 0) errors.phone = 'Teléfono es obligatorio.';
   if (current.address.trim().length === 0) errors.address = 'Dirección es obligatorio.';
   if (current.emergency_contact.trim().length === 0) {
     errors.emergency_contact = 'Contacto de emergencia es obligatorio.';
+  }
+
+  if (!errors.documentId && !DOCUMENT_ID_REGEX.test(current.documentId.trim())) {
+    errors.documentId = 'Documento debe contener entre 4 y 20 dígitos numéricos.';
   }
 
   return errors;
@@ -110,6 +118,7 @@ export default function StaffEmployeeEditPage() {
 
     setForm({
       name: current.name,
+      documentId: current.documentId,
       jobId: current.jobId,
       email: current.email,
       phone: current.phone,
@@ -213,6 +222,20 @@ export default function StaffEmployeeEditPage() {
                 aria-describedby={fieldError('name') ? 'employee-name-error' : undefined}
               />
               <InlineFieldAlert id="employee-name-error" message={fieldError('name')} />
+            </label>
+
+            <label class="text-sm">
+              <span class="mb-1 block font-medium text-gray-700">Documento</span>
+              <input
+                type="text"
+                class="w-full rounded-lg border border-yellow-300 px-3 py-2"
+                classList={{ 'field-input-invalid': !!fieldError('documentId') }}
+                value={form().documentId}
+                onInput={(event) => setField('documentId', event.currentTarget.value)}
+                aria-invalid={!!fieldError('documentId')}
+                aria-describedby={fieldError('documentId') ? 'employee-document-error' : undefined}
+              />
+              <InlineFieldAlert id="employee-document-error" message={fieldError('documentId')} />
             </label>
 
             <label class="text-sm">

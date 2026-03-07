@@ -49,6 +49,7 @@ import {
 
 type EmployeeCreateForm = {
   name: string;
+  documentId: string;
   jobId: string;
   email: string;
   phone: string;
@@ -58,6 +59,7 @@ type EmployeeCreateForm = {
 
 const CREATE_EMPLOYEE_FIELDS = [
   'name',
+  'documentId',
   'jobId',
   'email',
   'phone',
@@ -76,6 +78,7 @@ const INVOICE_FIELDS = ['file'] as const;
 type InvoiceField = (typeof INVOICE_FIELDS)[number];
 
 const PHONE_REGEX = /^[+\d\s()-]{7,20}$/;
+const DOCUMENT_ID_REGEX = /^[0-9]{4,20}$/;
 const MAX_PDF_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
 function formatSalary(value: number | string): string {
@@ -133,6 +136,7 @@ const emptyLeaveForm: LeaveCreateInput = {
 };
 const emptyCreateEmployeeForm: EmployeeCreateForm = {
   name: '',
+  documentId: '',
   jobId: '',
   email: '',
   phone: '',
@@ -154,12 +158,17 @@ function validateCreateEmployeeForm(current: EmployeeCreateForm): FieldErrorMap<
   const errors: FieldErrorMap<CreateEmployeeField> = {};
 
   if (current.name.trim().length === 0) errors.name = 'Nombre es obligatorio.';
+  if (current.documentId.trim().length === 0) errors.documentId = 'Documento es obligatorio.';
   if (current.jobId.trim().length === 0) errors.jobId = 'Cargo es obligatorio.';
   if (current.email.trim().length === 0) errors.email = 'Correo es obligatorio.';
   if (current.phone.trim().length === 0) errors.phone = 'Teléfono es obligatorio.';
   if (current.address.trim().length === 0) errors.address = 'Dirección es obligatorio.';
   if (current.emergency_contact.trim().length === 0) {
     errors.emergency_contact = 'Contacto de emergencia es obligatorio.';
+  }
+
+  if (!errors.documentId && !DOCUMENT_ID_REGEX.test(current.documentId.trim())) {
+    errors.documentId = 'Documento debe contener entre 4 y 20 dígitos numéricos.';
   }
 
   if (!errors.phone && !PHONE_REGEX.test(current.phone.trim())) {
@@ -184,6 +193,7 @@ function validateCreateEmployeeForm(current: EmployeeCreateForm): FieldErrorMap<
 function toCreateEmployeeInput(current: EmployeeCreateForm): EmployeeCreateForm {
   return {
     name: current.name.trim(),
+    documentId: current.documentId.trim(),
     jobId: current.jobId.trim(),
     email: current.email.trim(),
     phone: current.phone.trim(),
@@ -1045,6 +1055,23 @@ export default function StaffEmployeesPage() {
                   aria-describedby={createFieldError('name') ? 'create-employee-name-error' : undefined}
                 />
                 <InlineFieldAlert id="create-employee-name-error" message={createFieldError('name')} />
+              </label>
+              <label class="block">
+                <span class="text-sm text-gray-700">Documento</span>
+                <input
+                  class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  classList={{ 'field-input-invalid': !!createFieldError('documentId') }}
+                  type="text"
+                  value={createForm().documentId}
+                  onInput={(event) => setCreateField('documentId', event.currentTarget.value)}
+                  disabled={createBusy()}
+                  aria-invalid={!!createFieldError('documentId')}
+                  aria-describedby={createFieldError('documentId') ? 'create-employee-document-id-error' : undefined}
+                />
+                <InlineFieldAlert
+                  id="create-employee-document-id-error"
+                  message={createFieldError('documentId')}
+                />
               </label>
               <label class="block">
                 <span class="text-sm text-gray-700">Cargo</span>

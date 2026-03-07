@@ -157,7 +157,7 @@ describe('bulletins-students pocketbase client', () => {
 
     expect(hoisted.getList).toHaveBeenCalledWith(1, 10, {
       sort: '-created_at',
-      filter: 'is_deleted != true && grade_id = "g1" && semester_id = "sem1" && (student_id.name ~ "Ana \\"123\\" \\\\ doc" || student_id.document_id ~ "Ana \\"123\\" \\\\ doc")',
+      filter: 'is_deleted != true && grade_id = "g1" && semester_id = "sem1" && student_id.document_id ~ "Ana \\"123\\" \\\\ doc"',
       expand: 'bulletin_id,bulletin_id.category_id,student_id,grade_id,semester_id,created_by,updated_by',
       requestKey: 'reports-students-table-list',
     });
@@ -323,7 +323,11 @@ describe('bulletins-students pocketbase client', () => {
 
       if (name === 'students') {
         return {
-          getFullList: vi.fn().mockResolvedValue([{ id: 's1', name: 'Ana Pérez' }]),
+          getFullList: vi.fn().mockResolvedValue([{
+            id: 's1',
+            name: 'Ana Pérez',
+            document_id: '1001',
+          }]),
         };
       }
 
@@ -346,7 +350,7 @@ describe('bulletins-students pocketbase client', () => {
 
     expect(options).toEqual({
       bulletins: [{ id: 'b1', label: 'Académico: Notas de periodo' }],
-      students: [{ id: 's1', label: 'Ana Pérez' }],
+      students: [{ id: 's1', label: '1001 (Ana Pérez)', documentId: '1001' }],
       grades: [{ id: 'g1', label: 'Primero A' }],
       semesters: [{ id: 'sem1', label: '2026-1' }],
     });

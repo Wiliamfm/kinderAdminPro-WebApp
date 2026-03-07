@@ -57,6 +57,7 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - Data flow for create:
   - `users.create` via `src/lib/pocketbase/users.ts` (`is_admin` forced to `false`),
   - `employees.create` via `src/lib/pocketbase/employees.ts` with relations `user_id` and `job_id`,
+  - required `employees.document_id` (numeric string, length `4-20`, unique),
   - optional `employees.cv` upload (PDF only, max 10 MB),
   - onboarding trigger via `users.requestPasswordReset`.
 - Recovery behavior:
@@ -98,6 +99,7 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - Migration note:
   - employees now use relation `employees.job_id` (required) instead of legacy `employees.job` and `employees.salary`.
   - existing employees were backfilled to the default job `Cargo por definir`.
+  - employees include required unique `document_id` (numeric string, length `4-20`) with generated backfill for legacy rows.
 
 ## Leaves Feature Design
 - UI location: `src/pages/staff-employees.tsx` modal under employee actions.
@@ -298,7 +300,8 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - list queries are paginated and server-sorted with relation expansions for bulletin, category, student, grade, semester, and users,
   - default list sort is `created_at` descending; users can switch sort through column headers,
   - list filters are server-side and combined with `AND` for `grade_id`, `semester_id`, and exact selected `student_id` values,
-  - filter form includes specific-student datalist search; suggestions appear only after typing and selecting one or more students applies exact `student_id` matches for those selections,
+  - filter form includes specific-student datalist search by `students.document_id`; suggestions appear only after typing and selecting one or more students applies exact `student_id` matches for those selections,
+  - suggestion labels use `document_id (name)`,
   - filter form uses explicit apply/clear actions; clear restores default filters and `created_at` descending sort,
   - chart section below the table renders two vertical bar charts (Chart.js): students by grade and students by semester,
   - charts use cross-filters: semester select filters the grade chart, and grade select filters the semester chart,
@@ -331,7 +334,8 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - list queries are paginated and server-sorted with relation expansions for employee, job, semester, and users,
   - default list sort is `created_at` descending; users can switch sort through column headers,
   - list filters are server-side and combined with `AND` for `job_id`, `semester_id`, and exact selected `employee_id` values,
-  - filter form includes specific-employee datalist search; suggestions appear only after typing and selecting one or more employees applies exact `employee_id` matches for those selections,
+  - filter form includes specific-employee datalist search by `employees.document_id`; suggestions appear only after typing and selecting one or more employees applies exact `employee_id` matches for those selections,
+  - suggestion labels use `document_id (name)`,
   - filter form uses explicit apply/clear actions; clear restores default filters and `created_at` descending sort,
   - chart section below the table renders two vertical bar charts (Chart.js): employees by job and employees by semester,
   - charts use cross-filters: semester select filters the job chart, and job select filters the semester chart,

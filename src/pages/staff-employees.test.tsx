@@ -275,6 +275,7 @@ describe('StaffEmployeesPage features', () => {
     await screen.findByRole('heading', { name: 'Crear empleado' });
 
     fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'New Employee' } });
+    fireEvent.input(screen.getByLabelText('Documento'), { target: { value: '9001' } });
     fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'j1' } });
     fireEvent.input(screen.getByLabelText('Correo'), { target: { value: 'new@test.com' } });
     fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: '3001234' } });
@@ -292,6 +293,7 @@ describe('StaffEmployeesPage features', () => {
     });
     expect(mocks.createEmployee).toHaveBeenCalledWith({
       name: 'New Employee',
+      documentId: '9001',
       jobId: 'j1',
       email: 'new@test.com',
       phone: '3001234',
@@ -312,6 +314,7 @@ describe('StaffEmployeesPage features', () => {
     await screen.findByRole('heading', { name: 'Crear empleado' });
 
     fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'New Employee' } });
+    fireEvent.input(screen.getByLabelText('Documento'), { target: { value: '9002' } });
     fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'j1' } });
     fireEvent.input(screen.getByLabelText('Correo'), { target: { value: 'new@test.com' } });
     fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: '3001234' } });
@@ -327,6 +330,7 @@ describe('StaffEmployeesPage features', () => {
     await waitFor(() => {
       expect(mocks.createEmployee).toHaveBeenCalledWith({
         name: 'New Employee',
+        documentId: '9002',
         jobId: 'j1',
         email: 'new@test.com',
         phone: '3001234',
@@ -345,6 +349,7 @@ describe('StaffEmployeesPage features', () => {
 
     fireEvent.click(screen.getByText('Nuevo empleado'));
     fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'New Employee' } });
+    fireEvent.input(screen.getByLabelText('Documento'), { target: { value: '9003' } });
     fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'j1' } });
     fireEvent.input(screen.getByLabelText('Correo'), { target: { value: 'new@test.com' } });
     fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: '3001234' } });
@@ -367,6 +372,7 @@ describe('StaffEmployeesPage features', () => {
 
     fireEvent.click(screen.getByText('Nuevo empleado'));
     fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'New Employee' } });
+    fireEvent.input(screen.getByLabelText('Documento'), { target: { value: '9004' } });
     fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'j1' } });
     fireEvent.input(screen.getByLabelText('Correo'), { target: { value: 'new@test.com' } });
     fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: 'abc' } });
@@ -400,6 +406,7 @@ describe('StaffEmployeesPage features', () => {
 
     fireEvent.click(screen.getByText('Nuevo empleado'));
     fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'New Employee' } });
+    fireEvent.input(screen.getByLabelText('Documento'), { target: { value: '9005' } });
     fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'j1' } });
     fireEvent.input(screen.getByLabelText('Correo'), { target: { value: 'new@test.com' } });
     fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: '3001234' } });
@@ -421,6 +428,7 @@ describe('StaffEmployeesPage features', () => {
 
     fireEvent.click(screen.getByText('Nuevo empleado'));
     fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'New Employee' } });
+    fireEvent.input(screen.getByLabelText('Documento'), { target: { value: '9006' } });
     fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'j1' } });
     fireEvent.input(screen.getByLabelText('Correo'), { target: { value: 'new@test.com' } });
     fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: '3001234' } });
