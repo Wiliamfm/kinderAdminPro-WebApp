@@ -24,6 +24,7 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - All route and modal tables are paginated with `10` rows per page.
 - Sorting for paginated tables is handled server-side so order remains consistent across pages.
 - Shared pagination UI controls live in `src/components/PaginationControls.tsx`.
+- Shared pagination renders `Anterior` / `Siguiente` plus numbered page buttons, always exposing the first and last page and the current page neighborhood with ellipsis gaps when ranges are hidden.
 
 ## Form Validation Pattern
 - Admin forms use touched-based realtime validation.
