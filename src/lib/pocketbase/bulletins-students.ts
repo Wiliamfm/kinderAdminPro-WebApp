@@ -71,6 +71,12 @@ export type BulletinStudentFormOptions = {
   semesters: BulletinStudentOption[];
 };
 
+export type BulletinStudentAnalyticsRecord = {
+  student_id: string;
+  grade_id: string;
+  semester_id: string;
+};
+
 function toStringValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -298,6 +304,7 @@ export async function listBulletinsStudentsPage(
       sort: buildSortExpression(sortField, sortDirection),
       filter: filterExpression,
       expand: 'bulletin_id,bulletin_id.category_id,student_id,grade_id,semester_id,created_by,updated_by',
+      requestKey: 'reports-students-table-list',
     });
 
     return {
@@ -416,6 +423,31 @@ export async function listBulletinStudentFormOptions(): Promise<BulletinStudentF
         label: toStringValue(record.get?.('name') ?? record.name) || toStringValue(record.id),
       })),
     };
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
+export async function listBulletinStudentsAnalyticsRecords(): Promise<BulletinStudentAnalyticsRecord[]> {
+  try {
+    const records = await pb.collection('bulletins_students').getFullList({
+      sort: '-created_at',
+      filter: 'is_deleted != true',
+      fields: 'student_id,grade_id,semester_id',
+      requestKey: 'reports-students-analytics-list',
+    });
+
+    return records
+      .map((record) => ({
+        student_id: toStringValue(record.get?.('student_id') ?? record.student_id),
+        grade_id: toStringValue(record.get?.('grade_id') ?? record.grade_id),
+        semester_id: toStringValue(record.get?.('semester_id') ?? record.semester_id),
+      }))
+      .filter((record) => (
+        record.student_id.length > 0
+        && record.grade_id.length > 0
+        && record.semester_id.length > 0
+      ));
   } catch (error) {
     throw normalizePocketBaseError(error);
   }

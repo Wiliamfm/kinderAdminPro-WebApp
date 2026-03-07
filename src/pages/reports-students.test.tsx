@@ -7,9 +7,12 @@ const mocks = vi.hoisted(() => ({
   isAuthUserAdmin: vi.fn(),
   listBulletinsStudentsPage: vi.fn(),
   listBulletinStudentFormOptions: vi.fn(),
+  listBulletinStudentsAnalyticsRecords: vi.fn(),
   createBulletinStudent: vi.fn(),
   updateBulletinStudent: vi.fn(),
   softDeleteBulletinStudent: vi.fn(),
+  chartCtor: vi.fn(),
+  chartDestroy: vi.fn(),
 }));
 
 vi.mock('@solidjs/router', () => ({
@@ -23,10 +26,20 @@ vi.mock('../lib/pocketbase/auth', () => ({
 vi.mock('../lib/pocketbase/bulletins-students', () => ({
   listBulletinsStudentsPage: mocks.listBulletinsStudentsPage,
   listBulletinStudentFormOptions: mocks.listBulletinStudentFormOptions,
+  listBulletinStudentsAnalyticsRecords: mocks.listBulletinStudentsAnalyticsRecords,
   createBulletinStudent: mocks.createBulletinStudent,
   updateBulletinStudent: mocks.updateBulletinStudent,
   softDeleteBulletinStudent: mocks.softDeleteBulletinStudent,
 }));
+
+vi.mock('chart.js/auto', () => {
+  const ChartMock = vi.fn(function ChartMock(ctx: unknown, config: unknown) {
+    mocks.chartCtor(ctx, config);
+    return { destroy: mocks.chartDestroy };
+  });
+
+  return { default: ChartMock };
+});
 
 const rowsFixture = [
   {
@@ -69,12 +82,24 @@ const formOptionsFixture = {
   semesters: [{ id: 'sem1', label: '2026-1' }],
 };
 
+const analyticsFixture = [
+  { student_id: 's1', grade_id: 'g1', semester_id: 'sem1' },
+  { student_id: 's1', grade_id: 'g1', semester_id: 'sem1' },
+];
+
+function findChartConfigByLabel(label: string) {
+  return mocks.chartCtor.mock.calls
+    .map((call) => call[1] as { data?: { datasets?: Array<{ label?: string }> } })
+    .find((config) => config.data?.datasets?.[0]?.label === label);
+}
+
 describe('ReportsStudentsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.isAuthUserAdmin.mockReturnValue(true);
     mocks.listBulletinsStudentsPage.mockResolvedValue(pageFixture);
     mocks.listBulletinStudentFormOptions.mockResolvedValue(formOptionsFixture);
+    mocks.listBulletinStudentsAnalyticsRecords.mockResolvedValue(analyticsFixture);
     mocks.createBulletinStudent.mockResolvedValue(rowsFixture[0]);
     mocks.updateBulletinStudent.mockResolvedValue(rowsFixture[0]);
     mocks.softDeleteBulletinStudent.mockResolvedValue(undefined);
@@ -109,6 +134,139 @@ describe('ReportsStudentsPage', () => {
       semesterId: '',
       studentIds: [],
     });
+  });
+
+  it('builds initial charts using last 5 grades and semesters with distinct student counts', async () => {
+    mocks.listBulletinStudentFormOptions.mockResolvedValue({
+      bulletins: [{ id: 'b1', label: 'Académico: Notas de periodo' }],
+      students: [{ id: 's1', label: 'Ana Pérez' }],
+      grades: [
+        { id: 'g1', label: 'Grado 1' },
+        { id: 'g2', label: 'Grado 2' },
+        { id: 'g3', label: 'Grado 3' },
+        { id: 'g4', label: 'Grado 4' },
+        { id: 'g5', label: 'Grado 5' },
+        { id: 'g6', label: 'Grado 6' },
+      ],
+      semesters: [
+        { id: 'sem1', label: '2026-1' },
+        { id: 'sem2', label: '2026-2' },
+        { id: 'sem3', label: '2026-3' },
+        { id: 'sem4', label: '2026-4' },
+        { id: 'sem5', label: '2026-5' },
+        { id: 'sem6', label: '2026-6' },
+      ],
+    });
+    mocks.listBulletinStudentsAnalyticsRecords.mockResolvedValue([
+      { student_id: 'sA', grade_id: 'g2', semester_id: 'sem3' },
+      { student_id: 'sA', grade_id: 'g2', semester_id: 'sem3' },
+      { student_id: 'sB', grade_id: 'g2', semester_id: 'sem3' },
+      { student_id: 'sD', grade_id: 'g5', semester_id: 'sem6' },
+      { student_id: 'sC', grade_id: 'g6', semester_id: 'sem6' },
+      { student_id: 'sZ', grade_id: 'g1', semester_id: 'sem1' },
+    ]);
+
+    render(() => <ReportsStudentsPage />);
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
+
+    await waitFor(() => {
+      const byGrade = findChartConfigByLabel('Estudiantes (últimos 5 grados)') as {
+        data: { labels: string[]; datasets: Array<{ data: number[] }> };
+      };
+      expect(byGrade).toBeDefined();
+      expect(byGrade.data.labels).toEqual(['Grado 2', 'Grado 3', 'Grado 4', 'Grado 5', 'Grado 6']);
+      expect(byGrade.data.datasets[0]?.data).toEqual([2, 0, 0, 1, 1]);
+    });
+
+    await waitFor(() => {
+      const bySemester = findChartConfigByLabel('Estudiantes (últimos 5 semestres)') as {
+        data: { labels: string[]; datasets: Array<{ data: number[] }> };
+      };
+      expect(bySemester).toBeDefined();
+      expect(bySemester.data.labels).toEqual(['2026-2', '2026-3', '2026-4', '2026-5', '2026-6']);
+      expect(bySemester.data.datasets[0]?.data).toEqual([0, 2, 0, 0, 2]);
+    });
+  });
+
+  it('updates charts when cross-filters change', async () => {
+    mocks.listBulletinStudentFormOptions.mockResolvedValue({
+      bulletins: [{ id: 'b1', label: 'Académico: Notas de periodo' }],
+      students: [{ id: 's1', label: 'Ana Pérez' }],
+      grades: [
+        { id: 'g1', label: 'Grado 1' },
+        { id: 'g2', label: 'Grado 2' },
+        { id: 'g3', label: 'Grado 3' },
+        { id: 'g4', label: 'Grado 4' },
+        { id: 'g5', label: 'Grado 5' },
+        { id: 'g6', label: 'Grado 6' },
+      ],
+      semesters: [
+        { id: 'sem1', label: '2026-1' },
+        { id: 'sem2', label: '2026-2' },
+        { id: 'sem3', label: '2026-3' },
+        { id: 'sem4', label: '2026-4' },
+        { id: 'sem5', label: '2026-5' },
+        { id: 'sem6', label: '2026-6' },
+      ],
+    });
+    mocks.listBulletinStudentsAnalyticsRecords.mockResolvedValue([
+      { student_id: 'sA', grade_id: 'g2', semester_id: 'sem3' },
+      { student_id: 'sA', grade_id: 'g2', semester_id: 'sem3' },
+      { student_id: 'sB', grade_id: 'g2', semester_id: 'sem3' },
+      { student_id: 'sD', grade_id: 'g5', semester_id: 'sem6' },
+      { student_id: 'sC', grade_id: 'g6', semester_id: 'sem6' },
+      { student_id: 'sZ', grade_id: 'g1', semester_id: 'sem1' },
+    ]);
+
+    render(() => <ReportsStudentsPage />);
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
+
+    fireEvent.change(screen.getByLabelText('Semestre (para gráfico por grado)'), {
+      target: { value: 'sem6' },
+    });
+
+    await waitFor(() => {
+      const byGradeForSemester = findChartConfigByLabel('Estudiantes (2026-6)') as {
+        data: { labels: string[]; datasets: Array<{ data: number[] }> };
+      };
+      expect(byGradeForSemester).toBeDefined();
+      expect(byGradeForSemester.data.labels).toEqual([
+        'Grado 1',
+        'Grado 2',
+        'Grado 3',
+        'Grado 4',
+        'Grado 5',
+        'Grado 6',
+      ]);
+      expect(byGradeForSemester.data.datasets[0]?.data).toEqual([0, 0, 0, 0, 1, 1]);
+    });
+
+    fireEvent.change(screen.getByLabelText('Grado (para gráfico por semestre)'), {
+      target: { value: 'g2' },
+    });
+
+    await waitFor(() => {
+      const bySemesterForGrade = findChartConfigByLabel('Estudiantes (Grado 2)') as {
+        data: { labels: string[]; datasets: Array<{ data: number[] }> };
+      };
+      expect(bySemesterForGrade).toBeDefined();
+      expect(bySemesterForGrade.data.labels).toEqual([
+        '2026-1',
+        '2026-2',
+        '2026-3',
+        '2026-4',
+        '2026-5',
+        '2026-6',
+      ]);
+      expect(bySemesterForGrade.data.datasets[0]?.data).toEqual([0, 0, 2, 0, 0, 0]);
+    });
+  });
+
+  it('shows empty chart state when there are no analytics rows', async () => {
+    mocks.listBulletinStudentsAnalyticsRecords.mockResolvedValue([]);
+    render(() => <ReportsStudentsPage />);
+
+    expect(await screen.findByText('No hay datos suficientes para generar las gráficas.')).toBeInTheDocument();
   });
 
   it('submits create modal payload', async () => {

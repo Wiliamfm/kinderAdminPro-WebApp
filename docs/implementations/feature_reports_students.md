@@ -1,7 +1,7 @@
 # Implementation Spec: `bulletins_students` Collection And Reports `Estudiantes` Page
 
-Last updated: 2026-03-01  
-Status: Planned
+Last updated: 2026-03-07  
+Status: Implemented
 
 ## Documentation Compliance
 - Sensitive data policy: compliant (no secrets, credentials, or PII included).
@@ -16,6 +16,11 @@ The page must follow the existing bulletins CRUD table patterns:
 - create/edit/delete via modal dialogs,
 - soft delete using `is_deleted`,
 - audit metadata (`created_by`, `updated_by`, `created_at`, `updated_at`).
+- a chart section below the table with:
+  - students by grade (semester cross-filter),
+  - students by semester (grade cross-filter),
+  - default last-5 grade/semester view,
+  - distinct-student aggregation by `student_id`.
 
 Chosen decisions:
 - access model: admin-only,
@@ -65,6 +70,8 @@ Add `src/lib/pocketbase/bulletins-students.ts` exporting:
 - `updateBulletinStudent(id, payload)`
 - `softDeleteBulletinStudent(id)`
 - `listBulletinStudentFormOptions()`
+- `BulletinStudentAnalyticsRecord`
+- `listBulletinStudentsAnalyticsRecords()`
 
 ## Implementation Plan
 
@@ -143,6 +150,16 @@ Update root docs:
   - add `bulletins_students` data model section,
   - add reports `Estudiantes` page design notes and data flow.
 
+### 6) Chart Analytics Section
+In `src/pages/reports-students.tsx`:
+- render chart form below the main table,
+- add chart controls:
+  - `Semestre (para gráfico por grado)`,
+  - `Grado (para gráfico por semestre)`,
+- draw two vertical bar charts with Chart.js,
+- use distinct `student_id` counting per bucket to avoid duplicate row overcount,
+- default to last 5 grades/semesters when the related chart filter is `Todos`.
+
 ## Test Cases And Scenarios
 
 ### Data Layer Tests
@@ -151,6 +168,8 @@ Create `src/lib/pocketbase/bulletins-students.test.ts`:
 - create sets audit fields and defaults,
 - update refreshes `updated_by`,
 - soft delete sets `is_deleted=true` and `updated_by`,
+- analytics query fetches minimal fields with `is_deleted != true`,
+- analytics mapper excludes incomplete rows,
 - missing authenticated user fails with clear error,
 - errors are normalized and rethrown.
 
@@ -163,6 +182,9 @@ Create `src/pages/reports-students.test.tsx`:
 - delete flow triggers soft-delete call,
 - sortable header changes request sort params,
 - pagination triggers page fetch,
+- initial chart render uses last 5 grades/semesters,
+- chart cross-filters recalculate buckets correctly,
+- chart empty state renders when analytics query has no rows,
 - validation blocks invalid `note` values (empty, zero, negative, non-integer where applicable).
 
 ### Validation Commands

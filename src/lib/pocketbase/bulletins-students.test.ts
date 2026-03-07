@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createBulletinStudent,
   listBulletinStudentFormOptions,
+  listBulletinStudentsAnalyticsRecords,
   listBulletinsStudentsPage,
   softDeleteBulletinStudent,
   updateBulletinStudent,
@@ -102,6 +103,7 @@ describe('bulletins-students pocketbase client', () => {
       sort: 'bulletin_id.category_id.name',
       filter: 'is_deleted != true',
       expand: 'bulletin_id,bulletin_id.category_id,student_id,grade_id,semester_id,created_by,updated_by',
+      requestKey: 'reports-students-table-list',
     });
     expect(result.page).toBe(2);
     expect(result.totalPages).toBe(2);
@@ -134,6 +136,7 @@ describe('bulletins-students pocketbase client', () => {
       sort: '-created_at',
       filter: 'is_deleted != true',
       expand: 'bulletin_id,bulletin_id.category_id,student_id,grade_id,semester_id,created_by,updated_by',
+      requestKey: 'reports-students-table-list',
     });
   });
 
@@ -156,6 +159,7 @@ describe('bulletins-students pocketbase client', () => {
       sort: '-created_at',
       filter: 'is_deleted != true && grade_id = "g1" && semester_id = "sem1" && (student_id.name ~ "Ana \\"123\\" \\\\ doc" || student_id.document_id ~ "Ana \\"123\\" \\\\ doc")',
       expand: 'bulletin_id,bulletin_id.category_id,student_id,grade_id,semester_id,created_by,updated_by',
+      requestKey: 'reports-students-table-list',
     });
   });
 
@@ -177,6 +181,7 @@ describe('bulletins-students pocketbase client', () => {
       sort: '-created_at',
       filter: 'is_deleted != true && (student_id = "s1" || student_id = "s2")',
       expand: 'bulletin_id,bulletin_id.category_id,student_id,grade_id,semester_id,created_by,updated_by',
+      requestKey: 'reports-students-table-list',
     });
   });
 
@@ -345,6 +350,47 @@ describe('bulletins-students pocketbase client', () => {
       grades: [{ id: 'g1', label: 'Primero A' }],
       semesters: [{ id: 'sem1', label: '2026-1' }],
     });
+  });
+
+  it('lists analytics records with normalized values and excludes incomplete rows', async () => {
+    hoisted.getFullList.mockResolvedValue([
+      {
+        student_id: ' s1 ',
+        grade_id: ' g1 ',
+        semester_id: ' sem1 ',
+      },
+      {
+        student_id: 's2',
+        grade_id: '',
+        semester_id: 'sem2',
+      },
+    ]);
+
+    const records = await listBulletinStudentsAnalyticsRecords();
+
+    expect(hoisted.getFullList).toHaveBeenCalledWith({
+      sort: '-created_at',
+      filter: 'is_deleted != true',
+      fields: 'student_id,grade_id,semester_id',
+      requestKey: 'reports-students-analytics-list',
+    });
+    expect(records).toEqual([
+      {
+        student_id: 's1',
+        grade_id: 'g1',
+        semester_id: 'sem1',
+      },
+    ]);
+  });
+
+  it('normalizes and rethrows analytics errors', async () => {
+    const rawError = new Error('analytics failed');
+    const normalized = { message: 'normalized analytics', status: 500, isAbort: false };
+    hoisted.getFullList.mockRejectedValue(rawError);
+    hoisted.normalizePocketBaseError.mockReturnValue(normalized);
+
+    await expect(listBulletinStudentsAnalyticsRecords()).rejects.toEqual(normalized);
+    expect(hoisted.normalizePocketBaseError).toHaveBeenCalledWith(rawError);
   });
 
   it('throws when there is no authenticated user', async () => {
