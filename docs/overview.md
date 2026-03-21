@@ -1,6 +1,6 @@
 # Project Overview
 
-Last updated: 2026-03-07
+Last updated: 2026-03-21
 
 ## Purpose
 This application is a SolidJS frontend for staff and operational management workflows backed by PocketBase.
@@ -19,7 +19,7 @@ Primary functional areas exposed through routes:
 - Reports (`/reports`)
 - Reports students (`/reports/students`)
 - Reports employees (`/reports/employees`)
-- Event management (`/event-management`)
+- Event management (`/event-management`, `/event-management/calendar`)
 
 ## Core Workflows
 - Authenticate against PocketBase `users`.
@@ -131,6 +131,15 @@ Primary functional areas exposed through routes:
   - invoice create is blocked when there is no active semester,
   - invoice history includes an edit action to upload a new file and replace the existing invoice file while keeping its existing semester,
   - invoice history is shown in a modal with filename (`Nombre de archivo`) and date (`Fecha de registro`) columns, where date displays `update_datetime` and falls back to `creation_datetime`.
+- Manage event and task planning in PocketBase:
+  - `events` stores calendar items for both events and tasks,
+  - `events` requires `title`, `start_datetime`, `end_datetime`, `kind`, and `status`,
+  - `events` stores `is_all_day` plus audit fields `created_by`, `updated_by`, `created_at`, `updated_at`,
+  - event deletion is soft delete via `is_deleted = true`,
+  - `event_assignments` stores n:n ownership links between `events` and `employees`,
+  - tasks can be assigned to one or more active employees,
+  - workflow is available in `/event-management/calendar`,
+  - calendar interactions include day-based create, detail preview on event click, and edit through a dedicated pencil icon on each rendered item.
 
 ## Temporal Data Standard
 - All temporal values must be modeled and exchanged as datetime with timezone offset (RFC3339/ISO 8601 style).

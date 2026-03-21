@@ -71,7 +71,14 @@ export const sectionIndexByPage: Record<string, SectionIndexEntry> = {
     title: 'Gestión de eventos',
     description:
       'En esta sección encontrarás el acceso a las opciones para organizar y consultar eventos escolares.',
-    links: [{ label: 'Volver al inicio', href: '/' }],
+    links: [
+      {
+        label: 'Calendario',
+        href: '/event-management/calendar',
+        requiresAdmin: true,
+      },
+      { label: 'Volver al inicio', href: '/' },
+    ],
   },
   reports: {
     title: 'Informes',

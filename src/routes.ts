@@ -22,6 +22,7 @@ import EnrollmentSemesterEditPage from './pages/enrollment-semester-edit';
 import EnrollmentBulletinsPage from './pages/enrollment-bulletins';
 import ReportsStudentsPage from './pages/reports-students';
 import ReportsEmployeesPage from './pages/reports-employees';
+import EventManagementCalendarPage from './pages/event-management-calendar';
 
 export const routes: RouteDefinition[] = [
   {
@@ -107,6 +108,10 @@ export const routes: RouteDefinition[] = [
   {
     path: '/event-management',
     component: EventManagementPage,
+  },
+  {
+    path: '/event-management/calendar',
+    component: EventManagementCalendarPage,
   },
   {
     path: '**',

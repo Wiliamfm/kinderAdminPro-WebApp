@@ -1,6 +1,6 @@
 # Architecture Reference
 
-Last updated: 2026-03-07
+Last updated: 2026-03-21
 
 ## Purpose
 Provide a stable technical reference for module responsibilities, data flow, and key design constraints.
@@ -369,6 +369,54 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - delete action is logical delete (`is_deleted = true`) with `updated_by` refresh.
 - Routing:
   - `/reports/employees`.
+
+## Event Task Calendar Data Model
+- `events` collection stores calendar items for the event management module with admin-only access.
+- Access rules:
+  - `listRule`, `viewRule`, `createRule`, `updateRule`, `deleteRule`: `@request.auth.is_admin = true`.
+- Fields:
+  - `title` (required text),
+  - `description` (optional text),
+  - `start_datetime` (required `date`, datetime with timezone offset),
+  - `end_datetime` (required `date`, datetime with timezone offset),
+  - `is_all_day` (optional bool),
+  - `kind` (required single select: `event`, `task`),
+  - `status` (required single select: `planned`, `done`, `cancelled`),
+  - `created_by` (required relation to `users`, `maxSelect = 1`),
+  - `updated_by` (required relation to `users`, `maxSelect = 1`),
+  - `created_at` (autodate, set on create),
+  - `updated_at` (autodate, set on create and update),
+  - `is_deleted` (bool used for soft delete, where active list filters `is_deleted != true`).
+- Indexes:
+  - `CREATE INDEX idx_events_start_datetime ON events (start_datetime)`,
+  - `CREATE INDEX idx_events_end_datetime ON events (end_datetime)`,
+  - `CREATE INDEX idx_events_kind_status ON events (kind, status)`.
+- `event_assignments` collection stores n:n ownership links between `events` and `employees`.
+- Access rules:
+  - `listRule`, `viewRule`, `createRule`, `updateRule`, `deleteRule`: `@request.auth.is_admin = true`.
+- Fields:
+  - `event_id` (required relation to `events`, `maxSelect = 1`, `cascadeDelete = false`),
+  - `employee_id` (required relation to `employees`, `maxSelect = 1`, `cascadeDelete = false`),
+  - `created_at` (autodate, set on create).
+- Indexes:
+  - `CREATE UNIQUE INDEX idx_event_assignments_event_employee ON event_assignments (event_id, employee_id)`,
+  - `CREATE INDEX idx_event_assignments_employee_id ON event_assignments (employee_id)`,
+  - `CREATE INDEX idx_event_assignments_created_at ON event_assignments (created_at)`.
+- Frontend modules:
+  - event management index: `src/pages/event-management.tsx`,
+  - calendar page: `src/pages/event-management-calendar.tsx`,
+  - wrapper/API access: `src/lib/pocketbase/events.ts`, `src/lib/pocketbase/event-assignments.ts`.
+- Routing:
+  - `/event-management`,
+  - `/event-management/calendar`.
+- Data flow:
+  - the calendar page loads visible-range event rows from `events`,
+  - assignment rows are loaded separately from `event_assignments` and merged by `event_id`,
+  - create and update actions enforce audit metadata from authenticated user on `events`,
+  - tasks require one or more assignees at the page-validation level, while events may remain unassigned,
+  - delete action is logical delete on `events` plus assignment cleanup through `event_assignments`,
+  - the UI uses FullCalendar Standard through the web-component integration with month, week, and list views,
+  - day clicks open the create modal, event clicks open a detail preview, and the pencil icon opens the edit modal in both desktop and mobile contexts.
 
 ## Testing Architecture
 - Runner: Vitest (`vitest.config.ts`).
