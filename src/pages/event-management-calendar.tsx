@@ -33,6 +33,7 @@ import { isAuthUserAdmin } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
   listEventAssignmentsByEventIds,
+  deleteEventAssignmentsByEventId,
   syncEventAssignments,
   type EventAssignmentRecord,
 } from '../lib/pocketbase/event-assignments';
@@ -40,8 +41,8 @@ import {
   CALENDAR_EVENT_KINDS,
   CALENDAR_EVENT_STATUSES,
   createCalendarEvent,
+  deleteCalendarEvent,
   listCalendarEventsInRange,
-  softDeleteCalendarEvent,
   updateCalendarEvent,
   type CalendarEventKind,
   type CalendarEventRecord,
@@ -336,6 +337,7 @@ export default function EventManagementCalendarPage() {
   const [editingEventId, setEditingEventId] = createSignal<string | null>(null);
 
   const [previewEventId, setPreviewEventId] = createSignal<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = createSignal<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = createSignal(false);
   const [deleteBusy, setDeleteBusy] = createSignal(false);
 
@@ -365,6 +367,10 @@ export default function EventManagementCalendarPage() {
   const previewEvent = createMemo(() => {
     const previewId = previewEventId();
     return previewId ? eventItemsById().get(previewId) ?? null : null;
+  });
+  const deleteTarget = createMemo(() => {
+    const targetId = deleteTargetId();
+    return targetId ? eventItemsById().get(targetId) ?? null : null;
   });
 
   const fullCalendarEvents = createMemo<EventInput[]>(() => (
@@ -428,6 +434,21 @@ export default function EventManagementCalendarPage() {
       endValue: item.isAllDay ? toAllDayEndDateValue(item.endDateTime) : toDateTimeLocalValue(item.endDateTime),
       assigneeIds: item.assignees.map((assignee) => assignee.employeeId),
     });
+  };
+
+  const openDeleteConfirm = () => {
+    const current = previewEvent();
+    if (!current) return;
+
+    setDeleteTargetId(current.id);
+    setDeleteConfirmOpen(true);
+  };
+
+  const closeDeleteConfirm = () => {
+    if (deleteBusy()) return;
+
+    setDeleteConfirmOpen(false);
+    setDeleteTargetId(null);
   };
 
   const setEventField = <TField extends keyof EventForm>(field: TField, value: EventForm[TField]) => {
@@ -530,18 +551,26 @@ export default function EventManagementCalendarPage() {
   };
 
   const confirmDelete = async () => {
-    const target = editingEvent();
-    if (!target) return;
+    const target = deleteTarget();
+    if (!target) {
+      closeDeleteConfirm();
+      return;
+    }
 
     setDeleteBusy(true);
     setActionError(null);
 
     try {
-      await softDeleteCalendarEvent(target.id);
-      await syncEventAssignments(target.id, []);
-      await refetchCalendarItems();
+      await deleteEventAssignmentsByEventId(target.id);
+      await deleteCalendarEvent(target.id);
       setDeleteConfirmOpen(false);
-      closeFormModal();
+      setDeleteTargetId(null);
+      setPreviewEventId(null);
+      try {
+        await refetchCalendarItems();
+      } catch (error) {
+        setActionError(getErrorMessage(error));
+      }
     } catch (error) {
       setActionError(getErrorMessage(error));
       setDeleteConfirmOpen(false);
@@ -554,7 +583,7 @@ export default function EventManagementCalendarPage() {
     const item = eventItemsById().get(arg.event.id);
     const wrapper = document.createElement('div');
     wrapper.className = [
-      'flex min-w-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium shadow-sm',
+      'flex min-w-0 cursor-pointer items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium shadow-sm',
       item?.kind === 'task'
         ? 'border-blue-300 bg-blue-50 text-blue-900'
         : 'border-emerald-300 bg-emerald-50 text-emerald-900',
@@ -722,7 +751,7 @@ export default function EventManagementCalendarPage() {
             </Show>
           </div>
 
-          <div class="bg-white p-3 sm:p-4">
+          <div class="event-management-calendar-shell bg-white p-3 sm:p-4">
             <full-calendar ref={calendarRef} />
           </div>
         </div>
@@ -883,19 +912,6 @@ export default function EventManagementCalendarPage() {
 
             <InlineFieldAlert when={Boolean(assigneeIdsError())}>{assigneeIdsError()}</InlineFieldAlert>
           </div>
-
-          <Show when={editingEvent()}>
-            <div class="flex justify-start">
-              <button
-                type="button"
-                class="inline-flex items-center gap-2 rounded-xl border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-100"
-                onClick={() => setDeleteConfirmOpen(true)}
-              >
-                <i class="bi bi-trash" aria-hidden="true"></i>
-                Eliminar elemento
-              </button>
-            </div>
-          </Show>
         </div>
       </Modal>
 
@@ -905,6 +921,42 @@ export default function EventManagementCalendarPage() {
         description="Revisa la información principal antes de editar."
         confirmLabel="Editar"
         cancelLabel="Cerrar"
+        footer={(
+          <div class="mt-6 flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <button
+              type="button"
+              class="inline-flex items-center justify-center gap-2 rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={deleteBusy()}
+              onClick={openDeleteConfirm}
+            >
+              <i class="bi bi-trash" aria-hidden="true"></i>
+              Eliminar
+            </button>
+
+            <div class="flex justify-end gap-2">
+              <button
+                type="button"
+                class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={deleteBusy()}
+                onClick={() => setPreviewEventId(null)}
+              >
+                Cerrar
+              </button>
+              <button
+                type="button"
+                class="rounded-lg bg-yellow-600 px-4 py-2 text-sm text-white transition-colors hover:bg-yellow-700 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={deleteBusy()}
+                onClick={() => {
+                  const current = previewEvent();
+                  if (!current) return;
+                  openEditModal(current);
+                }}
+              >
+                Editar
+              </button>
+            </div>
+          </div>
+        )}
         onConfirm={() => {
           const current = previewEvent();
           if (!current) return;
@@ -961,21 +1013,17 @@ export default function EventManagementCalendarPage() {
       <Modal
         open={deleteConfirmOpen()}
         title="Eliminar elemento"
-        description="Esta acción ocultará el elemento del calendario y quitará sus responsables asignados."
+        description="Esta acción eliminará permanentemente el elemento del calendario y quitará sus responsables asignados."
         confirmLabel="Eliminar"
         cancelLabel="Cancelar"
         variant="danger"
         busy={deleteBusy()}
         onConfirm={confirmDelete}
-        onClose={() => {
-          if (!deleteBusy()) {
-            setDeleteConfirmOpen(false);
-          }
-        }}
+        onClose={closeDeleteConfirm}
       >
         <p class="text-sm text-gray-700">
-          {editingEvent()
-            ? `Confirma que deseas eliminar "${editingEvent()!.title}".`
+          {deleteTarget()
+            ? `Confirma que deseas eliminar "${deleteTarget()!.title}".`
             : 'Confirma la eliminación del elemento seleccionado.'}
         </p>
       </Modal>

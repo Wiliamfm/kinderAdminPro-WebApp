@@ -6,9 +6,10 @@ const mocks = vi.hoisted(() => ({
   isAuthUserAdmin: vi.fn(),
   listCalendarEventsInRange: vi.fn(),
   listEventAssignmentsByEventIds: vi.fn(),
+  deleteEventAssignmentsByEventId: vi.fn(),
   createCalendarEvent: vi.fn(),
   updateCalendarEvent: vi.fn(),
-  softDeleteCalendarEvent: vi.fn(),
+  deleteCalendarEvent: vi.fn(),
   syncEventAssignments: vi.fn(),
   listActiveEmployees: vi.fn(),
 }));
@@ -34,11 +35,12 @@ vi.mock('../lib/pocketbase/events', () => ({
   listCalendarEventsInRange: mocks.listCalendarEventsInRange,
   createCalendarEvent: mocks.createCalendarEvent,
   updateCalendarEvent: mocks.updateCalendarEvent,
-  softDeleteCalendarEvent: mocks.softDeleteCalendarEvent,
+  deleteCalendarEvent: mocks.deleteCalendarEvent,
 }));
 
 vi.mock('../lib/pocketbase/event-assignments', () => ({
   listEventAssignmentsByEventIds: mocks.listEventAssignmentsByEventIds,
+  deleteEventAssignmentsByEventId: mocks.deleteEventAssignmentsByEventId,
   syncEventAssignments: mocks.syncEventAssignments,
 }));
 
@@ -129,9 +131,10 @@ describe('EventManagementCalendarPage', () => {
     mocks.isAuthUserAdmin.mockReturnValue(true);
     mocks.listCalendarEventsInRange.mockResolvedValue(eventsFixture);
     mocks.listEventAssignmentsByEventIds.mockResolvedValue(assignmentsFixture);
+    mocks.deleteEventAssignmentsByEventId.mockResolvedValue(undefined);
     mocks.createCalendarEvent.mockResolvedValue({ ...eventsFixture[0], id: 'evt-new', title: 'Nueva tarea' });
     mocks.updateCalendarEvent.mockResolvedValue(eventsFixture[0]);
-    mocks.softDeleteCalendarEvent.mockResolvedValue(undefined);
+    mocks.deleteCalendarEvent.mockResolvedValue(undefined);
     mocks.syncEventAssignments.mockResolvedValue(undefined);
     mocks.listActiveEmployees.mockResolvedValue(employeesFixture);
   });
@@ -150,6 +153,7 @@ describe('EventManagementCalendarPage', () => {
     render(() => <EventManagementCalendarPage />);
 
     const calendarEl = getCalendarElement();
+    expect(calendarEl.parentElement).toHaveClass('event-management-calendar-shell');
 
     await waitFor(() => {
       expect(Array.isArray(calendarEl.options?.events)).toBe(true);
@@ -242,7 +246,7 @@ describe('EventManagementCalendarPage', () => {
     });
   });
 
-  it('soft deletes the edited item and clears assignees', async () => {
+  it('hard deletes the previewed item from the detail modal', async () => {
     render(() => <EventManagementCalendarPage />);
 
     const calendarEl = getCalendarElement();
@@ -259,19 +263,27 @@ describe('EventManagementCalendarPage', () => {
       },
     });
 
-    fireEvent.click((rendered.domNodes[0] as HTMLElement).querySelector('button')!);
+    (calendarEl.options?.eventClick as ((arg: unknown) => void))?.({
+      event: { id: 'evt1' },
+    });
 
-    expect(await screen.findByRole('heading', { name: 'Editar elemento del calendario' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Reunión general' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Eliminar' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Eliminar elemento' })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Eliminar elemento' }));
-    fireEvent.click(screen.getAllByRole('button', { name: 'Eliminar' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Eliminar' })[1]);
 
     await waitFor(() => {
-      expect(mocks.softDeleteCalendarEvent).toHaveBeenCalledWith('evt1');
+      expect(mocks.deleteEventAssignmentsByEventId).toHaveBeenCalledWith('evt1');
     });
 
     await waitFor(() => {
-      expect(mocks.syncEventAssignments).toHaveBeenCalledWith('evt1', []);
+      expect(mocks.deleteCalendarEvent).toHaveBeenCalledWith('evt1');
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Reunión general' })).not.toBeInTheDocument();
     });
   });
 });

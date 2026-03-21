@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createCalendarEvent,
+  deleteCalendarEvent,
   listCalendarEventsInRange,
   softDeleteCalendarEvent,
   updateCalendarEvent,
@@ -10,6 +11,7 @@ const hoisted = vi.hoisted(() => {
   const getFullList = vi.fn();
   const create = vi.fn();
   const update = vi.fn();
+  const del = vi.fn();
   const normalizePocketBaseError = vi.fn();
   const getAuthUserId = vi.fn();
 
@@ -18,6 +20,7 @@ const hoisted = vi.hoisted(() => {
       getFullList,
       create,
       update,
+      delete: del,
     })),
   };
 
@@ -25,6 +28,7 @@ const hoisted = vi.hoisted(() => {
     getFullList,
     create,
     update,
+    del,
     normalizePocketBaseError,
     getAuthUserId,
     pb,
@@ -179,6 +183,16 @@ describe('events pocketbase client', () => {
       is_deleted: true,
       updated_by: 'u-admin',
     });
+  });
+
+  it('hard deletes calendar events', async () => {
+    await deleteCalendarEvent(' evt1 ');
+
+    expect(hoisted.del).toHaveBeenCalledWith('evt1');
+  });
+
+  it('throws when hard delete event id is missing', async () => {
+    await expect(deleteCalendarEvent('   ')).rejects.toThrow('El evento es obligatorio');
   });
 
   it('throws when there is no authenticated user', async () => {

@@ -128,3 +128,26 @@ export async function syncEventAssignments(eventId: string, employeeIds: string[
     throw normalizePocketBaseError(error);
   }
 }
+
+export async function deleteEventAssignmentsByEventId(eventId: string): Promise<void> {
+  const normalizedEventId = eventId.trim();
+  if (!normalizedEventId) {
+    throw new Error('El evento es obligatorio para eliminar responsables.');
+  }
+
+  try {
+    const existing = await pb.collection('event_assignments').getFullList<ExistingAssignment>({
+      filter: `event_id = "${escapeFilterValue(normalizedEventId)}"`,
+      fields: 'id',
+      sort: EVENT_ASSIGNMENTS_SORT,
+    });
+
+    for (const record of existing) {
+      if (toStringValue(record.id)) {
+        await pb.collection('event_assignments').delete(record.id);
+      }
+    }
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}

@@ -11,6 +11,7 @@ type ModalProps = {
   size?: 'md' | 'xl';
   onConfirm: () => void;
   onClose: () => void;
+  footer?: JSX.Element;
   children?: JSX.Element;
 };
 
@@ -53,28 +54,35 @@ const Modal: Component<ModalProps> = (props) => {
             <div class="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">{props.children}</div>
           </Show>
 
-          <div class="mt-6 flex shrink-0 justify-end gap-2">
-            <button
-              type="button"
-              class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={props.busy}
-              onClick={props.onClose}
-            >
-              {props.cancelLabel ?? 'Cancelar'}
-            </button>
-            <button
-              type="button"
-              class="rounded-lg px-4 py-2 text-sm text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-              classList={{
-                'bg-yellow-600 hover:bg-yellow-700': props.variant !== 'danger',
-                'bg-red-600 hover:bg-red-700': props.variant === 'danger',
-              }}
-              disabled={props.busy}
-              onClick={props.onConfirm}
-            >
-              {props.busy ? 'Procesando...' : props.confirmLabel}
-            </button>
-          </div>
+          <Show
+            when={props.footer}
+            fallback={(
+              <div class="mt-6 flex shrink-0 justify-end gap-2">
+                <button
+                  type="button"
+                  class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={props.busy}
+                  onClick={props.onClose}
+                >
+                  {props.cancelLabel ?? 'Cancelar'}
+                </button>
+                <button
+                  type="button"
+                  class="rounded-lg px-4 py-2 text-sm text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                  classList={{
+                    'bg-yellow-600 hover:bg-yellow-700': props.variant !== 'danger',
+                    'bg-red-600 hover:bg-red-700': props.variant === 'danger',
+                  }}
+                  disabled={props.busy}
+                  onClick={props.onConfirm}
+                >
+                  {props.busy ? 'Procesando...' : props.confirmLabel}
+                </button>
+              </div>
+            )}
+          >
+            {props.footer}
+          </Show>
         </div>
       </div>
     </Show>

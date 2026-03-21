@@ -34,4 +34,16 @@
     border-color: var(--color-red-400);
     box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-red-400) 35%, transparent);
   }
+
+  .event-management-calendar-shell .fc-event,
+  .event-management-calendar-shell .fc-more-link,
+  .event-management-calendar-shell .fc-daygrid-day-frame,
+  .event-management-calendar-shell .fc-timegrid-col-frame,
+  .event-management-calendar-shell .fc-list-event {
+    cursor: pointer;
+  }
+
+  .event-management-calendar-shell .fc-event button {
+    cursor: pointer;
+  }
 }

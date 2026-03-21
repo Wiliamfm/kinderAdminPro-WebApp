@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  deleteEventAssignmentsByEventId,
   listEventAssignmentsByEventIds,
   syncEventAssignments,
 } from './event-assignments';
@@ -109,6 +110,35 @@ describe('event-assignments pocketbase client', () => {
 
   it('throws when the event id is missing', async () => {
     await expect(syncEventAssignments('  ', ['emp1'])).rejects.toThrow('El evento es obligatorio');
+  });
+
+  it('deletes all assignments for an event id', async () => {
+    hoisted.getFullList.mockResolvedValueOnce([
+      { id: 'a1' },
+      { id: 'a2' },
+    ]);
+
+    await deleteEventAssignmentsByEventId(' evt1 ');
+
+    expect(hoisted.getFullList).toHaveBeenCalledWith({
+      filter: 'event_id = "evt1"',
+      fields: 'id',
+      sort: 'created_at,id',
+    });
+    expect(hoisted.del).toHaveBeenCalledWith('a1');
+    expect(hoisted.del).toHaveBeenCalledWith('a2');
+  });
+
+  it('allows deleting assignments when there are no rows', async () => {
+    hoisted.getFullList.mockResolvedValueOnce([]);
+
+    await deleteEventAssignmentsByEventId('evt1');
+
+    expect(hoisted.del).not.toHaveBeenCalled();
+  });
+
+  it('throws when delete assignments event id is missing', async () => {
+    await expect(deleteEventAssignmentsByEventId('  ')).rejects.toThrow('El evento es obligatorio');
   });
 
   it('normalizes errors', async () => {

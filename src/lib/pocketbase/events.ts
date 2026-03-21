@@ -192,3 +192,16 @@ export async function softDeleteCalendarEvent(id: string): Promise<void> {
     throw normalizePocketBaseError(error);
   }
 }
+
+export async function deleteCalendarEvent(id: string): Promise<void> {
+  const normalizedId = id.trim();
+  if (!normalizedId) {
+    throw new Error('El evento es obligatorio para eliminarlo.');
+  }
+
+  try {
+    await pb.collection('events').delete(normalizedId);
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
