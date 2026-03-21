@@ -418,6 +418,46 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - the UI uses FullCalendar Standard through the web-component integration with month, week, and list views,
   - day clicks open the create modal, event clicks open a detail preview, and the pencil icon opens the edit modal in both desktop and mobile contexts.
 
+## Event Email Messaging Data Model
+- `email_messages` stores parent send-history records with admin-only access.
+- Access rules:
+  - `listRule`, `viewRule`, `createRule`, `updateRule`, `deleteRule`: `@request.auth.is_admin = true`.
+- Fields:
+  - `subject` (required text),
+  - `body_text` (required text),
+  - `body_html` (required text snapshot derived from the plain-text body),
+  - `created_by` (required relation to `users`),
+  - `created_at` (autodate, set on create),
+  - aggregate counters `total_resolved`, `total_sendable`, `total_missing_email`, `total_sent`, `total_failed`, `total_skipped`.
+- `email_message_recipients` stores one row per resolved recipient with admin-only access.
+- Access rules:
+  - `listRule`, `viewRule`, `createRule`, `updateRule`, `deleteRule`: `@request.auth.is_admin = true`.
+- Fields:
+  - `message_id` (required relation to `email_messages`, cascade delete),
+  - `recipient_type` (required select: `employee`, `father`),
+  - `recipient_id` (required text snapshot key for the related source record),
+  - `recipient_name` (required text snapshot),
+  - `recipient_email` (optional text snapshot),
+  - `source_kind` (required select: `employee`, `student`, `grade`, `mixed`),
+  - `source_context` (optional text storing JSON-encoded source metadata),
+  - `status` (required select: `pending`, `sent`, `failed`, `missing_email`, `skipped`),
+  - `provider_message_id` (optional text),
+  - `error_message` (optional text),
+  - `created_at` (autodate, set on create).
+- Frontend modules:
+  - page: `src/pages/event-management-email.tsx`,
+  - wrapper/API access: `src/lib/pocketbase/event-email-messaging.ts`,
+  - shared preview/recipient helpers: `src/lib/event-email-messaging.ts`.
+- Routing:
+  - `/event-management/email`.
+- Data flow:
+  - the page loads active employees, active students, grades, and recent message history,
+  - employee recipients are resolved from selected active employee ids,
+  - father recipients are resolved from active `students_fathers` links filtered by selected students and grades, with de-duplication by father id,
+  - send execution happens through the PocketBase custom route `/api/tesis/event-email-messaging/send`,
+  - the route revalidates admin auth and recipient eligibility, persists parent/child history rows, and calls Resend with server-side credentials,
+  - users without email remain visible in the UI and history but are excluded from actual delivery.
+
 ## Testing Architecture
 - Runner: Vitest (`vitest.config.ts`).
 - UI tests: `src/pages/*.test.tsx`.

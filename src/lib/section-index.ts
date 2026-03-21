@@ -77,6 +77,11 @@ export const sectionIndexByPage: Record<string, SectionIndexEntry> = {
         href: '/event-management/calendar',
         requiresAdmin: true,
       },
+      {
+        label: 'Correos',
+        href: '/event-management/email',
+        requiresAdmin: true,
+      },
       { label: 'Volver al inicio', href: '/' },
     ],
   },
