@@ -13,7 +13,7 @@ import {
 } from '../lib/forms/realtime-validation';
 import { toggleSort, type SortState } from '../lib/table/sorting';
 import { clampPage, DEFAULT_TABLE_PAGE_SIZE } from '../lib/table/pagination';
-import { isAuthUserAdmin } from '../lib/pocketbase/auth';
+import { canAccessModule } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
   countEmployeesByJobId,
@@ -129,7 +129,7 @@ export default function StaffJobsPage() {
   );
 
   createEffect(() => {
-    if (!isAuthUserAdmin()) {
+    if (!canAccessModule('staff')) {
       navigate('/staff-management', { replace: true });
     }
   });

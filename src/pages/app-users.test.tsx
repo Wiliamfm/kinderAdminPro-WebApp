@@ -4,7 +4,7 @@ import AppUsersPage from './app-users';
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
-  isAuthUserAdmin: vi.fn(),
+  canAccessModule: vi.fn(),
   listAppUsersPage: vi.fn(),
   updateAppUser: vi.fn(),
   deleteAppUser: vi.fn(),
@@ -17,7 +17,13 @@ vi.mock('@solidjs/router', () => ({
 }));
 
 vi.mock('../lib/pocketbase/auth', () => ({
-  isAuthUserAdmin: mocks.isAuthUserAdmin,
+  APP_ROLES: ['admin', 'professor', 'father'],
+  APP_ROLE_LABELS: {
+    admin: 'Administrador',
+    professor: 'Profesor',
+    father: 'Padre',
+  },
+  canAccessModule: mocks.canAccessModule,
 }));
 
 vi.mock('../lib/pocketbase/users', () => ({
@@ -33,14 +39,14 @@ const usersFixture = [
     id: 'u-admin',
     name: 'Ana Admin',
     email: 'ana@test.com',
-    isAdmin: true,
+    roles: ['admin'],
     verified: true,
   },
   {
     id: 'u-user',
     name: 'Luis User',
     email: 'luis@test.com',
-    isAdmin: false,
+    roles: [],
     verified: true,
   },
 ];
@@ -56,7 +62,7 @@ const usersPageFixture = {
 describe('AppUsersPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.isAuthUserAdmin.mockReturnValue(true);
+    mocks.canAccessModule.mockReturnValue(true);
     mocks.getAuthUserId.mockReturnValue('u-admin');
     mocks.listAppUsersPage.mockResolvedValue(usersPageFixture);
     mocks.updateAppUser.mockResolvedValue(usersFixture[0]);
@@ -64,31 +70,32 @@ describe('AppUsersPage', () => {
     mocks.requestAuthenticatedUserEmailChange.mockResolvedValue(undefined);
   });
 
-  it('shows users table with expected columns and rows for admins', async () => {
+  it('shows users table with expected columns and rows for authorized users', async () => {
     render(() => <AppUsersPage />);
 
     expect(await screen.findByText('Ana Admin')).toBeInTheDocument();
     expect(screen.getByText('Luis User')).toBeInTheDocument();
     expect(screen.getByText('Correo')).toBeInTheDocument();
-    expect(screen.getByText('Admin')).toBeInTheDocument();
+    expect(screen.getByText('Roles')).toBeInTheDocument();
+    expect(screen.getByText('Administrador')).toBeInTheDocument();
     expect(screen.getByLabelText('Editar usuario Ana Admin')).toBeInTheDocument();
   });
 
-  it('requests sorted users by admin column when header is clicked', async () => {
+  it('requests sorted users by roles column when header is clicked', async () => {
     render(() => <AppUsersPage />);
     await screen.findByText('Ana Admin');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Admin' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Roles' }));
     await waitFor(() => {
       expect(mocks.listAppUsersPage).toHaveBeenCalledWith(1, 10, {
-        sortField: 'isAdmin',
+        sortField: 'roles',
         sortDirection: 'asc',
       });
     });
   });
 
-  it('redirects non-admin users to staff management', async () => {
-    mocks.isAuthUserAdmin.mockReturnValue(false);
+  it('redirects unauthorized users to staff management', async () => {
+    mocks.canAccessModule.mockReturnValue(false);
     render(() => <AppUsersPage />);
 
     await waitFor(() => {
@@ -111,7 +118,7 @@ describe('AppUsersPage', () => {
       expect(mocks.updateAppUser).toHaveBeenCalledWith('u-admin', {
         name: 'Ana Maria',
         email: 'ana@test.com',
-        isAdmin: true,
+        roles: ['admin'],
       });
     });
 
@@ -143,6 +150,25 @@ describe('AppUsersPage', () => {
 
     await waitFor(() => {
       expect(mocks.requestAuthenticatedUserEmailChange).toHaveBeenCalledWith('ana.new@test.com');
+    });
+  });
+
+  it('updates user roles from the edit modal', async () => {
+    render(() => <AppUsersPage />);
+    await screen.findByText('Luis User');
+
+    fireEvent.click(screen.getByLabelText('Editar usuario Luis User'));
+    await screen.findByRole('heading', { name: 'Editar usuario' });
+
+    fireEvent.click(screen.getByLabelText('Profesor'));
+    fireEvent.click(screen.getByText('Guardar cambios'));
+
+    await waitFor(() => {
+      expect(mocks.updateAppUser).toHaveBeenCalledWith('u-user', {
+        name: 'Luis User',
+        email: 'luis@test.com',
+        roles: ['professor'],
+      });
     });
   });
 

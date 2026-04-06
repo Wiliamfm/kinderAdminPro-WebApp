@@ -4,7 +4,7 @@ import StaffJobsPage from './staff-jobs';
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
-  isAuthUserAdmin: vi.fn(),
+  canAccessModule: vi.fn(),
   listEmployeeJobsPage: vi.fn(),
   createEmployeeJob: vi.fn(),
   updateEmployeeJob: vi.fn(),
@@ -17,7 +17,7 @@ vi.mock('@solidjs/router', () => ({
 }));
 
 vi.mock('../lib/pocketbase/auth', () => ({
-  isAuthUserAdmin: mocks.isAuthUserAdmin,
+  canAccessModule: mocks.canAccessModule,
 }));
 
 vi.mock('../lib/pocketbase/employee-jobs', () => ({
@@ -44,7 +44,7 @@ const jobsPageFixture = {
 describe('StaffJobsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.isAuthUserAdmin.mockReturnValue(true);
+    mocks.canAccessModule.mockReturnValue(true);
     mocks.listEmployeeJobsPage.mockResolvedValue(jobsPageFixture);
     mocks.createEmployeeJob.mockResolvedValue(jobsFixture[0]);
     mocks.updateEmployeeJob.mockResolvedValue(jobsFixture[0]);
@@ -53,7 +53,7 @@ describe('StaffJobsPage', () => {
   });
 
   it('redirects non-admin users', async () => {
-    mocks.isAuthUserAdmin.mockReturnValue(false);
+    mocks.canAccessModule.mockReturnValue(false);
     render(() => <StaffJobsPage />);
 
     await waitFor(() => {

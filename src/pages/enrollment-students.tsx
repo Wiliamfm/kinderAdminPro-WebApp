@@ -13,7 +13,7 @@ import {
 } from '../lib/forms/realtime-validation';
 import { toggleSort, type SortState } from '../lib/table/sorting';
 import { clampPage, DEFAULT_TABLE_PAGE_SIZE } from '../lib/table/pagination';
-import { isAuthUserAdmin } from '../lib/pocketbase/auth';
+import { canAccessModule } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import { listActiveFathers } from '../lib/pocketbase/fathers';
 import { listGrades } from '../lib/pocketbase/grades';
@@ -258,11 +258,11 @@ export default function EnrollmentStudentsPage() {
   const navigate = useNavigate();
   const [studentPage, setStudentPage] = createSignal(1);
   const [grades] = createResource(async () => {
-    if (!isAuthUserAdmin()) return [];
+    if (!canAccessModule('enrollment')) return [];
     return listGrades();
   });
   const [fathers] = createResource(async () => {
-    if (!isAuthUserAdmin()) return [];
+    if (!canAccessModule('enrollment')) return [];
     try {
       return await listActiveFathers({ includeStudentNames: false });
     } catch (error) {
@@ -296,7 +296,7 @@ export default function EnrollmentStudentsPage() {
   });
   const [students, { refetch }] = createResource(
     () => {
-      if (!isAuthUserAdmin()) return undefined;
+      if (!canAccessModule('enrollment')) return undefined;
 
       return {
         page: studentPage(),
@@ -311,7 +311,7 @@ export default function EnrollmentStudentsPage() {
   );
 
   createEffect(() => {
-    if (!isAuthUserAdmin()) {
+    if (!canAccessModule('enrollment')) {
       navigate('/enrollment-management', { replace: true });
     }
   });

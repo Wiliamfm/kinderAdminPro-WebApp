@@ -11,7 +11,7 @@ import {
   touchField,
   type FieldErrorMap,
 } from '../lib/forms/realtime-validation';
-import { isAuthUserAdmin } from '../lib/pocketbase/auth';
+import { canAccessModule } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
   createSemester,
@@ -123,7 +123,7 @@ export default function EnrollmentSemestersPage() {
 
   const [semesters, { refetch }] = createResource(
     () => {
-      if (!isAuthUserAdmin()) return undefined;
+      if (!canAccessModule('enrollment')) return undefined;
 
       return {
         page: semesterPage(),
@@ -146,7 +146,7 @@ export default function EnrollmentSemestersPage() {
   const [createError, setCreateError] = createSignal<string | null>(null);
 
   createEffect(() => {
-    if (!isAuthUserAdmin()) {
+    if (!canAccessModule('enrollment')) {
       navigate('/enrollment-management', { replace: true });
     }
   });

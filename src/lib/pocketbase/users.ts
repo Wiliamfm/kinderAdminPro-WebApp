@@ -1,11 +1,12 @@
 import pb, { normalizePocketBaseError } from './client';
 import type { PaginatedListResult } from '../table/pagination';
+import type { AppRole } from './auth';
 
 export type AppUserRecord = {
   id: string;
   email: string;
   name: string;
-  isAdmin: boolean;
+  roles: AppRole[];
   verified: boolean;
 };
 
@@ -17,10 +18,10 @@ export type CreateEmployeeUserInput = {
 export type UpdateAppUserInput = {
   email: string;
   name: string;
-  isAdmin: boolean;
+  roles: AppRole[];
 };
 
-export type AppUserListSortField = 'name' | 'isAdmin' | 'email';
+export type AppUserListSortField = 'name' | 'roles' | 'email';
 export type AppUserListSortDirection = 'asc' | 'desc';
 export type AppUserListOptions = {
   sortField?: AppUserListSortField;
@@ -36,21 +37,49 @@ function toBooleanValue(value: unknown): boolean {
   return value === true;
 }
 
+function isAppRole(value: string): value is AppRole {
+  return ['admin', 'professor', 'father'].includes(value);
+}
+
+function normalizeRoles(value: unknown, legacyIsAdmin: boolean): AppRole[] {
+  const seen = new Set<AppRole>();
+  const result: AppRole[] = [];
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const normalized = toStringValue(entry);
+      if (!isAppRole(normalized) || seen.has(normalized)) {
+        continue;
+      }
+
+      seen.add(normalized);
+      result.push(normalized);
+    }
+  }
+
+  if (legacyIsAdmin && !seen.has('admin')) {
+    result.unshift('admin');
+  }
+
+  return result;
+}
+
 function mapUserRecord(
   record: Record<string, unknown> & { id: string; get?: (key: string) => unknown },
 ): AppUserRecord {
+  const legacyIsAdmin = toBooleanValue(record.get?.('is_admin') ?? record.is_admin);
   return {
     id: record.id,
     email: toStringValue(record.get?.('email') ?? record.email),
     name: toStringValue(record.get?.('name') ?? record.name),
-    isAdmin: toBooleanValue(record.get?.('is_admin') ?? record.is_admin),
+    roles: normalizeRoles(record.get?.('roles') ?? record.roles, legacyIsAdmin),
     verified: toBooleanValue(record.get?.('verified') ?? record.verified),
   };
 }
 
 const APP_USER_SORT_FIELD_MAP: Record<AppUserListSortField, string> = {
   name: 'name',
-  isAdmin: 'is_admin',
+  roles: 'roles',
   email: 'email',
 };
 
@@ -78,6 +107,7 @@ export async function createEmployeeUser(payload: CreateEmployeeUserInput): Prom
       name,
       password: tempPassword,
       passwordConfirm: tempPassword,
+      roles: [],
       is_admin: false,
     });
 
@@ -139,7 +169,8 @@ export async function updateAppUser(id: string, payload: UpdateAppUserInput): Pr
     const record = await pb.collection('users').update(id, {
       email: payload.email.trim(),
       name: payload.name.trim(),
-      is_admin: payload.isAdmin,
+      roles: payload.roles,
+      is_admin: payload.roles.includes('admin'),
     });
     return mapUserRecord(record);
   } catch (error) {

@@ -12,7 +12,7 @@ import {
   touchField,
   type FieldErrorMap,
 } from '../lib/forms/realtime-validation';
-import { isAuthUserAdmin } from '../lib/pocketbase/auth';
+import { canAccessModule } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
   createBulletinStudent,
@@ -228,7 +228,7 @@ export default function ReportsStudentsPage() {
   const [studentLookupInput, setStudentLookupInput] = createSignal('');
 
   const loadFormOptions = async (force = false): Promise<void> => {
-    if (!isAuthUserAdmin()) return;
+    if (!canAccessModule('reports')) return;
     if (formOptionsLoading()) return;
     if (formOptionsLoaded() && !force) return;
 
@@ -254,7 +254,7 @@ export default function ReportsStudentsPage() {
 
   const [bulletinsStudents, { refetch }] = createResource(
     () => {
-      if (!isAuthUserAdmin()) return undefined;
+      if (!canAccessModule('reports')) return undefined;
       const filters = appliedFilters();
       return {
         page: reportPage(),
@@ -279,7 +279,7 @@ export default function ReportsStudentsPage() {
   );
 
   const [bulletinsStudentsAnalytics] = createResource(
-    () => (isAuthUserAdmin() ? true : undefined),
+    () => (canAccessModule('reports') ? true : undefined),
     () => listBulletinStudentsAnalyticsRecords(),
   );
 
@@ -307,13 +307,13 @@ export default function ReportsStudentsPage() {
   const [deleteBusy, setDeleteBusy] = createSignal(false);
 
   createEffect(() => {
-    if (!isAuthUserAdmin()) {
+    if (!canAccessModule('reports')) {
       navigate('/reports', { replace: true });
     }
   });
 
   createEffect(() => {
-    if (!isAuthUserAdmin()) return;
+    if (!canAccessModule('reports')) return;
     void loadFormOptions();
   });
 

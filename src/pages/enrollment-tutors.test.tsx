@@ -4,7 +4,7 @@ import EnrollmentTutorsPage from './enrollment-tutors';
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
-  isAuthUserAdmin: vi.fn(),
+  canAccessModule: vi.fn(),
   listActiveStudents: vi.fn(),
   listActiveFathersPage: vi.fn(),
   createFather: vi.fn(),
@@ -19,7 +19,7 @@ vi.mock('@solidjs/router', () => ({
 }));
 
 vi.mock('../lib/pocketbase/auth', () => ({
-  isAuthUserAdmin: mocks.isAuthUserAdmin,
+  canAccessModule: mocks.canAccessModule,
 }));
 
 vi.mock('../lib/pocketbase/students', () => ({
@@ -85,7 +85,7 @@ const fathersPageFixture = {
 describe('EnrollmentTutorsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.isAuthUserAdmin.mockReturnValue(true);
+    mocks.canAccessModule.mockReturnValue(true);
     mocks.listActiveStudents.mockResolvedValue(studentsFixture);
     mocks.listActiveFathersPage.mockResolvedValue(fathersPageFixture);
     mocks.createFather.mockResolvedValue(fathersFixture[0]);
@@ -96,7 +96,7 @@ describe('EnrollmentTutorsPage', () => {
   });
 
   it('redirects non-admin users', async () => {
-    mocks.isAuthUserAdmin.mockReturnValue(false);
+    mocks.canAccessModule.mockReturnValue(false);
     render(() => <EnrollmentTutorsPage />);
 
     await waitFor(() => {

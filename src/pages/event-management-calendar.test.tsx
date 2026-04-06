@@ -4,7 +4,7 @@ import EventManagementCalendarPage from './event-management-calendar';
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
-  isAuthUserAdmin: vi.fn(),
+  canAccessModule: vi.fn(),
   listCalendarEventsInRange: vi.fn(),
   listEventAssignmentsByEventIds: vi.fn(),
   deleteEventAssignmentsByEventId: vi.fn(),
@@ -48,7 +48,7 @@ vi.mock('@fullcalendar/interaction', () => ({ default: {} }));
 vi.mock('@fullcalendar/core/locales/es', () => ({ default: {} }));
 
 vi.mock('../lib/pocketbase/auth', () => ({
-  isAuthUserAdmin: mocks.isAuthUserAdmin,
+  canAccessModule: mocks.canAccessModule,
 }));
 
 vi.mock('../lib/pocketbase/events', () => ({
@@ -153,7 +153,7 @@ describe('EventManagementCalendarPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.calendarInstances.length = 0;
-    mocks.isAuthUserAdmin.mockReturnValue(true);
+    mocks.canAccessModule.mockReturnValue(true);
     mocks.listCalendarEventsInRange.mockResolvedValue(eventsFixture);
     mocks.listEventAssignmentsByEventIds.mockResolvedValue(assignmentsFixture);
     mocks.deleteEventAssignmentsByEventId.mockResolvedValue(undefined);
@@ -165,7 +165,7 @@ describe('EventManagementCalendarPage', () => {
   });
 
   it('redirects non-admin users', async () => {
-    mocks.isAuthUserAdmin.mockReturnValue(false);
+    mocks.canAccessModule.mockReturnValue(false);
 
     render(() => <EventManagementCalendarPage />);
 

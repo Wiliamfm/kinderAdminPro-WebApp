@@ -8,7 +8,7 @@ import {
   touchField,
   type FieldErrorMap,
 } from '../lib/forms/realtime-validation';
-import { isAuthUserAdmin } from '../lib/pocketbase/auth';
+import { canAccessModule } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
   getFatherById,
@@ -163,7 +163,7 @@ export default function EnrollmentTutorEditPage() {
   const [father] = createResource(() => params.id, getFatherById);
   const [linksResource] = createResource(() => params.id, listLinksByFatherId);
   const [students] = createResource(async () => {
-    if (!isAuthUserAdmin()) return [];
+    if (!canAccessModule('enrollment')) return [];
     try {
       return await listActiveStudents({ includeFatherNames: false });
     } catch (error) {
@@ -210,7 +210,7 @@ export default function EnrollmentTutorEditPage() {
   });
 
   createEffect(() => {
-    if (!isAuthUserAdmin()) {
+    if (!canAccessModule('enrollment')) {
       navigate('/enrollment-management', { replace: true });
     }
   });

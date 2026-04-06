@@ -3,7 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
-  isAuthUserAdmin: vi.fn(),
+  canAccessModule: vi.fn(),
   listActiveEmployees: vi.fn(),
   listActiveStudents: vi.fn(),
   listGrades: vi.fn(),
@@ -19,7 +19,7 @@ vi.mock('@solidjs/router', () => ({
 }));
 
 vi.mock('../lib/pocketbase/auth', () => ({
-  isAuthUserAdmin: mocks.isAuthUserAdmin,
+  canAccessModule: mocks.canAccessModule,
 }));
 
 vi.mock('../lib/pocketbase/employees', () => ({
@@ -53,7 +53,7 @@ describe('EventManagementEmailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    mocks.isAuthUserAdmin.mockReturnValue(true);
+    mocks.canAccessModule.mockReturnValue(true);
     mocks.listActiveEmployees.mockResolvedValue([
       {
         id: 'emp1',
@@ -149,7 +149,7 @@ describe('EventManagementEmailPage', () => {
   });
 
   it('redirects non-admin users away from the workflow', async () => {
-    mocks.isAuthUserAdmin.mockReturnValue(false);
+    mocks.canAccessModule.mockReturnValue(false);
 
     render(() => <EventManagementEmailPage />);
 

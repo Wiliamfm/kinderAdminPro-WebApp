@@ -8,6 +8,7 @@ import {
   touchField,
   type FieldErrorMap,
 } from '../lib/forms/realtime-validation';
+import { canAccessModule } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import { listEmployeeJobs } from '../lib/pocketbase/employee-jobs';
 import {
@@ -102,8 +103,14 @@ function isFileWithinLimit(file: File, maxSizeBytes: number): boolean {
 export default function StaffEmployeeEditPage() {
   const params = useParams();
   const navigate = useNavigate();
-  const [employee] = createResource(() => params.id, getEmployeeById);
-  const [jobs] = createResource(listEmployeeJobs);
+  const [employee] = createResource(
+    () => (canAccessModule('staff') ? params.id : undefined),
+    getEmployeeById,
+  );
+  const [jobs] = createResource(
+    () => (canAccessModule('staff') ? true : undefined),
+    () => listEmployeeJobs(),
+  );
   const [form, setForm] = createSignal<EmployeeUpdateInput>(emptyForm);
   const [touched, setTouched] = createSignal(createInitialTouchedMap(REQUIRED_FIELDS));
   const [cvFile, setCvFile] = createSignal<File | null>(null);
@@ -113,6 +120,11 @@ export default function StaffEmployeeEditPage() {
   let cvInputRef: HTMLInputElement | undefined;
 
   createEffect(() => {
+    if (!canAccessModule('staff')) {
+      navigate('/staff-management', { replace: true });
+      return;
+    }
+
     const current = employee();
     if (!current) return;
 

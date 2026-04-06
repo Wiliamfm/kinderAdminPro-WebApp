@@ -80,6 +80,7 @@ describe('users pocketbase client', () => {
       id: 'u1',
       email: 'ana@test.com',
       name: 'Ana',
+      roles: [],
       is_admin: false,
       verified: false,
     });
@@ -93,6 +94,7 @@ describe('users pocketbase client', () => {
     expect(payload).toMatchObject({
       email: 'ana@test.com',
       name: 'Ana',
+      roles: [],
       is_admin: false,
     });
     expect(typeof payload.password).toBe('string');
@@ -101,7 +103,7 @@ describe('users pocketbase client', () => {
       id: 'u1',
       email: 'ana@test.com',
       name: 'Ana',
-      isAdmin: false,
+      roles: [],
       verified: false,
     });
   });
@@ -162,6 +164,7 @@ describe('users pocketbase client', () => {
         id: 'u1',
         email: 'ana@test.com',
         name: 'Ana',
+        roles: ['admin'],
         is_admin: true,
         verified: true,
       },
@@ -169,6 +172,7 @@ describe('users pocketbase client', () => {
         id: 'u2',
         email: 'luis@test.com',
         name: 'Luis',
+        roles: [],
         is_admin: false,
         verified: false,
       },
@@ -182,14 +186,14 @@ describe('users pocketbase client', () => {
         id: 'u1',
         email: 'ana@test.com',
         name: 'Ana',
-        isAdmin: true,
+        roles: ['admin'],
         verified: true,
       },
       {
         id: 'u2',
         email: 'luis@test.com',
         name: 'Luis',
-        isAdmin: false,
+        roles: [],
         verified: false,
       },
     ]);
@@ -202,6 +206,7 @@ describe('users pocketbase client', () => {
           id: 'u1',
           email: 'ana@test.com',
           name: 'Ana',
+          roles: ['professor'],
           is_admin: true,
           verified: true,
         },
@@ -213,12 +218,12 @@ describe('users pocketbase client', () => {
     });
 
     const result = await listAppUsersPage(2, 10, {
-      sortField: 'isAdmin',
+      sortField: 'roles',
       sortDirection: 'desc',
     });
 
     expect(hoisted.getList).toHaveBeenCalledWith(2, 10, {
-      sort: '-is_admin',
+      sort: '-roles',
     });
     expect(result.page).toBe(2);
     expect(result.totalPages).toBe(2);
@@ -226,7 +231,7 @@ describe('users pocketbase client', () => {
       id: 'u1',
       email: 'ana@test.com',
       name: 'Ana',
-      isAdmin: true,
+      roles: ['admin', 'professor'],
       verified: true,
     });
   });
@@ -236,6 +241,7 @@ describe('users pocketbase client', () => {
       id: 'u1',
       email: 'ana+1@test.com',
       name: 'Ana Maria',
+      roles: ['admin'],
       is_admin: true,
       verified: true,
     });
@@ -243,19 +249,20 @@ describe('users pocketbase client', () => {
     const result = await updateAppUser('u1', {
       email: ' ana+1@test.com ',
       name: ' Ana Maria ',
-      isAdmin: true,
+      roles: ['admin'],
     });
 
     expect(hoisted.update).toHaveBeenCalledWith('u1', {
       email: 'ana+1@test.com',
       name: 'Ana Maria',
+      roles: ['admin'],
       is_admin: true,
     });
     expect(result).toEqual({
       id: 'u1',
       email: 'ana+1@test.com',
       name: 'Ana Maria',
-      isAdmin: true,
+      roles: ['admin'],
       verified: true,
     });
   });

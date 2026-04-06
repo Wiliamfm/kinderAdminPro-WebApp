@@ -5,7 +5,7 @@ import StaffEmployeesPage from './staff-employees';
 const mocks = vi.hoisted(() => {
   return {
     navigate: vi.fn(),
-    isAuthUserAdmin: vi.fn(),
+    canAccessModule: vi.fn(),
     listActiveEmployeesPage: vi.fn(),
     listEmployeeJobs: vi.fn(),
     createEmployee: vi.fn(),
@@ -31,7 +31,7 @@ vi.mock('@solidjs/router', () => ({
 }));
 
 vi.mock('../lib/pocketbase/auth', () => ({
-  isAuthUserAdmin: mocks.isAuthUserAdmin,
+  canAccessModule: mocks.canAccessModule,
 }));
 
 vi.mock('../lib/pocketbase/employees', () => ({
@@ -143,7 +143,7 @@ const defaultInvoicesSort = {
 describe('StaffEmployeesPage features', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.isAuthUserAdmin.mockReturnValue(true);
+    mocks.canAccessModule.mockReturnValue(true);
     mocks.listActiveEmployeesPage.mockResolvedValue(employeePageFixture);
     mocks.listEmployeeJobs.mockResolvedValue([
       {
@@ -168,7 +168,7 @@ describe('StaffEmployeesPage features', () => {
       id: 'u2',
       email: 'new@test.com',
       name: 'New Employee',
-      isAdmin: false,
+      roles: [],
       verified: false,
     });
     mocks.createEmployee.mockResolvedValue({
@@ -286,11 +286,12 @@ describe('StaffEmployeesPage features', () => {
   });
 
   it('hides admin actions for non-admin users', async () => {
-    mocks.isAuthUserAdmin.mockReturnValue(false);
+    mocks.canAccessModule.mockReturnValue(false);
     render(() => <StaffEmployeesPage />);
-    await screen.findByText('Ana');
-    expect(screen.queryByLabelText('Gestionar licencias de Ana')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Subir factura de Ana')).not.toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(mocks.navigate).toHaveBeenCalledWith('/staff-management', { replace: true });
+    });
     expect(screen.queryByText('Nuevo empleado')).not.toBeInTheDocument();
   });
 

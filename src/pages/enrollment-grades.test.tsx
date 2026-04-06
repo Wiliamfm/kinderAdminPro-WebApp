@@ -4,7 +4,7 @@ import EnrollmentGradesPage from './enrollment-grades';
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
-  isAuthUserAdmin: vi.fn(),
+  canAccessModule: vi.fn(),
   listGradesPage: vi.fn(),
   createGrade: vi.fn(),
   updateGrade: vi.fn(),
@@ -17,7 +17,7 @@ vi.mock('@solidjs/router', () => ({
 }));
 
 vi.mock('../lib/pocketbase/auth', () => ({
-  isAuthUserAdmin: mocks.isAuthUserAdmin,
+  canAccessModule: mocks.canAccessModule,
 }));
 
 vi.mock('../lib/pocketbase/grades', () => ({
@@ -44,7 +44,7 @@ const gradesPageFixture = {
 describe('EnrollmentGradesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.isAuthUserAdmin.mockReturnValue(true);
+    mocks.canAccessModule.mockReturnValue(true);
     mocks.listGradesPage.mockResolvedValue(gradesPageFixture);
     mocks.createGrade.mockResolvedValue(gradesFixture[0]);
     mocks.updateGrade.mockResolvedValue(gradesFixture[0]);
@@ -53,7 +53,7 @@ describe('EnrollmentGradesPage', () => {
   });
 
   it('redirects non-admin users', async () => {
-    mocks.isAuthUserAdmin.mockReturnValue(false);
+    mocks.canAccessModule.mockReturnValue(false);
     render(() => <EnrollmentGradesPage />);
 
     await waitFor(() => {

@@ -4,7 +4,7 @@ import ReportsStudentsPage from './reports-students';
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
-  isAuthUserAdmin: vi.fn(),
+  canAccessModule: vi.fn(),
   listBulletinsStudentsPage: vi.fn(),
   listBulletinsStudentsForExport: vi.fn(),
   listBulletinStudentFormOptions: vi.fn(),
@@ -24,7 +24,7 @@ vi.mock('@solidjs/router', () => ({
 }));
 
 vi.mock('../lib/pocketbase/auth', () => ({
-  isAuthUserAdmin: mocks.isAuthUserAdmin,
+  canAccessModule: mocks.canAccessModule,
 }));
 
 vi.mock('../lib/pocketbase/bulletins-students', () => ({
@@ -111,7 +111,7 @@ function findChartConfigByLabel(label: string) {
 describe('ReportsStudentsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.isAuthUserAdmin.mockReturnValue(true);
+    mocks.canAccessModule.mockReturnValue(true);
     mocks.listBulletinsStudentsPage.mockResolvedValue(pageFixture);
     mocks.listBulletinsStudentsForExport.mockResolvedValue(rowsFixture);
     mocks.listBulletinStudentFormOptions.mockResolvedValue(formOptionsFixture);
@@ -124,7 +124,7 @@ describe('ReportsStudentsPage', () => {
   });
 
   it('redirects non-admin users to reports index', async () => {
-    mocks.isAuthUserAdmin.mockReturnValue(false);
+    mocks.canAccessModule.mockReturnValue(false);
     render(() => <ReportsStudentsPage />);
 
     await waitFor(() => {

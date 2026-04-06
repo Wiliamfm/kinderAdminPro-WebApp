@@ -5,6 +5,7 @@ import StaffEmployeeEditPage from './staff-employee-edit';
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   params: { id: 'e1' },
+  canAccessModule: vi.fn(),
   getEmployeeById: vi.fn(),
   updateEmployee: vi.fn(),
   listEmployeeJobs: vi.fn(),
@@ -13,6 +14,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@solidjs/router', () => ({
   useNavigate: () => mocks.navigate,
   useParams: () => mocks.params,
+}));
+
+vi.mock('../lib/pocketbase/auth', () => ({
+  canAccessModule: mocks.canAccessModule,
 }));
 
 vi.mock('../lib/pocketbase/employees', () => ({
@@ -45,6 +50,7 @@ describe('StaffEmployeeEditPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.params.id = 'e1';
+    mocks.canAccessModule.mockReturnValue(true);
     mocks.getEmployeeById.mockResolvedValue(employeeFixture);
     mocks.updateEmployee.mockResolvedValue(employeeFixture);
     mocks.listEmployeeJobs.mockResolvedValue([

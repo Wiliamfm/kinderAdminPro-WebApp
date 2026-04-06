@@ -13,7 +13,7 @@ import {
 } from '../lib/forms/realtime-validation';
 import { toggleSort, type SortState } from '../lib/table/sorting';
 import { clampPage, DEFAULT_TABLE_PAGE_SIZE } from '../lib/table/pagination';
-import { isAuthUserAdmin } from '../lib/pocketbase/auth';
+import { canAccessModule } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
   countActiveStudentsByGradeId,
@@ -125,7 +125,7 @@ export default function EnrollmentGradesPage() {
   );
 
   createEffect(() => {
-    if (!isAuthUserAdmin()) {
+    if (!canAccessModule('enrollment')) {
       navigate('/enrollment-management', { replace: true });
     }
   });

@@ -11,7 +11,7 @@ import {
   touchField,
   type FieldErrorMap,
 } from '../lib/forms/realtime-validation';
-import { isAuthUserAdmin } from '../lib/pocketbase/auth';
+import { canAccessModule } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
   countBulletinsByCategoryId,
@@ -154,7 +154,7 @@ export default function EnrollmentBulletinsPage() {
   const [bulletinActionError, setBulletinActionError] = createSignal<string | null>(null);
 
   const [grades] = createResource(async () => {
-    if (!isAuthUserAdmin()) return [];
+    if (!canAccessModule('enrollment')) return [];
     try {
       return await listGrades();
     } catch (error) {
@@ -172,7 +172,7 @@ export default function EnrollmentBulletinsPage() {
   const [categoryOptionsLoaded, setCategoryOptionsLoaded] = createSignal(false);
 
   const loadCategoryOptions = async (force = false): Promise<void> => {
-    if (!isAuthUserAdmin()) return;
+    if (!canAccessModule('enrollment')) return;
     if (categoryOptionsLoading()) return;
     if (categoryOptionsLoaded() && !force) return;
 
@@ -197,7 +197,7 @@ export default function EnrollmentBulletinsPage() {
 
   const [categories, { refetch: refetchCategories }] = createResource(
     () => {
-      if (!isAuthUserAdmin()) return undefined;
+      if (!canAccessModule('enrollment')) return undefined;
       return {
         page: categoryPage(),
         sortField: categorySort().key,
@@ -212,7 +212,7 @@ export default function EnrollmentBulletinsPage() {
 
   const [bulletins, { refetch: refetchBulletins }] = createResource(
     () => {
-      if (!isAuthUserAdmin()) return undefined;
+      if (!canAccessModule('enrollment')) return undefined;
       return {
         page: bulletinPage(),
         sortField: bulletinSort().key,
@@ -258,7 +258,7 @@ export default function EnrollmentBulletinsPage() {
   const [deleteBulletinBusy, setDeleteBulletinBusy] = createSignal(false);
 
   createEffect(() => {
-    if (!isAuthUserAdmin()) {
+    if (!canAccessModule('enrollment')) {
       navigate('/enrollment-management', { replace: true });
     }
   });

@@ -1,7 +1,9 @@
+import type { ProtectedModule } from './pocketbase/auth';
+
 export type SectionLink = {
   label: string;
   href: string;
-  requiresAdmin?: boolean;
+  requiredModules?: ProtectedModule[];
 };
 
 export type SectionIndexEntry = {
@@ -16,16 +18,16 @@ export const sectionIndexByPage: Record<string, SectionIndexEntry> = {
     description:
       'En esta sección podrás acceder a las funciones principales para administrar el personal de la institución.',
     links: [
-      { label: 'Gestion de personal', href: '/staff-management/employees' },
+      { label: 'Gestion de personal', href: '/staff-management/employees', requiredModules: ['staff'] },
       {
         label: 'Gestion de cargos',
         href: '/staff-management/jobs',
-        requiresAdmin: true,
+        requiredModules: ['staff'],
       },
       {
         label: 'Gestion de usuarios',
         href: '/staff-management/app-users',
-        requiresAdmin: true,
+        requiredModules: ['users'],
       },
       { label: 'Volver al inicio', href: '/' },
     ],
@@ -38,12 +40,12 @@ export const sectionIndexByPage: Record<string, SectionIndexEntry> = {
       {
         label: 'Gestion de Estudiantes',
         href: '/enrollment-management/students',
-        requiresAdmin: true,
+        requiredModules: ['enrollment'],
       },
       {
         label: 'Gestion de Tutores',
         href: '/enrollment-management/tutors',
-        requiresAdmin: true,
+        requiredModules: ['enrollment'],
       },
       {
         label: 'Gestion de Solicitudes',
@@ -52,17 +54,17 @@ export const sectionIndexByPage: Record<string, SectionIndexEntry> = {
       {
         label: 'Gestion de Grados',
         href: '/enrollment-management/grades',
-        requiresAdmin: true,
+        requiredModules: ['enrollment'],
       },
       {
         label: 'Gestion de semestres',
         href: '/enrollment-management/semesters',
-        requiresAdmin: true,
+        requiredModules: ['enrollment'],
       },
       {
         label: 'Gestion de boletines',
         href: '/enrollment-management/bulletins',
-        requiresAdmin: true,
+        requiredModules: ['enrollment'],
       },
       { label: 'Volver al inicio', href: '/' },
     ],
@@ -75,12 +77,12 @@ export const sectionIndexByPage: Record<string, SectionIndexEntry> = {
       {
         label: 'Calendario',
         href: '/event-management/calendar',
-        requiresAdmin: true,
+        requiredModules: ['events'],
       },
       {
         label: 'Correos',
         href: '/event-management/email',
-        requiresAdmin: true,
+        requiredModules: ['events'],
       },
       { label: 'Volver al inicio', href: '/' },
     ],
@@ -93,12 +95,12 @@ export const sectionIndexByPage: Record<string, SectionIndexEntry> = {
       {
         label: 'Estudiantes',
         href: '/reports/students',
-        requiresAdmin: true,
+        requiredModules: ['reports'],
       },
       {
         label: 'Empleados',
         href: '/reports/employees',
-        requiresAdmin: true,
+        requiredModules: ['reports'],
       },
       { label: 'Volver al inicio', href: '/' },
     ],

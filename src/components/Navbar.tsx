@@ -1,5 +1,6 @@
 import { A } from '@solidjs/router';
 import { Show, createSignal, onCleanup, onMount, type Component } from 'solid-js';
+import { canAccessModules, type ProtectedModule } from '../lib/pocketbase/auth';
 
 type NavbarProps = {
   currentPath: string;
@@ -9,11 +10,11 @@ type NavbarProps = {
 };
 
 const tabs = [
-  { href: '/staff-management', label: 'Gestión de personal' },
-  { href: '/enrollment-management', label: 'Gestión de matrícula' },
-  { href: '/reports', label: 'Informes' },
-  { href: '/event-management', label: 'Gestión de eventos' },
-];
+  { href: '/staff-management', label: 'Gestión de personal', requiredModules: ['staff', 'users'] },
+  { href: '/enrollment-management', label: 'Gestión de matrícula', requiredModules: ['enrollment'] },
+  { href: '/reports', label: 'Informes', requiredModules: ['reports'] },
+  { href: '/event-management', label: 'Gestión de eventos', requiredModules: ['events'] },
+] satisfies Array<{ href: string; label: string; requiredModules: ProtectedModule[] }>;
 
 const Navbar: Component<NavbarProps> = (props) => {
   const [open, setOpen] = createSignal(false);
@@ -21,6 +22,7 @@ const Navbar: Component<NavbarProps> = (props) => {
   let triggerRef: SVGSVGElement | undefined;
 
   const isActive = (href: string) => props.currentPath === href;
+  const visibleTabs = () => tabs.filter((tab) => canAccessModules(tab.requiredModules));
 
   onMount(() => {
     const onDocumentClick = (event: MouseEvent) => {
@@ -58,7 +60,7 @@ const Navbar: Component<NavbarProps> = (props) => {
         </A>
 
         <div class="flex flex-wrap items-center gap-2">
-          {tabs.map((tab) => (
+          {visibleTabs().map((tab) => (
             <A
               href={tab.href}
               class="px-3 py-1 rounded-lg text-sm border transition-colors"
@@ -127,4 +129,3 @@ const Navbar: Component<NavbarProps> = (props) => {
 };
 
 export default Navbar;
-

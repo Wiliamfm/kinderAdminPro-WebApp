@@ -4,7 +4,7 @@ import EnrollmentStudentsPage from './enrollment-students';
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
-  isAuthUserAdmin: vi.fn(),
+  canAccessModule: vi.fn(),
   listGrades: vi.fn(),
   listActiveFathers: vi.fn(),
   listActiveStudentsPage: vi.fn(),
@@ -20,7 +20,7 @@ vi.mock('@solidjs/router', () => ({
 }));
 
 vi.mock('../lib/pocketbase/auth', () => ({
-  isAuthUserAdmin: mocks.isAuthUserAdmin,
+  canAccessModule: mocks.canAccessModule,
 }));
 
 vi.mock('../lib/pocketbase/students', () => ({
@@ -104,7 +104,7 @@ function toDateTimeLocalValue(date: Date): string {
 describe('EnrollmentStudentsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.isAuthUserAdmin.mockReturnValue(true);
+    mocks.canAccessModule.mockReturnValue(true);
     mocks.listGrades.mockResolvedValue(gradesFixture);
     mocks.listActiveFathers.mockResolvedValue(fathersFixture);
     mocks.listActiveStudentsPage.mockResolvedValue(studentsPageFixture);
@@ -116,7 +116,7 @@ describe('EnrollmentStudentsPage', () => {
   });
 
   it('redirects non-admin users', async () => {
-    mocks.isAuthUserAdmin.mockReturnValue(false);
+    mocks.canAccessModule.mockReturnValue(false);
     render(() => <EnrollmentStudentsPage />);
 
     await waitFor(() => {

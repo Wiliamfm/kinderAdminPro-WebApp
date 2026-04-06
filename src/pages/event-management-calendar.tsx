@@ -30,7 +30,7 @@ import {
   touchField,
   type FieldErrorMap,
 } from '../lib/forms/realtime-validation';
-import { isAuthUserAdmin } from '../lib/pocketbase/auth';
+import { canAccessModule } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
   listEventAssignmentsByEventIds,
@@ -344,12 +344,12 @@ export default function EventManagementCalendarPage() {
     loadCalendarItems,
   );
   const [employees] = createResource(
-    () => (isAuthUserAdmin() ? true : undefined),
+    () => (canAccessModule('events') ? true : undefined),
     () => listActiveEmployees(),
   );
 
   createEffect(() => {
-    if (!isAuthUserAdmin()) {
+    if (!canAccessModule('events')) {
       navigate('/event-management', { replace: true });
     }
   });

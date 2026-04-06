@@ -13,7 +13,7 @@ import {
 } from '../lib/forms/realtime-validation';
 import { toggleSort, type SortState } from '../lib/table/sorting';
 import { clampPage, DEFAULT_TABLE_PAGE_SIZE } from '../lib/table/pagination';
-import { isAuthUserAdmin } from '../lib/pocketbase/auth';
+import { canAccessModule } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
   createEmployee,
@@ -249,10 +249,13 @@ function isFileWithinLimit(file: File, maxSizeBytes: number): boolean {
 
 export default function StaffEmployeesPage() {
   const navigate = useNavigate();
-  const canManageAdminActions = () => isAuthUserAdmin();
+  const canManageAdminActions = () => canAccessModule('staff');
 
   const [employeePage, setEmployeePage] = createSignal(1);
-  const [jobs] = createResource(listEmployeeJobs);
+  const [jobs] = createResource(
+    () => (canManageAdminActions() ? true : undefined),
+    () => listEmployeeJobs(),
+  );
   const [deleteTarget, setDeleteTarget] = createSignal<EmployeeRecord | null>(null);
   const [deleteBusy, setDeleteBusy] = createSignal(false);
   const [actionError, setActionError] = createSignal<string | null>(null);
@@ -262,14 +265,19 @@ export default function StaffEmployeesPage() {
   });
   const [employees, { refetch }] = createResource(
     () => ({
+      enabled: canManageAdminActions(),
       page: employeePage(),
       sortField: employeeSort().key,
       sortDirection: employeeSort().direction,
     }),
-    ({ page, sortField, sortDirection }) => listActiveEmployeesPage(page, DEFAULT_TABLE_PAGE_SIZE, {
-      sortField,
-      sortDirection,
-    }),
+    ({ enabled, page, sortField, sortDirection }) => {
+      if (!enabled) return undefined;
+
+      return listActiveEmployeesPage(page, DEFAULT_TABLE_PAGE_SIZE, {
+        sortField,
+        sortDirection,
+      });
+    },
   );
   const [createModalOpen, setCreateModalOpen] = createSignal(false);
   const [createBusy, setCreateBusy] = createSignal(false);
@@ -640,6 +648,11 @@ export default function StaffEmployeesPage() {
   };
 
   createEffect(() => {
+    if (!canManageAdminActions()) {
+      navigate('/staff-management', { replace: true });
+      return;
+    }
+
     const target = leaveTarget();
     const currentSemester = currentLeaveSemester();
     if (!target || !currentSemester || editingLeaveId()) return;

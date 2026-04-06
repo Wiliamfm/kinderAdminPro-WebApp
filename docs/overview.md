@@ -1,6 +1,6 @@
 # Project Overview
 
-Last updated: 2026-03-21
+Last updated: 2026-04-06
 
 ## Purpose
 This application is a SolidJS frontend for staff and operational management workflows backed by PocketBase.
@@ -23,16 +23,17 @@ Primary functional areas exposed through routes:
 
 ## Core Workflows
 - Authenticate against PocketBase `users`.
+- Authorize protected routes and collection access through `users.roles`, with `super_admin` plus module roles for staff, enrollment, reports, events, and user management.
 - List and manage employees.
 - List and manage employee jobs (`employee_jobs`) and assign them as relation on employees (`employees.job_id`).
 - Create employees from the staff list:
-  - create linked auth user (`users`) with default `is_admin = false`,
+  - create linked auth user (`users`) with default `roles = []` and legacy `is_admin = false` during the rollout period,
   - persist `employees.user_id` relation,
   - persist `employees.job_id` relation,
   - require unique numeric `employees.document_id` (length `4-20`),
   - optionally upload `employees.cv` (PDF only, max 10 MB),
   - send password setup email,
-  - allow admin resend of onboarding invite.
+  - allow authorized staff users to resend onboarding invites.
 - Update employees from `/staff-management/employees/:id`:
   - keep existing CV when no new file is selected,
   - optionally replace CV with a new PDF file.
@@ -45,17 +46,17 @@ Primary functional areas exposed through routes:
   - block saving when no semesters exist,
   - paginate leave history.
 - Manage enrollment students data in PocketBase `students` collection:
-  - admin-only CRUD access,
+  - enrollment-authorized CRUD access,
   - required relation `grade_id` to `grades`,
   - numeric-only unique `document_id`,
   - `date_of_birth` stored as datetime with timezone offset,
-  - list active students in an admin-only table,
+  - list active students in an enrollment-authorized table,
   - create student records from modal form,
   - edit records in dedicated route,
   - soft delete via `active = false`.
 - Manage student-family data in PocketBase:
   - `fathers` collection stores parent/tutor identity and contact data,
-  - admin-only CRUD access for `fathers`,
+  - enrollment-authorized CRUD access for `fathers`,
   - required `full_name` and unique `document_id`,
   - soft delete via `is_active = false`,
   - optional duplicated `email`,
@@ -66,12 +67,12 @@ Primary functional areas exposed through routes:
   - relation reads are ordered by `created_at,id`,
   - student and tutor create/edit flows require at least one linked counterpart.
 - Manage enrollment grades data in PocketBase `grades` collection:
-  - admin-only CRUD access,
+  - enrollment-authorized CRUD access,
   - unique `name`,
   - integer `capacity` greater than 0,
   - prevent deletion while active students are linked to the grade.
 - Manage enrollment semesters data in PocketBase `semesters` collection:
-  - admin-only create/list/update access from enrollment module,
+  - enrollment-authorized create/list/update access,
   - required `name` (unique), `start_date`, `end_date`, plus `is_current` (bool default `false`),
   - `created_at` and `updated_at` stored as backend-managed autodate fields,
   - `end_date` must be at least 1 day after `start_date`,
@@ -83,14 +84,14 @@ Primary functional areas exposed through routes:
   - `bulletins` collection stores student bulletin entries with required `category_id`, `grade_id`, `description`,
   - `bulletins` stores audit fields `created_by` and `updated_by` as relations to `users`,
   - `bulletins` includes backend-managed `created_at` and `updated_at` autodate fields,
-  - list and create/edit/delete workflows are admin-only and available in `/enrollment-management/bulletins`,
+  - list and create/edit/delete workflows are enrollment-authorized and available in `/enrollment-management/bulletins`,
   - bulletin deletion is soft delete via `is_deleted = true`,
   - category deletion is hard delete and blocked when linked bulletins exist.
 - Manage student report notes in PocketBase:
   - `bulletins_students` collection stores the relation between bulletin, student, grade, and semester,
   - required relations: `bulletin_id`, `student_id`, `grade_id`, `semester_id`,
   - required integer `note` greater than `0` plus optional `comments`,
-  - admin-only list/create/update/delete access,
+  - reports-authorized list/create/update/delete access,
   - audit fields `created_by` and `updated_by` are stored as `users` relations,
   - backend-managed `created_at` and `updated_at` autodate fields are exposed in UI,
   - deletion is soft delete via `is_deleted = true`,
@@ -105,7 +106,7 @@ Primary functional areas exposed through routes:
   - `employee_reports` collection stores the relation between employee, job, and semester,
   - required relations: `employee_id`, `job_id`, `semester_id`,
   - optional `comments` text field,
-  - admin-only list/create/update/delete access,
+  - reports-authorized list/create/update/delete access,
   - audit fields `created_by` and `updated_by` are stored as `users` relations,
   - backend-managed `created_at` and `updated_at` autodate fields are exposed in UI,
   - deletion is soft delete via `is_deleted = true`,
@@ -142,7 +143,7 @@ Primary functional areas exposed through routes:
   - calendar interactions include day-based create, detail preview on event click, and edit through a dedicated pencil icon on each rendered item.
 - Manage administrative event email messaging:
   - workflow is available in `/event-management/email`,
-  - admins can mix active employees with active fathers resolved from selected students and grades,
+  - users with event-management access can mix active employees with active fathers resolved from selected students and grades,
   - recipient review shows total resolved, selected, sendable, and missing-email counts,
   - `email_messages` stores the parent send history with subject, body snapshot, sender, and aggregate counts,
   - `email_message_recipients` stores one snapshot row per resolved recipient, including missing-email and failed-delivery outcomes,

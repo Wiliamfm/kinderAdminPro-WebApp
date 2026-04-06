@@ -20,7 +20,7 @@ import {
   touchField,
   type FieldErrorMap,
 } from '../lib/forms/realtime-validation';
-import { isAuthUserAdmin } from '../lib/pocketbase/auth';
+import { canAccessModule } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
   listEmailMessageRecipients,
@@ -169,7 +169,7 @@ export default function EventManagementEmailPage() {
   const [backendSetupNotice, setBackendSetupNotice] = createSignal<string | null>(null);
 
   const [filterOptions] = createResource(async (): Promise<FilterOptions> => {
-    if (!isAuthUserAdmin()) return emptyFilterOptions;
+    if (!canAccessModule('events')) return emptyFilterOptions;
 
     const [employees, students, grades] = await Promise.all([
       listActiveEmployees(),
@@ -181,7 +181,7 @@ export default function EventManagementEmailPage() {
   });
 
   const [messageHistory, { refetch: refetchHistory }] = createResource(async (): Promise<EmailMessageRecord[]> => {
-    if (!isAuthUserAdmin()) return [];
+    if (!canAccessModule('events')) return [];
 
     try {
       const history = await listEmailMessages();
@@ -225,7 +225,7 @@ export default function EventManagementEmailPage() {
       gradeIds: gradeIds(),
     }),
     async (filters): Promise<ResolvedEmailRecipient[]> => {
-      if (!isAuthUserAdmin()) return [];
+      if (!canAccessModule('events')) return [];
 
       const [employeeRecipients, fatherRecipients] = await Promise.all([
         resolveEmployeeRecipients(filters.employeeIds),
@@ -240,7 +240,7 @@ export default function EventManagementEmailPage() {
   );
 
   createEffect(() => {
-    if (!isAuthUserAdmin()) {
+    if (!canAccessModule('events')) {
       navigate('/event-management', { replace: true });
     }
   });

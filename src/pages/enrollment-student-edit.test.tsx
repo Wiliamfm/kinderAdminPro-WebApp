@@ -5,7 +5,7 @@ import EnrollmentStudentEditPage from './enrollment-student-edit';
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   params: { id: 's1' },
-  isAuthUserAdmin: vi.fn(),
+  canAccessModule: vi.fn(),
   listGrades: vi.fn(),
   listActiveFathers: vi.fn(),
   getStudentById: vi.fn(),
@@ -20,7 +20,7 @@ vi.mock('@solidjs/router', () => ({
 }));
 
 vi.mock('../lib/pocketbase/auth', () => ({
-  isAuthUserAdmin: mocks.isAuthUserAdmin,
+  canAccessModule: mocks.canAccessModule,
 }));
 
 vi.mock('../lib/pocketbase/students', () => ({
@@ -93,7 +93,7 @@ describe('EnrollmentStudentEditPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.params.id = 's1';
-    mocks.isAuthUserAdmin.mockReturnValue(true);
+    mocks.canAccessModule.mockReturnValue(true);
     mocks.listGrades.mockResolvedValue(gradesFixture);
     mocks.listActiveFathers.mockResolvedValue(fathersFixture);
     mocks.getStudentById.mockResolvedValue(studentFixture);
@@ -114,7 +114,7 @@ describe('EnrollmentStudentEditPage', () => {
   });
 
   it('redirects non-admin users', async () => {
-    mocks.isAuthUserAdmin.mockReturnValue(false);
+    mocks.canAccessModule.mockReturnValue(false);
     render(() => <EnrollmentStudentEditPage />);
 
     await waitFor(() => {

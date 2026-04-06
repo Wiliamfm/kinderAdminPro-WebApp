@@ -13,7 +13,12 @@ import {
 } from '../lib/forms/realtime-validation';
 import { toggleSort, type SortState } from '../lib/table/sorting';
 import { clampPage, DEFAULT_TABLE_PAGE_SIZE } from '../lib/table/pagination';
-import { isAuthUserAdmin } from '../lib/pocketbase/auth';
+import {
+  APP_ROLE_LABELS,
+  APP_ROLES,
+  canAccessModule,
+  type AppRole,
+} from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import {
   deleteAppUser,
@@ -28,7 +33,7 @@ import {
 type UserEditForm = {
   name: string;
   email: string;
-  isAdmin: boolean;
+  roles: AppRole[];
 };
 
 const EDIT_FIELDS = ['name', 'email'] as const;
@@ -37,7 +42,7 @@ type EditField = (typeof EDIT_FIELDS)[number];
 const emptyEditForm: UserEditForm = {
   name: '',
   email: '',
-  isAdmin: false,
+  roles: [],
 };
 
 function validateEditForm(current: UserEditForm): FieldErrorMap<EditField> {
@@ -60,7 +65,7 @@ function buildUpdatePayload(current: UserEditForm): UserEditForm {
   return {
     name: current.name.trim(),
     email: current.email.trim(),
-    isAdmin: current.isAdmin,
+    roles: current.roles,
   };
 }
 
@@ -81,6 +86,16 @@ function formatText(value: unknown): string {
   if (typeof value !== 'string') return '—';
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : '—';
+}
+
+function sortRoles(roles: AppRole[]): AppRole[] {
+  const unique = Array.from(new Set(roles));
+  return APP_ROLES.filter((role) => unique.includes(role));
+}
+
+function formatRoles(roles: AppRole[]): string {
+  if (roles.length === 0) return 'Sin roles';
+  return roles.map((role) => APP_ROLE_LABELS[role]).join(', ');
 }
 
 type UserSortKey = AppUserListSortField;
@@ -104,7 +119,7 @@ export default function AppUsersPage() {
   });
   const [users, { refetch }] = createResource(
     () => {
-      if (!isAuthUserAdmin()) return undefined;
+      if (!canAccessModule('users')) return undefined;
 
       return {
         page: userPage(),
@@ -121,7 +136,7 @@ export default function AppUsersPage() {
   const authUserId = () => getAuthUserId();
 
   createEffect(() => {
-    if (!isAuthUserAdmin()) {
+    if (!canAccessModule('users')) {
       navigate('/staff-management', { replace: true });
     }
   });
@@ -131,7 +146,7 @@ export default function AppUsersPage() {
     setEditForm({
       name: user.name,
       email: user.email,
-      isAdmin: user.isAdmin,
+      roles: user.roles,
     });
     setEditTouched(createInitialTouchedMap(EDIT_FIELDS));
     setEditError(null);
@@ -266,7 +281,7 @@ export default function AppUsersPage() {
           <div>
             <h1 class="text-2xl font-semibold">Gestión de usuarios</h1>
             <p class="mt-1 text-sm text-gray-600">
-              Administra los usuarios de la aplicación y sus permisos.
+              Administra los usuarios de la aplicación y sus roles.
             </p>
           </div>
 
@@ -298,8 +313,8 @@ export default function AppUsersPage() {
                 />
                 <SortableHeaderCell
                   class="px-3 py-2 font-medium text-gray-700"
-                  label="Admin"
-                  columnKey="isAdmin"
+                  label="Roles"
+                  columnKey="roles"
                   sort={userSort()}
                   onSort={handleUserSort}
                 />
@@ -334,13 +349,13 @@ export default function AppUsersPage() {
                           <td class="px-3 py-2">{formatText(user.name)}</td>
                           <td class="px-3 py-2">
                             <span
-                              class="inline-flex rounded-full px-2 py-1 text-xs font-medium"
+                              class="inline-flex rounded-full px-2 py-1 text-xs font-medium leading-5"
                               classList={{
-                                'bg-emerald-100 text-emerald-800': user.isAdmin,
-                                'bg-gray-100 text-gray-700': !user.isAdmin,
+                                'bg-emerald-100 text-emerald-800': user.roles.length > 0,
+                                'bg-gray-100 text-gray-700': user.roles.length === 0,
                               }}
                             >
-                              {user.isAdmin ? 'Sí' : 'No'}
+                              {formatRoles(user.roles)}
                             </span>
                           </td>
                           <td class="px-3 py-2">{formatText(user.email)}</td>
@@ -444,15 +459,33 @@ export default function AppUsersPage() {
             </p>
           </Show>
 
-          <label class="flex items-center gap-2 text-sm text-gray-700" for="edit-user-is-admin">
-            <input
-              id="edit-user-is-admin"
-              type="checkbox"
-              checked={editForm().isAdmin}
-              onInput={(event) => setEditField('isAdmin', event.currentTarget.checked)}
-            />
-            Es administrador
-          </label>
+          <fieldset class="space-y-2">
+            <legend class="text-sm font-medium text-gray-700">Roles</legend>
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <For each={APP_ROLES}>
+                {(role) => (
+                  <label class="flex items-center gap-2 rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={editForm().roles.includes(role)}
+                      onInput={(event) => {
+                        const checked = event.currentTarget.checked;
+                        setEditField(
+                          'roles',
+                          sortRoles(
+                            checked
+                              ? [...editForm().roles, role]
+                              : editForm().roles.filter((currentRole) => currentRole !== role),
+                          ),
+                        );
+                      }}
+                    />
+                    {APP_ROLE_LABELS[role]}
+                  </label>
+                )}
+              </For>
+            </div>
+          </fieldset>
         </div>
       </Modal>
 

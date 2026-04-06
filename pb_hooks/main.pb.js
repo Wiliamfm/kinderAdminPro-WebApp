@@ -117,9 +117,39 @@ routerAdd("POST", "/api/tesis/event-email-messaging/send", (e) => {
     };
   }
 
-  function requireAdminAuth() {
-    if (!e.auth || !toBooleanValue(e.auth.get("is_admin"))) {
-      throw new ForbiddenError("Solo los administradores pueden enviar correos.");
+  function normalizeRoleValues(value) {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const seen = {};
+    const result = [];
+    for (let i = 0; i < value.length; i += 1) {
+      const normalized = toStringValue(value[i]);
+      if (!normalized || seen[normalized]) {
+        continue;
+      }
+
+      seen[normalized] = true;
+      result.push(normalized);
+    }
+
+    return result;
+  }
+
+  function authHasRole(authRecord, role) {
+    if (!authRecord) {
+      return false;
+    }
+
+    const roles = normalizeRoleValues(authRecord.get("roles"));
+    return roles.indexOf("admin") !== -1
+      || toBooleanValue(authRecord.get("is_admin"));
+  }
+
+  function requireRoleAuth(role, message) {
+    if (!e.auth || !authHasRole(e.auth, role)) {
+      throw new ForbiddenError(message);
     }
 
     return e.auth;
@@ -321,7 +351,10 @@ routerAdd("POST", "/api/tesis/event-email-messaging/send", (e) => {
     return response.json && typeof response.json.id === "string" ? response.json.id : "";
   }
 
-  const authRecord = requireAdminAuth();
+  const authRecord = requireRoleAuth(
+    "admin",
+    "Solo los usuarios autorizados para eventos pueden enviar correos.",
+  );
 
   let body = {};
   try {
