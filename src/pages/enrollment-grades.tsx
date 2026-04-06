@@ -20,10 +20,12 @@ import {
   createGrade,
   deleteGrade,
   listGradesPage,
+  updateGradeProfessor,
   type GradeListSortField,
   type GradeRecord,
   updateGrade,
 } from '../lib/pocketbase/grades';
+import { listActiveEmployees, type EmployeeRecord } from '../lib/pocketbase/employees';
 
 type GradeForm = {
   name: string;
@@ -108,6 +110,13 @@ export default function EnrollmentGradesPage() {
 
   const [deleteTarget, setDeleteTarget] = createSignal<GradeRecord | null>(null);
   const [deleteBusy, setDeleteBusy] = createSignal(false);
+
+  const [assignTarget, setAssignTarget] = createSignal<GradeRecord | null>(null);
+  const [assignEmployeeId, setAssignEmployeeId] = createSignal<string>('');
+  const [assignBusy, setAssignBusy] = createSignal(false);
+  const [assignError, setAssignError] = createSignal<string | null>(null);
+  const [employees] = createResource(listActiveEmployees);
+
   const [gradeSort, setGradeSort] = createSignal<SortState<GradeSortKey>>({
     key: 'name',
     direction: 'asc',
@@ -251,6 +260,32 @@ export default function EnrollmentGradesPage() {
     }
   };
 
+  const openAssign = (grade: GradeRecord) => {
+    setAssignTarget(grade);
+    setAssignEmployeeId(grade.employeeId ?? '');
+    setAssignError(null);
+  };
+
+  const submitAssign = async () => {
+    const target = assignTarget();
+    if (!target) return;
+
+    setAssignBusy(true);
+    setAssignError(null);
+    setActionError(null);
+
+    try {
+      const employeeId = assignEmployeeId().trim() || null;
+      await updateGradeProfessor(target.id, employeeId);
+      await refetch();
+      setAssignTarget(null);
+    } catch (error) {
+      setAssignError(getErrorMessage(error));
+    } finally {
+      setAssignBusy(false);
+    }
+  };
+
   const gradeRows = () => grades()?.items ?? [];
   const gradeCurrentPage = () => grades()?.page ?? 1;
   const gradeTotalPages = () => grades()?.totalPages ?? 1;
@@ -318,6 +353,7 @@ export default function EnrollmentGradesPage() {
                   sort={gradeSort()}
                   onSort={handleGradeSort}
                 />
+                <th class="px-4 py-3 font-semibold">Profesor asignado</th>
                 <th class="px-4 py-3 font-semibold">Acciones</th>
               </tr>
             </thead>
@@ -326,7 +362,7 @@ export default function EnrollmentGradesPage() {
                 when={!grades.loading}
                 fallback={
                   <tr>
-                    <td class="px-4 py-4 text-gray-600" colSpan={3}>
+                    <td class="px-4 py-4 text-gray-600" colSpan={4}>
                       Cargando grados...
                     </td>
                   </tr>
@@ -336,7 +372,7 @@ export default function EnrollmentGradesPage() {
                   when={!grades.error}
                   fallback={
                     <tr>
-                      <td class="px-4 py-4 text-red-700" colSpan={3}>
+                      <td class="px-4 py-4 text-red-700" colSpan={4}>
                         {getErrorMessage(grades.error)}
                       </td>
                     </tr>
@@ -346,7 +382,7 @@ export default function EnrollmentGradesPage() {
                     when={gradeRows().length > 0}
                     fallback={
                       <tr>
-                        <td class="px-4 py-4 text-gray-600" colSpan={3}>
+                        <td class="px-4 py-4 text-gray-600" colSpan={4}>
                           No hay grados registrados.
                         </td>
                       </tr>
@@ -357,8 +393,20 @@ export default function EnrollmentGradesPage() {
                         <tr class="border-t border-yellow-100 align-top">
                           <td class="px-4 py-3">{grade.name}</td>
                           <td class="px-4 py-3">{formatCapacity(grade.capacity)}</td>
+                          <td class="px-4 py-3 text-sm text-gray-700">
+                            {grade.employeeName || '—'}
+                          </td>
                           <td class="px-4 py-3">
                             <div class="flex items-center gap-2">
+                              <button
+                                type="button"
+                                class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-blue-200 bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100"
+                                aria-label={`Asignar profesor al grado ${grade.name}`}
+                                onClick={() => openAssign(grade)}
+                              >
+                                <i class="bi bi-person-badge" aria-hidden="true"></i>
+                              </button>
+
                               <button
                                 type="button"
                                 class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-yellow-300 bg-yellow-100 text-gray-700 transition-colors hover:bg-yellow-200"
@@ -513,6 +561,47 @@ export default function EnrollmentGradesPage() {
           setDeleteTarget(null);
         }}
       />
+
+      <Modal
+        open={assignTarget() !== null}
+        title="Asignar profesor"
+        confirmLabel="Guardar"
+        busy={assignBusy()}
+        onConfirm={submitAssign}
+        onClose={() => {
+          if (assignBusy()) return;
+          setAssignTarget(null);
+        }}
+      >
+        <div class="space-y-3">
+          <p class="text-sm text-gray-700">
+            Grado: <strong>{assignTarget()?.name}</strong>
+          </p>
+
+          <label class="block">
+            <span class="text-sm text-gray-700">Profesor asignado</span>
+            <select
+              class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              value={assignEmployeeId()}
+              onInput={(event) => setAssignEmployeeId(event.currentTarget.value)}
+              disabled={assignBusy()}
+            >
+              <option value="">— Sin asignar —</option>
+              <For each={employees() ?? []}>
+                {(emp: EmployeeRecord) => (
+                  <option value={emp.id}>{emp.name}</option>
+                )}
+              </For>
+            </select>
+          </label>
+
+          <Show when={assignError()}>
+            <div class="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {assignError()}
+            </div>
+          </Show>
+        </div>
+      </Modal>
     </section>
   );
 }

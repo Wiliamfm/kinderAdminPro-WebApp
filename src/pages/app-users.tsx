@@ -24,6 +24,7 @@ import {
   deleteAppUser,
   getAuthUserId,
   listAppUsersPage,
+  listEmployeeUserIds,
   requestAuthenticatedUserEmailChange,
   type AppUserListSortField,
   type AppUserRecord,
@@ -131,6 +132,11 @@ export default function AppUsersPage() {
       sortField,
       sortDirection,
     }),
+  );
+
+  const [employeeUserIds] = createResource(
+    () => canAccessModule('users') || undefined,
+    () => listEmployeeUserIds(),
   );
 
   const authUserId = () => getAuthUserId();
@@ -273,6 +279,11 @@ export default function AppUsersPage() {
     setUserPage(1);
   };
   const isEditingSelf = () => editTarget()?.id === authUserId();
+  const isEditingEmployee = () => {
+    const target = editTarget();
+    if (!target) return false;
+    return employeeUserIds()?.has(target.id) ?? false;
+  };
 
   return (
     <section class="min-h-screen bg-yellow-50 text-gray-800 p-4 sm:p-6 lg:p-8">
@@ -461,14 +472,24 @@ export default function AppUsersPage() {
 
           <fieldset class="space-y-2">
             <legend class="text-sm font-medium text-gray-700">Roles</legend>
+            <Show when={isEditingEmployee()}>
+              <p class="text-xs text-gray-500">
+                Este usuario está vinculado a un empleado. El rol Profesor es asignado automáticamente y no puede modificarse aquí.
+              </p>
+            </Show>
             <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <For each={APP_ROLES}>
                 {(role) => (
-                  <label class="flex items-center gap-2 rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-gray-700">
+                  <label
+                    class="flex items-center gap-2 rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-gray-700"
+                    classList={{ 'opacity-60 cursor-not-allowed': isEditingEmployee() }}
+                  >
                     <input
                       type="checkbox"
                       checked={editForm().roles.includes(role)}
+                      disabled={isEditingEmployee()}
                       onInput={(event) => {
+                        if (isEditingEmployee()) return;
                         const checked = event.currentTarget.checked;
                         setEditField(
                           'roles',

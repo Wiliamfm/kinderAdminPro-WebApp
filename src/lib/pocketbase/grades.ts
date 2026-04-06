@@ -5,6 +5,8 @@ export type GradeRecord = {
   id: string;
   name: string;
   capacity: number | string;
+  employeeId: string | null;
+  employeeName: string;
 };
 
 export type GradeCreateInput = {
@@ -24,6 +26,31 @@ export type PaginatedGradesResult = PaginatedListResult<GradeRecord>;
 
 function toStringValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function toNullableStringValue(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function getExpandedEmployee(
+  record: Record<string, unknown> & { get?: (key: string) => unknown },
+): Record<string, unknown> | null {
+  const directExpand = (record as { expand?: Record<string, unknown> }).expand;
+  const fromGet = record.get?.('expand');
+  const expand = (directExpand ?? fromGet) as Record<string, unknown> | undefined;
+  const employee = expand?.employee_id;
+
+  if (Array.isArray(employee)) {
+    return (employee[0] as Record<string, unknown>) ?? null;
+  }
+
+  if (employee && typeof employee === 'object') {
+    return employee as Record<string, unknown>;
+  }
+
+  return null;
 }
 
 function toCapacityValue(value: unknown): number | string {
@@ -46,10 +73,13 @@ function toCapacityValue(value: unknown): number | string {
 function mapGradeRecord(
   record: Record<string, unknown> & { id: string; get?: (key: string) => unknown },
 ): GradeRecord {
+  const expandedEmployee = getExpandedEmployee(record);
   return {
     id: record.id,
     name: toStringValue(record.get?.('name') ?? record.name),
     capacity: toCapacityValue(record.get?.('capacity') ?? record.capacity),
+    employeeId: toNullableStringValue(record.get?.('employee_id') ?? record.employee_id),
+    employeeName: toStringValue(expandedEmployee?.name),
   };
 }
 
@@ -64,6 +94,7 @@ export async function listGrades(): Promise<GradeRecord[]> {
   try {
     const records = await pb.collection('grades').getFullList({
       sort: 'name',
+      expand: 'employee_id',
     });
 
     return records.map((record) => mapGradeRecord(record));
@@ -82,6 +113,7 @@ export async function listGradesPage(
     const sortDirection = options.sortDirection ?? 'asc';
     const result = await pb.collection('grades').getList(page, perPage, {
       sort: buildSortExpression(sortField, sortDirection),
+      expand: 'employee_id',
     });
 
     return {
@@ -135,6 +167,35 @@ export async function deleteGrade(id: string): Promise<void> {
 
 function escapeFilterValue(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+export async function listGradesByEmployeeId(employeeId: string): Promise<GradeRecord[]> {
+  try {
+    const records = await pb.collection('grades').getFullList({
+      filter: pb.filter('employee_id = {:employeeId}', { employeeId }),
+      expand: 'employee_id',
+      sort: 'name',
+    });
+    return records.map((record) => mapGradeRecord(record));
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
+export async function updateGradeProfessor(
+  gradeId: string,
+  employeeId: string | null,
+): Promise<GradeRecord> {
+  try {
+    const record = await pb.collection('grades').update(gradeId, {
+      employee_id: employeeId ?? '',
+    }, {
+      expand: 'employee_id',
+    });
+    return mapGradeRecord(record);
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
 }
 
 export async function countActiveStudentsByGradeId(gradeId: string): Promise<number> {

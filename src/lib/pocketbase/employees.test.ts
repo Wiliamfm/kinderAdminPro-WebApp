@@ -3,10 +3,12 @@ import {
   createEmployee,
   deactivateEmployee,
   getEmployeeById,
+  getEmployeeByUserId,
   listActiveEmployees,
   listActiveEmployeesPage,
   updateEmployee,
 } from './employees';
+
 
 const hoisted = vi.hoisted(() => {
   const getFullList = vi.fn();
@@ -16,6 +18,8 @@ const hoisted = vi.hoisted(() => {
   const update = vi.fn();
   const getURL = vi.fn();
   const normalizePocketBaseError = vi.fn();
+
+  const filter = vi.fn((template: string, _params: unknown) => template);
 
   const pb = {
     collection: vi.fn(() => ({
@@ -28,6 +32,7 @@ const hoisted = vi.hoisted(() => {
     files: {
       getURL,
     },
+    filter,
   };
 
   return {
@@ -37,6 +42,7 @@ const hoisted = vi.hoisted(() => {
     create,
     update,
     getURL,
+    filter,
     normalizePocketBaseError,
     pb,
   };
@@ -393,6 +399,57 @@ describe('employees pocketbase client', () => {
     expect(payload.get('name')).toBe('Ana');
     expect(payload.get('job_id')).toBe('j2');
     expect(payload.get('cv')).toBe(cv);
+  });
+
+  it('gets employee by user id', async () => {
+    hoisted.getList.mockResolvedValue({
+      items: [
+        {
+          id: 'e1',
+          name: 'Ana',
+          document_id: '123456',
+          email: 'ana@test.com',
+          phone: '300',
+          address: 'Calle 1',
+          emergency_contact: 'Luis',
+          active: true,
+          user_id: 'u1',
+          job_id: 'j1',
+          expand: {
+            job_id: { id: 'j1', name: 'Docente', salary: 1000 },
+          },
+        },
+      ],
+      page: 1,
+      perPage: 1,
+      totalItems: 1,
+      totalPages: 1,
+    });
+    hoisted.filter.mockReturnValue('user_id = "u1"');
+
+    const result = await getEmployeeByUserId('u1');
+
+    expect(hoisted.getList).toHaveBeenCalledWith(1, 1, {
+      filter: 'user_id = "u1"',
+      expand: 'job_id',
+    });
+    expect(result).not.toBeNull();
+    expect(result!.id).toBe('e1');
+    expect(result!.userId).toBe('u1');
+    expect(result!.jobName).toBe('Docente');
+  });
+
+  it('returns null when no employee found for user id', async () => {
+    hoisted.getList.mockResolvedValue({
+      items: [],
+      page: 1,
+      perPage: 1,
+      totalItems: 0,
+      totalPages: 0,
+    });
+
+    const result = await getEmployeeByUserId('u999');
+    expect(result).toBeNull();
   });
 
   it('normalizes and rethrows errors', async () => {

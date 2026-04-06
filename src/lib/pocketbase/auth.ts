@@ -4,7 +4,15 @@ export type AuthChangeCallback = (isAuthenticated: boolean) => void;
 export const APP_ROLES = ['admin', 'professor', 'father'] as const;
 
 export type AppRole = (typeof APP_ROLES)[number];
-export type ProtectedModule = 'staff' | 'enrollment' | 'reports' | 'events' | 'users';
+export type ProtectedModule =
+  | 'staff'
+  | 'enrollment'
+  | 'reports'
+  | 'events'
+  | 'users'
+  | 'professor-personal'
+  | 'professor-students'
+  | 'professor-events';
 
 export const APP_ROLE_LABELS: Record<AppRole, string> = {
   admin: 'Administrador',
@@ -89,7 +97,16 @@ export function hasAnyRole(roles: readonly AppRole[]): boolean {
   return roles.some((role) => hasRole(role));
 }
 
-export function canAccessModule(_module: ProtectedModule): boolean {
+const PROFESSOR_MODULES: readonly ProtectedModule[] = [
+  'professor-personal',
+  'professor-students',
+  'professor-events',
+];
+
+export function canAccessModule(module: ProtectedModule): boolean {
+  if (PROFESSOR_MODULES.includes(module)) {
+    return hasRole('professor');
+  }
   return hasRole('admin');
 }
 

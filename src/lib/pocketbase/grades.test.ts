@@ -4,8 +4,10 @@ import {
   createGrade,
   deleteGrade,
   listGrades,
+  listGradesByEmployeeId,
   listGradesPage,
   updateGrade,
+  updateGradeProfessor,
 } from './grades';
 
 const hoisted = vi.hoisted(() => {
@@ -16,6 +18,8 @@ const hoisted = vi.hoisted(() => {
   const del = vi.fn();
   const getList = vi.fn();
   const normalizePocketBaseError = vi.fn();
+
+  const filter = vi.fn((template: string, _params: unknown) => template);
 
   const pb = {
     collection: vi.fn((name: string) => {
@@ -33,6 +37,7 @@ const hoisted = vi.hoisted(() => {
         getList,
       };
     }),
+    filter,
   };
 
   return {
@@ -42,6 +47,7 @@ const hoisted = vi.hoisted(() => {
     update,
     del,
     getList,
+    filter,
     normalizePocketBaseError,
     pb,
   };
@@ -57,25 +63,23 @@ describe('grades pocketbase client', () => {
     vi.clearAllMocks();
   });
 
-  it('lists grades', async () => {
+  it('lists grades with employee expand', async () => {
     hoisted.getFullList.mockResolvedValue([
-      { id: 'g1', name: 'Primero A', capacity: 30 },
-      { id: 'g2', name: 'Segundo A', capacity: 35 },
+      { id: 'g1', name: 'Primero A', capacity: 30, employee_id: null },
+      { id: 'g2', name: 'Segundo A', capacity: 35, employee_id: 'e1', expand: { employee_id: { name: 'Ana' } } },
     ]);
 
     const result = await listGrades();
 
-    expect(hoisted.getFullList).toHaveBeenCalledWith({ sort: 'name' });
-    expect(result).toEqual([
-      { id: 'g1', name: 'Primero A', capacity: 30 },
-      { id: 'g2', name: 'Segundo A', capacity: 35 },
-    ]);
+    expect(hoisted.getFullList).toHaveBeenCalledWith({ sort: 'name', expand: 'employee_id' });
+    expect(result[0]).toMatchObject({ id: 'g1', name: 'Primero A', capacity: 30, employeeId: null, employeeName: '' });
+    expect(result[1]).toMatchObject({ id: 'g2', employeeId: 'e1', employeeName: 'Ana' });
   });
 
-  it('lists grades page', async () => {
+  it('lists grades page with employee expand', async () => {
     hoisted.getListRecords.mockResolvedValue({
       items: [
-        { id: 'g1', name: 'Primero A', capacity: 30 },
+        { id: 'g1', name: 'Primero A', capacity: 30, employee_id: null },
       ],
       page: 2,
       perPage: 10,
@@ -90,10 +94,50 @@ describe('grades pocketbase client', () => {
 
     expect(hoisted.getListRecords).toHaveBeenCalledWith(2, 10, {
       sort: '-capacity',
+      expand: 'employee_id',
     });
     expect(result.page).toBe(2);
     expect(result.totalPages).toBe(2);
-    expect(result.items[0]).toEqual({ id: 'g1', name: 'Primero A', capacity: 30 });
+    expect(result.items[0]).toMatchObject({ id: 'g1', name: 'Primero A', capacity: 30, employeeId: null, employeeName: '' });
+  });
+
+  it('lists grades by employee id', async () => {
+    hoisted.getFullList.mockResolvedValue([
+      { id: 'g1', name: 'Primero A', capacity: 30, employee_id: 'e1', expand: { employee_id: { name: 'Ana' } } },
+    ]);
+    hoisted.filter.mockReturnValue('employee_id = "e1"');
+
+    const result = await listGradesByEmployeeId('e1');
+
+    expect(hoisted.getFullList).toHaveBeenCalledWith({
+      filter: 'employee_id = "e1"',
+      expand: 'employee_id',
+      sort: 'name',
+    });
+    expect(result[0]).toMatchObject({ id: 'g1', employeeId: 'e1', employeeName: 'Ana' });
+  });
+
+  it('updates grade professor assignment', async () => {
+    hoisted.update.mockResolvedValue({
+      id: 'g1', name: 'Primero A', capacity: 30, employee_id: 'e1',
+      expand: { employee_id: { name: 'Ana' } },
+    });
+
+    const result = await updateGradeProfessor('g1', 'e1');
+
+    expect(hoisted.update).toHaveBeenCalledWith('g1', { employee_id: 'e1' }, { expand: 'employee_id' });
+    expect(result).toMatchObject({ id: 'g1', employeeId: 'e1', employeeName: 'Ana' });
+  });
+
+  it('clears grade professor assignment', async () => {
+    hoisted.update.mockResolvedValue({
+      id: 'g1', name: 'Primero A', capacity: 30, employee_id: null,
+    });
+
+    const result = await updateGradeProfessor('g1', null);
+
+    expect(hoisted.update).toHaveBeenCalledWith('g1', { employee_id: '' }, { expand: 'employee_id' });
+    expect(result.employeeId).toBeNull();
   });
 
   it('creates and updates grades', async () => {

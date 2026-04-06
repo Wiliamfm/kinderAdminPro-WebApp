@@ -24,6 +24,11 @@ import ReportsStudentsPage from './pages/reports-students';
 import ReportsEmployeesPage from './pages/reports-employees';
 import EventManagementCalendarPage from './pages/event-management-calendar';
 import EventManagementEmailPage from './pages/event-management-email';
+import ProfessorManagementPage from './pages/professor-management';
+import ProfessorLeavesPage from './pages/professor-leaves';
+import ProfessorInvoicesPage from './pages/professor-invoices';
+import ProfessorStudentsPage from './pages/professor-students';
+import ProfessorCalendarPage from './pages/professor-calendar';
 
 export const routes: RouteDefinition[] = [
   {
@@ -117,6 +122,26 @@ export const routes: RouteDefinition[] = [
   {
     path: '/event-management/email',
     component: EventManagementEmailPage,
+  },
+  {
+    path: '/professor/personal',
+    component: ProfessorManagementPage,
+  },
+  {
+    path: '/professor/personal/leaves',
+    component: ProfessorLeavesPage,
+  },
+  {
+    path: '/professor/personal/invoices',
+    component: ProfessorInvoicesPage,
+  },
+  {
+    path: '/professor/students',
+    component: ProfessorStudentsPage,
+  },
+  {
+    path: '/professor/events',
+    component: ProfessorCalendarPage,
   },
   {
     path: '**',

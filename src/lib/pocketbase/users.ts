@@ -107,7 +107,7 @@ export async function createEmployeeUser(payload: CreateEmployeeUserInput): Prom
       name,
       password: tempPassword,
       passwordConfirm: tempPassword,
-      roles: [],
+      roles: ['professor'],
       is_admin: false,
     });
 
@@ -127,6 +127,22 @@ export function getAuthUserId(): string | null {
   const authRecord = pb.authStore.record as { id?: unknown } | null;
   const recordId = toStringValue(authRecord?.id);
   return recordId.length > 0 ? recordId : null;
+}
+
+export async function listEmployeeUserIds(): Promise<Set<string>> {
+  try {
+    const records = await pb.collection('employees').getFullList({
+      fields: 'user_id',
+    });
+    const ids = new Set<string>();
+    for (const record of records) {
+      const userId = toStringValue(record.get?.('user_id') ?? record.user_id);
+      if (userId.length > 0) ids.add(userId);
+    }
+    return ids;
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
 }
 
 export async function listAppUsers(): Promise<AppUserRecord[]> {

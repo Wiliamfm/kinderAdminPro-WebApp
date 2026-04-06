@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   deleteAppUser: vi.fn(),
   getAuthUserId: vi.fn(),
   requestAuthenticatedUserEmailChange: vi.fn(),
+  listEmployeeUserIds: vi.fn(),
 }));
 
 vi.mock('@solidjs/router', () => ({
@@ -32,6 +33,7 @@ vi.mock('../lib/pocketbase/users', () => ({
   deleteAppUser: mocks.deleteAppUser,
   getAuthUserId: mocks.getAuthUserId,
   requestAuthenticatedUserEmailChange: mocks.requestAuthenticatedUserEmailChange,
+  listEmployeeUserIds: mocks.listEmployeeUserIds,
 }));
 
 const usersFixture = [
@@ -68,6 +70,7 @@ describe('AppUsersPage', () => {
     mocks.updateAppUser.mockResolvedValue(usersFixture[0]);
     mocks.deleteAppUser.mockResolvedValue(undefined);
     mocks.requestAuthenticatedUserEmailChange.mockResolvedValue(undefined);
+    mocks.listEmployeeUserIds.mockResolvedValue(new Set());
   });
 
   it('shows users table with expected columns and rows for authorized users', async () => {

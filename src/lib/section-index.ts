@@ -12,6 +12,36 @@ export type SectionIndexEntry = {
   links: SectionLink[];
 };
 
+export const professorSectionIndexByPage: Record<string, SectionIndexEntry> = {
+  'professor-personal': {
+    title: 'Gestión personal',
+    description: 'Accede a tus opciones personales: registra salidas y consulta tus pagos.',
+    links: [
+      {
+        label: 'Registrar salida',
+        href: '/professor/personal/leaves',
+        requiredModules: ['professor-personal'],
+      },
+      {
+        label: 'Consultar pagos',
+        href: '/professor/personal/invoices',
+        requiredModules: ['professor-personal'],
+      },
+      { label: 'Volver al inicio', href: '/' },
+    ],
+  },
+  'professor-students': {
+    title: 'Gestión de Estudiantes',
+    description: 'Consulta el listado de estudiantes asignados a tus grados.',
+    links: [{ label: 'Volver al inicio', href: '/' }],
+  },
+  'professor-events': {
+    title: 'Eventos',
+    description: 'Consulta el calendario de eventos de la institución.',
+    links: [{ label: 'Volver al inicio', href: '/' }],
+  },
+};
+
 export const sectionIndexByPage: Record<string, SectionIndexEntry> = {
   staff: {
     title: 'Gestión de personal',

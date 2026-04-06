@@ -4,6 +4,7 @@ import {
   deactivateStudent,
   getStudentById,
   listActiveStudents,
+  listActiveStudentsByGradeIds,
   listActiveStudentsPage,
   updateStudent,
 } from './students';
@@ -353,6 +354,45 @@ describe('students pocketbase client', () => {
 
     await deactivateStudent('s1');
     expect(hoisted.update).toHaveBeenLastCalledWith('s1', { active: false });
+  });
+
+  it('returns empty array for empty grade ids list', async () => {
+    const result = await listActiveStudentsByGradeIds([]);
+    expect(hoisted.getFullList).not.toHaveBeenCalled();
+    expect(result).toEqual([]);
+  });
+
+  it('lists active students filtered by grade ids', async () => {
+    hoisted.getFullList.mockResolvedValue([
+      {
+        id: 's1',
+        name: 'Ana',
+        grade_id: 'g1',
+        date_of_birth: '2015-06-15 13:30:00.000Z',
+        birth_place: 'Bogota',
+        department: 'Cundinamarca',
+        document_id: 'DOC-1',
+        weight: 20.5,
+        height: 115,
+        blood_type: 'O+',
+        social_security: 'SSN-1',
+        allergies: 'Ninguna',
+        active: true,
+        expand: {
+          grade_id: { id: 'g1', name: 'Primero A' },
+        },
+      },
+    ]);
+
+    const result = await listActiveStudentsByGradeIds(['g1', 'g2']);
+
+    expect(hoisted.getFullList).toHaveBeenCalledWith({
+      filter: 'active = true && (grade_id = "g1" || grade_id = "g2")',
+      expand: 'grade_id',
+      sort: 'name',
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ id: 's1', grade_id: 'g1', grade_name: 'Primero A' });
   });
 
   it('normalizes and rethrows errors', async () => {

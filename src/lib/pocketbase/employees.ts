@@ -246,6 +246,19 @@ export async function listActiveEmployeesPage(
   }
 }
 
+export async function getEmployeeByUserId(userId: string): Promise<EmployeeRecord | null> {
+  try {
+    const result = await pb.collection('employees').getList(1, 1, {
+      filter: pb.filter('user_id = {:userId}', { userId }),
+      expand: 'job_id',
+    });
+    if (result.items.length === 0) return null;
+    return mapEmployeeRecord(result.items[0]);
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
 export async function getEmployeeById(id: string): Promise<EmployeeRecord> {
   try {
     const record = await pb.collection('employees').getOne(id, {

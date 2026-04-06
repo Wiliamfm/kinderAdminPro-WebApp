@@ -75,12 +75,12 @@ describe('users pocketbase client', () => {
     hoisted.pb.authStore.record = null;
   });
 
-  it('creates employee user and defaults to non-admin', async () => {
+  it('creates employee user with professor role and non-admin', async () => {
     hoisted.create.mockResolvedValue({
       id: 'u1',
       email: 'ana@test.com',
       name: 'Ana',
-      roles: [],
+      roles: ['professor'],
       is_admin: false,
       verified: false,
     });
@@ -94,7 +94,7 @@ describe('users pocketbase client', () => {
     expect(payload).toMatchObject({
       email: 'ana@test.com',
       name: 'Ana',
-      roles: [],
+      roles: ['professor'],
       is_admin: false,
     });
     expect(typeof payload.password).toBe('string');
@@ -103,7 +103,7 @@ describe('users pocketbase client', () => {
       id: 'u1',
       email: 'ana@test.com',
       name: 'Ana',
-      roles: [],
+      roles: ['professor'],
       verified: false,
     });
   });

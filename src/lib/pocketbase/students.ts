@@ -190,6 +190,26 @@ function buildSortExpression(
   return sortDirection === 'desc' ? `-${mappedField}` : mappedField;
 }
 
+export async function listActiveStudentsByGradeIds(gradeIds: string[]): Promise<StudentRecord[]> {
+  if (gradeIds.length === 0) return [];
+
+  const escapedFilter = gradeIds
+    .map((id) => `grade_id = "${id.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`)
+    .join(' || ');
+  const filter = `active = true && (${escapedFilter})`;
+
+  try {
+    const records = await pb.collection('students').getFullList({
+      filter,
+      expand: 'grade_id',
+      sort: 'name',
+    });
+    return records.map((record) => mapStudentRecord(record));
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
 export async function listActiveStudents(options: ActiveStudentListOptions = {}): Promise<StudentRecord[]> {
   try {
     const includeFatherNames = options.includeFatherNames ?? true;
