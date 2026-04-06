@@ -46,4 +46,9 @@
   .event-management-calendar-shell .fc-event button {
     cursor: pointer;
   }
+
+  .event-management-calendar-shell full-calendar {
+    display: block;
+    min-height: 42rem;
+  }
 }

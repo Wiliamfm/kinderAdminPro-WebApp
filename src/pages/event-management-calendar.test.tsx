@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import EventManagementCalendarPage from './event-management-calendar';
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
@@ -12,13 +13,34 @@ const mocks = vi.hoisted(() => ({
   deleteCalendarEvent: vi.fn(),
   syncEventAssignments: vi.fn(),
   listActiveEmployees: vi.fn(),
+  calendarInstances: [] as any[],
 }));
 
 vi.mock('@solidjs/router', () => ({
   useNavigate: () => mocks.navigate,
 }));
 
-vi.mock('@fullcalendar/web-component/global', () => ({}));
+vi.mock('@fullcalendar/core', () => ({
+  Calendar: class MockCalendar {
+    constructor(el, options) {
+      this.el = el;
+      this.options = options;
+      this.render = vi.fn();
+      this.destroy = vi.fn();
+      this.setOption = vi.fn((name, value) => {
+        this.options = {
+          ...this.options,
+          [name]: value,
+        };
+      });
+      this.prev = vi.fn();
+      this.next = vi.fn();
+      this.today = vi.fn();
+      mocks.calendarInstances.push(this);
+    }
+  },
+}));
+
 vi.mock('@fullcalendar/daygrid', () => ({ default: {} }));
 vi.mock('@fullcalendar/timegrid', () => ({ default: {} }));
 vi.mock('@fullcalendar/list', () => ({ default: {} }));
@@ -111,23 +133,26 @@ const employeesFixture = [
   },
 ];
 
-function getCalendarElement(): HTMLElement & { options?: Record<string, unknown> } {
-  const element = document.querySelector('full-calendar') as HTMLElement & { options?: Record<string, unknown> };
+function getCalendarHost(): HTMLElement {
+  const element = document.querySelector('.event-management-calendar-host') as HTMLElement;
   if (!element) {
-    throw new Error('Calendar element not found');
+    throw new Error('Calendar host not found');
   }
   return element;
 }
 
-let EventManagementCalendarPage: (typeof import('./event-management-calendar'))['default'];
+function getCalendarInstance() {
+  const instance = mocks.calendarInstances[0];
+  if (!instance) {
+    throw new Error('Calendar instance not found');
+  }
+  return instance;
+}
 
 describe('EventManagementCalendarPage', () => {
-  beforeAll(async () => {
-    ({ default: EventManagementCalendarPage } = await import('./event-management-calendar'));
-  });
-
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.calendarInstances.length = 0;
     mocks.isAuthUserAdmin.mockReturnValue(true);
     mocks.listCalendarEventsInRange.mockResolvedValue(eventsFixture);
     mocks.listEventAssignmentsByEventIds.mockResolvedValue(assignmentsFixture);
@@ -152,18 +177,21 @@ describe('EventManagementCalendarPage', () => {
   it('loads the calendar options with rendered events and preview behavior', async () => {
     render(() => <EventManagementCalendarPage />);
 
-    const calendarEl = getCalendarElement();
-    expect(calendarEl.parentElement).toHaveClass('event-management-calendar-shell');
+    const calendarHost = getCalendarHost();
+    expect(calendarHost.parentElement).toHaveClass('event-management-calendar-shell');
 
     await waitFor(() => {
-      expect(Array.isArray(calendarEl.options?.events)).toBe(true);
-      expect((calendarEl.options?.events as unknown[]).length).toBe(1);
+      const instance = getCalendarInstance();
+      expect(Array.isArray(instance.options.events)).toBe(true);
+      expect((instance.options.events as unknown[]).length).toBe(1);
     });
 
     expect(mocks.listCalendarEventsInRange).toHaveBeenCalled();
     expect(mocks.listEventAssignmentsByEventIds).toHaveBeenCalledWith(['evt1']);
 
-    (calendarEl.options?.eventClick as ((arg: unknown) => void))?.({
+    const calendar = getCalendarInstance();
+
+    (calendar.options.eventClick as ((arg: unknown) => void))?.({
       event: { id: 'evt1' },
     });
 
@@ -209,14 +237,14 @@ describe('EventManagementCalendarPage', () => {
   it('opens edit from the pencil icon and persists assignment changes', async () => {
     render(() => <EventManagementCalendarPage />);
 
-    const calendarEl = getCalendarElement();
-
     await waitFor(() => {
-      expect(typeof calendarEl.options?.eventContent).toBe('function');
-      expect((calendarEl.options?.events as unknown[] | undefined)?.length).toBe(1);
+      const instance = getCalendarInstance();
+      expect(typeof instance.options.eventContent).toBe('function');
+      expect((instance.options.events as unknown[] | undefined)?.length).toBe(1);
     });
 
-    const rendered = (calendarEl.options?.eventContent as (arg: unknown) => { domNodes: Node[] })({
+    const calendar = getCalendarInstance();
+    const rendered = (calendar.options.eventContent as (arg: unknown) => { domNodes: Node[] })({
       event: {
         id: 'evt1',
         title: 'Reunión general',
@@ -249,21 +277,21 @@ describe('EventManagementCalendarPage', () => {
   it('hard deletes the previewed item from the detail modal', async () => {
     render(() => <EventManagementCalendarPage />);
 
-    const calendarEl = getCalendarElement();
-
     await waitFor(() => {
-      expect(typeof calendarEl.options?.eventContent).toBe('function');
-      expect((calendarEl.options?.events as unknown[] | undefined)?.length).toBe(1);
+      const instance = getCalendarInstance();
+      expect(typeof instance.options.eventContent).toBe('function');
+      expect((instance.options.events as unknown[] | undefined)?.length).toBe(1);
     });
 
-    const rendered = (calendarEl.options?.eventContent as (arg: unknown) => { domNodes: Node[] })({
+    const calendar = getCalendarInstance();
+    const rendered = (calendar.options.eventContent as (arg: unknown) => { domNodes: Node[] })({
       event: {
         id: 'evt1',
         title: 'Reunión general',
       },
     });
 
-    (calendarEl.options?.eventClick as ((arg: unknown) => void))?.({
+    (calendar.options.eventClick as ((arg: unknown) => void))?.({
       event: { id: 'evt1' },
     });
 

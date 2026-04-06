@@ -1,10 +1,9 @@
-import '@fullcalendar/web-component/global';
-
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin, { type DateClickArg } from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
 import {
-  type CalendarOptions,
+  Calendar,
+  type CalendarApi,
   type EventClickArg,
   type EventContentArg,
   type EventInput,
@@ -18,6 +17,8 @@ import {
   createResource,
   createSignal,
   For,
+  onCleanup,
+  onMount,
   Show,
 } from 'solid-js';
 import InlineFieldAlert from '../components/InlineFieldAlert';
@@ -49,10 +50,6 @@ import {
   type CalendarEventStatus,
 } from '../lib/pocketbase/events';
 import { listActiveEmployees, type EmployeeRecord } from '../lib/pocketbase/employees';
-
-type FullCalendarElementApi = HTMLElement & {
-  options: CalendarOptions | null;
-};
 
 type CalendarRange = {
   start: string;
@@ -324,7 +321,8 @@ async function loadCalendarItems(range: CalendarRange): Promise<CalendarItemReco
 
 export default function EventManagementCalendarPage() {
   const navigate = useNavigate();
-  let calendarRef: FullCalendarElementApi | undefined;
+  let calendarHostRef: HTMLDivElement | undefined;
+  let calendarApi: CalendarApi | null = null;
 
   const [visibleRange, setVisibleRange] = createSignal<CalendarRange>(getDefaultRange());
   const [actionError, setActionError] = createSignal<string | null>(null);
@@ -612,10 +610,10 @@ export default function EventManagementCalendarPage() {
     return { domNodes: [wrapper] };
   };
 
-  createEffect(() => {
-    if (!calendarRef) return;
+  onMount(() => {
+    if (!calendarHostRef) return;
 
-    calendarRef.options = {
+    calendarApi = new Calendar(calendarHostRef, {
       plugins: [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin],
       locale: esLocale,
       initialView: 'dayGridMonth',
@@ -639,7 +637,7 @@ export default function EventManagementCalendarPage() {
       dayMaxEvents: true,
       editable: false,
       selectable: false,
-      events: fullCalendarEvents(),
+      events: [],
       eventContent: renderEventContent,
       eventDidMount: (arg) => {
         const tooltip = typeof arg.event.extendedProps.tooltip === 'string'
@@ -672,7 +670,19 @@ export default function EventManagementCalendarPage() {
           setVisibleRange(nextRange);
         }
       },
-    };
+    });
+
+    calendarApi.render();
+  });
+
+  onCleanup(() => {
+    calendarApi?.destroy();
+    calendarApi = null;
+  });
+
+  createEffect(() => {
+    const events = fullCalendarEvents();
+    calendarApi?.setOption('events', events);
   });
 
   return (
@@ -752,7 +762,7 @@ export default function EventManagementCalendarPage() {
           </div>
 
           <div class="event-management-calendar-shell bg-white p-3 sm:p-4">
-            <full-calendar ref={calendarRef} />
+            <div ref={calendarHostRef} class="event-management-calendar-host" />
           </div>
         </div>
       </div>
@@ -846,13 +856,26 @@ export default function EventManagementCalendarPage() {
               <span class="text-sm font-medium text-gray-700">
                 {eventForm().isAllDay ? 'Fecha inicial' : 'Inicio'}
               </span>
-              <input
-                class="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2"
-                classList={{ 'field-input-invalid': Boolean(startValueError()) }}
-                type={eventForm().isAllDay ? 'date' : 'datetime-local'}
-                value={eventForm().startValue}
-                onInput={(event) => setEventField('startValue', event.currentTarget.value)}
-              />
+              <Show
+                when={eventForm().isAllDay}
+                fallback={(
+                  <input
+                    class="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2"
+                    classList={{ 'field-input-invalid': Boolean(startValueError()) }}
+                    type="datetime-local"
+                    value={eventForm().startValue}
+                    onInput={(event) => setEventField('startValue', event.currentTarget.value)}
+                  />
+                )}
+              >
+                <input
+                  class="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2"
+                  classList={{ 'field-input-invalid': Boolean(startValueError()) }}
+                  type="date"
+                  value={eventForm().startValue}
+                  onInput={(event) => setEventField('startValue', event.currentTarget.value)}
+                />
+              </Show>
               <InlineFieldAlert when={Boolean(startValueError())}>{startValueError()}</InlineFieldAlert>
             </label>
 
@@ -860,13 +883,26 @@ export default function EventManagementCalendarPage() {
               <span class="text-sm font-medium text-gray-700">
                 {eventForm().isAllDay ? 'Fecha final' : 'Fin'}
               </span>
-              <input
-                class="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2"
-                classList={{ 'field-input-invalid': Boolean(endValueError()) }}
-                type={eventForm().isAllDay ? 'date' : 'datetime-local'}
-                value={eventForm().endValue}
-                onInput={(event) => setEventField('endValue', event.currentTarget.value)}
-              />
+              <Show
+                when={eventForm().isAllDay}
+                fallback={(
+                  <input
+                    class="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2"
+                    classList={{ 'field-input-invalid': Boolean(endValueError()) }}
+                    type="datetime-local"
+                    value={eventForm().endValue}
+                    onInput={(event) => setEventField('endValue', event.currentTarget.value)}
+                  />
+                )}
+              >
+                <input
+                  class="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2"
+                  classList={{ 'field-input-invalid': Boolean(endValueError()) }}
+                  type="date"
+                  value={eventForm().endValue}
+                  onInput={(event) => setEventField('endValue', event.currentTarget.value)}
+                />
+              </Show>
               <InlineFieldAlert when={Boolean(endValueError())}>{endValueError()}</InlineFieldAlert>
             </label>
           </div>
