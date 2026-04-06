@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
@@ -43,6 +43,7 @@ vi.mock('../lib/pocketbase/event-email-messaging', () => ({
 }));
 
 let EventManagementEmailPage: (typeof import('./event-management-email'))['default'];
+let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
 describe('EventManagementEmailPage', () => {
   beforeAll(async () => {
@@ -51,6 +52,7 @@ describe('EventManagementEmailPage', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mocks.isAuthUserAdmin.mockReturnValue(true);
     mocks.listActiveEmployees.mockResolvedValue([
       {
@@ -140,6 +142,10 @@ describe('EventManagementEmailPage', () => {
       totalSkipped: 0,
       recipients: [],
     });
+  });
+
+  afterEach(() => {
+    consoleErrorSpy.mockRestore();
   });
 
   it('redirects non-admin users away from the workflow', async () => {
@@ -232,8 +238,56 @@ describe('EventManagementEmailPage', () => {
     render(() => <EventManagementEmailPage />);
 
     expect(await screen.findByText('Mensajería administrativa')).toBeInTheDocument();
-    expect(await screen.findByText(/todavía no está disponible en PocketBase/i)).toBeInTheDocument();
+    expect(await screen.findByText('La mensajería no está disponible en este momento.')).toBeInTheDocument();
     await screen.findByLabelText('Asunto');
     expect(screen.getByRole('button', { name: 'Enviar correo' })).toBeDisabled();
+    expect(consoleErrorSpy).toHaveBeenCalled();
+  });
+
+  it('shows a generic error when the send route fails and logs the details', async () => {
+    mocks.sendEventEmail.mockRejectedValue({
+      message: 'La integración de correo no está configurada.',
+      status: 500,
+      isAbort: false,
+    });
+
+    render(() => <EventManagementEmailPage />);
+
+    const employeesSelect = await screen.findByLabelText('Empleados');
+    (employeesSelect as HTMLSelectElement).options[0].selected = true;
+    fireEvent.change(employeesSelect);
+
+    await waitFor(() => {
+      expect(mocks.resolveEmployeeRecipients).toHaveBeenCalledWith(['emp1']);
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Seleccionar empleados (1)' }));
+    fireEvent.input(screen.getByLabelText('Asunto'), { target: { value: 'Recordatorio general' } });
+    fireEvent.input(screen.getByLabelText('Cuerpo'), { target: { value: 'Linea uno' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar correo' }));
+
+    expect(await screen.findByText('No se pudo enviar el correo en este momento. Intenta de nuevo.')).toBeInTheDocument();
+    expect(screen.queryByText('La integración de correo no está configurada.')).not.toBeInTheDocument();
+    expect(consoleErrorSpy).toHaveBeenCalled();
+  });
+
+  it('hides provider-specific history errors behind a generic message', async () => {
+    mocks.listEmailMessageRecipients.mockResolvedValue([
+      {
+        id: 'history-1',
+        recipientName: 'Ana Gomez',
+        recipientEmail: 'ana@example.com',
+        sources: [{ kind: 'employee', id: 'emp1', label: 'Ana Gomez' }],
+        sourceKind: 'employee',
+        status: 'failed',
+        errorMessage: 'You can only send testing emails to your own email address.',
+      },
+    ]);
+
+    render(() => <EventManagementEmailPage />);
+
+    expect(await screen.findByText('Correo previo')).toBeInTheDocument();
+    expect(await screen.findByText('No se pudo entregar el correo.')).toBeInTheDocument();
+    expect(screen.queryByText(/You can only send testing emails/i)).not.toBeInTheDocument();
   });
 });

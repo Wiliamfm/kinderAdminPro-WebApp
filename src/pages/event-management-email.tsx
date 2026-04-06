@@ -29,6 +29,7 @@ import {
   resolveFatherRecipients,
   sendEventEmail,
   type EmailMessageRecord,
+  type EmailMessageRecipientRecord,
 } from '../lib/pocketbase/event-email-messaging';
 import { listActiveEmployees, type EmployeeRecord } from '../lib/pocketbase/employees';
 import { listGrades, type GradeRecord } from '../lib/pocketbase/grades';
@@ -59,41 +60,16 @@ const emptyFilterOptions: FilterOptions = {
   grades: [],
 };
 
-const EVENT_EMAIL_SCHEMA_COMMAND = 'bun run sync:event-email-messaging-schema';
-const EVENT_EMAIL_HOOK_FILE = 'pb_hooks/main.pb.js';
-
-function getErrorMessage(error: unknown): string {
-  const normalized = error as PocketBaseRequestError | undefined;
-  if (normalized && typeof normalized.message === 'string') {
-    return normalized.message;
-  }
-
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return 'No se pudo completar la operación.';
-}
+const GENERIC_EMAIL_MESSAGING_LOAD_MESSAGE = 'La mensajería no está disponible en este momento.';
+const GENERIC_EMAIL_MESSAGING_SEND_MESSAGE = 'No se pudo enviar el correo en este momento. Intenta de nuevo.';
 
 function isNotFoundError(error: unknown): boolean {
   const normalized = error as PocketBaseRequestError | undefined;
   return normalized?.status === 404;
 }
 
-function getEmailMessagingSetupMessage(context: 'history' | 'send'): string {
-  const prefix = context === 'history'
-    ? 'El historial de mensajería todavía no está disponible en PocketBase.'
-    : 'La ruta de envío de mensajería todavía no está disponible en PocketBase.';
-
-  return `${prefix} Ejecuta ${EVENT_EMAIL_SCHEMA_COMMAND} y reinicia PocketBase con ${EVENT_EMAIL_HOOK_FILE}.`;
-}
-
-function isAbortLikeError(error: unknown): boolean {
-  const normalized = error as PocketBaseRequestError | undefined;
-  if (normalized?.isAbort) return true;
-
-  const message = getErrorMessage(error).toLowerCase();
-  return message.includes('aborted') || message.includes('autocancel');
+function logEmailMessagingError(context: string, error: unknown): void {
+  console.error(`[event-email-messaging] ${context}`, error);
 }
 
 function formatText(value: string): string {
@@ -156,6 +132,26 @@ function includesSourceKind(
   return recipient.sources.some((source) => source.kind === sourceKind);
 }
 
+function getHistoryRecipientMessage(recipient: EmailMessageRecipientRecord): string | null {
+  if (recipient.status === 'missing_email') {
+    return 'El destinatario no tiene correo registrado.';
+  }
+
+  if (recipient.status === 'failed') {
+    return 'No se pudo entregar el correo.';
+  }
+
+  if (recipient.status === 'skipped') {
+    return 'El destinatario no estuvo disponible al momento del envío.';
+  }
+
+  if (recipient.errorMessage.trim().length > 0) {
+    return 'No se pudo completar la operación para este destinatario.';
+  }
+
+  return null;
+}
+
 export default function EventManagementEmailPage() {
   const navigate = useNavigate();
   const [employeeIds, setEmployeeIds] = createSignal<string[]>([]);
@@ -192,12 +188,15 @@ export default function EventManagementEmailPage() {
       setBackendSetupNotice(null);
       return history;
     } catch (error) {
+      logEmailMessagingError('load history failed', error);
+
       if (isNotFoundError(error)) {
-        setBackendSetupNotice(getEmailMessagingSetupMessage('history'));
+        setBackendSetupNotice(GENERIC_EMAIL_MESSAGING_LOAD_MESSAGE);
         return [];
       }
 
-      throw error;
+      setBackendSetupNotice(GENERIC_EMAIL_MESSAGING_LOAD_MESSAGE);
+      return [];
     }
   });
 
@@ -207,12 +206,15 @@ export default function EventManagementEmailPage() {
     try {
       return await listEmailMessageRecipients(messageId);
     } catch (error) {
+      logEmailMessagingError('load history recipients failed', error);
+
       if (isNotFoundError(error)) {
-        setBackendSetupNotice(getEmailMessagingSetupMessage('history'));
+        setBackendSetupNotice(GENERIC_EMAIL_MESSAGING_LOAD_MESSAGE);
         return [];
       }
 
-      throw error;
+      setBackendSetupNotice(GENERIC_EMAIL_MESSAGING_LOAD_MESSAGE);
+      return [];
     }
   });
 
@@ -328,7 +330,7 @@ export default function EventManagementEmailPage() {
     setSubmitNotice(null);
 
     if (backendSetupNotice()) {
-      setSubmitError(getEmailMessagingSetupMessage('send'));
+      setSubmitError(GENERIC_EMAIL_MESSAGING_SEND_MESSAGE);
       return;
     }
 
@@ -363,12 +365,13 @@ export default function EventManagementEmailPage() {
         setHistorySelectionId(summary.messageId);
       }
     } catch (error) {
+      logEmailMessagingError('send failed', error);
+
       if (isNotFoundError(error)) {
-        const message = getEmailMessagingSetupMessage('send');
-        setBackendSetupNotice(message);
-        setSubmitError(message);
+        setBackendSetupNotice(GENERIC_EMAIL_MESSAGING_LOAD_MESSAGE);
+        setSubmitError(GENERIC_EMAIL_MESSAGING_SEND_MESSAGE);
       } else {
-        setSubmitError(getErrorMessage(error));
+        setSubmitError(GENERIC_EMAIL_MESSAGING_SEND_MESSAGE);
       }
     } finally {
       setSendBusy(false);
@@ -640,25 +643,29 @@ export default function EventManagementEmailPage() {
                       >
                         <div class="space-y-3">
                           <For each={historyRecipients() ?? []}>
-                            {(recipient) => (
-                              <div class="rounded-xl border border-gray-200 bg-white p-3">
-                                <div class="flex flex-wrap items-center gap-2">
-                                  <p class="font-medium text-gray-900">{recipient.recipientName}</p>
-                                  <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                                    {recipient.status}
-                                  </span>
+                            {(recipient) => {
+                              const historyRecipientMessage = getHistoryRecipientMessage(recipient);
+
+                              return (
+                                <div class="rounded-xl border border-gray-200 bg-white p-3">
+                                  <div class="flex flex-wrap items-center gap-2">
+                                    <p class="font-medium text-gray-900">{recipient.recipientName}</p>
+                                    <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                                      {recipient.status}
+                                    </span>
+                                  </div>
+                                  <p class="mt-1 text-sm text-gray-600">{formatText(recipient.recipientEmail)}</p>
+                                  <p class="mt-1 text-xs text-gray-500">
+                                    {recipient.sources.length > 0
+                                      ? recipient.sources.map((source) => source.label).join(' · ')
+                                      : recipient.sourceKind}
+                                  </p>
+                                  <Show when={historyRecipientMessage}>
+                                    <p class="mt-2 text-xs text-red-700">{historyRecipientMessage}</p>
+                                  </Show>
                                 </div>
-                                <p class="mt-1 text-sm text-gray-600">{formatText(recipient.recipientEmail)}</p>
-                                <p class="mt-1 text-xs text-gray-500">
-                                  {recipient.sources.length > 0
-                                    ? recipient.sources.map((source) => source.label).join(' · ')
-                                    : recipient.sourceKind}
-                                </p>
-                                <Show when={recipient.errorMessage.length > 0}>
-                                  <p class="mt-2 text-xs text-red-700">{recipient.errorMessage}</p>
-                                </Show>
-                              </div>
-                            )}
+                              );
+                            }}
                           </For>
                         </div>
                       </Show>

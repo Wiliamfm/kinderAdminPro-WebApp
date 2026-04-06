@@ -126,24 +126,37 @@ routerAdd("POST", "/api/tesis/event-email-messaging/send", (e) => {
   }
 
   function createRecord(collectionName, data) {
-    const collection = $app.findCollectionByNameOrId(collectionName);
-    const record = new Record(collection);
+    try {
+      const collection = $app.findCollectionByNameOrId(collectionName);
+      const record = new Record(collection);
 
-    Object.keys(data).forEach((key) => {
-      record.set(key, data[key]);
-    });
+      Object.keys(data).forEach((key) => {
+        record.set(key, data[key]);
+      });
 
-    $app.save(record);
-    return record;
+      $app.save(record);
+      return record;
+    } catch (err) {
+      const errorMessage = err && err.message ? String(err.message) : `No se pudo crear ${collectionName}.`;
+      $app.logger().error("Event email create record failed", "collection", collectionName, "error", errorMessage);
+      throw new InternalServerError(errorMessage);
+    }
   }
 
   function updateRecord(record, data) {
-    Object.keys(data).forEach((key) => {
-      record.set(key, data[key]);
-    });
+    try {
+      Object.keys(data).forEach((key) => {
+        record.set(key, data[key]);
+      });
 
-    $app.save(record);
-    return record;
+      $app.save(record);
+      return record;
+    } catch (err) {
+      const collectionName = "unknown";
+      const errorMessage = err && err.message ? String(err.message) : `No se pudo actualizar ${collectionName}.`;
+      $app.logger().error("Event email update record failed", "collection", collectionName, "recordId", record && record.id ? String(record.id) : "", "error", errorMessage);
+      throw new InternalServerError(errorMessage);
+    }
   }
 
   function findRecordById(collectionName, recordId) {
