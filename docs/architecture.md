@@ -59,18 +59,16 @@ Provide a stable technical reference for module responsibilities, data flow, and
 ## Employee Onboarding Design
 - Employee creation is handled in `src/pages/staff-employees.tsx` for users with staff-module access.
 - Data flow for create:
-  - `users.create` via `src/lib/pocketbase/users.ts` with `roles: []` and legacy `is_admin = false`,
+  - `users.create` via `src/lib/pocketbase/users.ts` with `roles: ['professor']` and legacy `is_admin = false`,
   - `employees.create` via `src/lib/pocketbase/employees.ts` with relations `user_id` and `job_id`,
   - required `employees.document_id` (numeric string, length `4-20`, unique),
   - optional `employees.cv` upload (PDF only, max 10 MB),
-  - onboarding trigger via `users.requestPasswordReset`.
+  - required admin-provided password validated client-side before submit.
 - Recovery behavior:
-  - if invite email fails, created records are kept,
-  - authorized staff users can resend onboarding from the employee row action.
+  - no onboarding email is sent during employee creation,
+  - there is no resend invitation action in the employee list.
 - Employee list table includes a `CV` column that renders `Ver CV` when a file exists.
 - Employee edit route (`src/pages/staff-employee-edit.tsx`) allows optional CV replacement.
-- Onboarding routes:
-  - `/auth/set-password` confirms password-reset token and sets initial password.
 
 ## App Users Management Design
 - UI location: `src/pages/app-users.tsx`.

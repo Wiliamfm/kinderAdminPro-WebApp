@@ -11,6 +11,7 @@ import {
   touchField,
   type FieldErrorMap,
 } from '../lib/forms/realtime-validation';
+import { isStrongPassword } from '../lib/forms/password-validation';
 import { toggleSort, type SortState } from '../lib/table/sorting';
 import { clampPage, DEFAULT_TABLE_PAGE_SIZE } from '../lib/table/pagination';
 import { canAccessModule } from '../lib/pocketbase/auth';
@@ -41,11 +42,7 @@ import {
 } from '../lib/pocketbase/invoices';
 import { createInvoiceFile } from '../lib/pocketbase/invoice-files';
 import { getCurrentSemester, listSemesterOptions } from '../lib/pocketbase/semesters';
-import {
-  createEmployeeUser,
-  resendUserOnboarding,
-  sendUserOnboardingEmails,
-} from '../lib/pocketbase/users';
+import { createEmployeeUser } from '../lib/pocketbase/users';
 
 type EmployeeCreateForm = {
   name: string;
@@ -55,6 +52,8 @@ type EmployeeCreateForm = {
   phone: string;
   address: string;
   emergency_contact: string;
+  password: string;
+  passwordConfirm: string;
 };
 
 const CREATE_EMPLOYEE_FIELDS = [
@@ -65,6 +64,8 @@ const CREATE_EMPLOYEE_FIELDS = [
   'phone',
   'address',
   'emergency_contact',
+  'password',
+  'passwordConfirm',
 ] as const;
 type CreateEmployeeField = (typeof CREATE_EMPLOYEE_FIELDS)[number];
 
@@ -143,6 +144,8 @@ const emptyCreateEmployeeForm: EmployeeCreateForm = {
   phone: '',
   address: '',
   emergency_contact: '',
+  password: '',
+  passwordConfirm: '',
 };
 const DEFAULT_LEAVE_SORT: SortState<LeaveSortField> = {
   key: 'start_datetime',
@@ -167,6 +170,10 @@ function validateCreateEmployeeForm(current: EmployeeCreateForm): FieldErrorMap<
   if (current.emergency_contact.trim().length === 0) {
     errors.emergency_contact = 'Contacto de emergencia es obligatorio.';
   }
+  if (current.password.length === 0) errors.password = 'Contraseña es obligatoria.';
+  if (current.passwordConfirm.length === 0) {
+    errors.passwordConfirm = 'Confirmación de contraseña es obligatoria.';
+  }
 
   if (!errors.documentId && !DOCUMENT_ID_REGEX.test(current.documentId.trim())) {
     errors.documentId = 'Documento debe contener entre 4 y 20 dígitos numéricos.';
@@ -188,6 +195,15 @@ function validateCreateEmployeeForm(current: EmployeeCreateForm): FieldErrorMap<
     errors.emergency_contact = 'El contacto de emergencia debe tener al menos 3 caracteres.';
   }
 
+  if (!errors.password && !isStrongPassword(current.password)) {
+    errors.password =
+      'La contraseña debe tener mínimo 8 caracteres, una mayúscula, una minúscula, un número y un símbolo.';
+  }
+
+  if (!errors.passwordConfirm && current.password !== current.passwordConfirm) {
+    errors.passwordConfirm = 'La confirmación de contraseña no coincide.';
+  }
+
   return errors;
 }
 
@@ -200,6 +216,8 @@ function toCreateEmployeeInput(current: EmployeeCreateForm): EmployeeCreateForm 
     phone: current.phone.trim(),
     address: current.address.trim(),
     emergency_contact: current.emergency_contact.trim(),
+    password: current.password,
+    passwordConfirm: current.passwordConfirm,
   };
 }
 
@@ -282,7 +300,6 @@ export default function StaffEmployeesPage() {
   const [createModalOpen, setCreateModalOpen] = createSignal(false);
   const [createBusy, setCreateBusy] = createSignal(false);
   const [createError, setCreateError] = createSignal<string | null>(null);
-  const [createInviteWarning, setCreateInviteWarning] = createSignal<string | null>(null);
   const [createForm, setCreateForm] = createSignal<EmployeeCreateForm>(emptyCreateEmployeeForm);
   const [createTouched, setCreateTouched] = createSignal(
     createInitialTouchedMap(CREATE_EMPLOYEE_FIELDS),
@@ -291,8 +308,6 @@ export default function StaffEmployeesPage() {
   const [createCvTouched, setCreateCvTouched] = createSignal(
     createInitialTouchedMap(CREATE_CV_FIELDS),
   );
-  const [resendBusyEmployeeId, setResendBusyEmployeeId] = createSignal<string | null>(null);
-  const [inviteNotice, setInviteNotice] = createSignal<string | null>(null);
   const [leaveTarget, setLeaveTarget] = createSignal<EmployeeRecord | null>(null);
   const [leaveForm, setLeaveForm] = createSignal<LeaveCreateInput>(emptyLeaveForm);
   const [leaveTouched, setLeaveTouched] = createSignal(createInitialTouchedMap(LEAVE_FIELDS));
@@ -386,7 +401,6 @@ export default function StaffEmployeesPage() {
   const openCreateEmployeeModal = () => {
     setCreateModalOpen(true);
     setCreateError(null);
-    setCreateInviteWarning(null);
     setCreateForm(emptyCreateEmployeeForm);
     setCreateTouched(createInitialTouchedMap(CREATE_EMPLOYEE_FIELDS));
     setCreateCvFile(null);
@@ -398,7 +412,6 @@ export default function StaffEmployeesPage() {
     if (createBusy()) return;
     setCreateModalOpen(false);
     setCreateError(null);
-    setCreateInviteWarning(null);
     setCreateForm(emptyCreateEmployeeForm);
     setCreateTouched(createInitialTouchedMap(CREATE_EMPLOYEE_FIELDS));
     setCreateCvFile(null);
@@ -452,33 +465,24 @@ export default function StaffEmployeesPage() {
     if (hasAnyError(createFieldErrors())) return;
     if (hasAnyError(createCvFieldErrors())) return;
     const validated = toCreateEmployeeInput(createForm());
+    const { password, passwordConfirm: _passwordConfirm, ...employeeForm } = validated;
     const cv = createCvFile();
 
     setCreateBusy(true);
     setCreateError(null);
-    setCreateInviteWarning(null);
-    setInviteNotice(null);
 
     try {
       const createdUser = await createEmployeeUser({
         email: validated.email,
         name: validated.name,
+        password,
       });
 
       await createEmployee({
-        ...validated,
+        ...employeeForm,
         userId: createdUser.id,
         cv: cv ?? undefined,
       });
-
-      try {
-        await sendUserOnboardingEmails(createdUser.email);
-        setInviteNotice(`Invitación enviada a ${createdUser.email}.`);
-      } catch (inviteError) {
-        setCreateInviteWarning(
-          `Empleado creado, pero no se pudo enviar la invitación inicial: ${getErrorMessage(inviteError)}`,
-        );
-      }
 
       await refetch();
       const totalPages = employees()?.totalPages ?? 1;
@@ -495,27 +499,6 @@ export default function StaffEmployeesPage() {
       setCreateError(getErrorMessage(error));
     } finally {
       setCreateBusy(false);
-    }
-  };
-
-  const resendInvite = async (employee: EmployeeRecord) => {
-    const employeeEmail = employee.email.trim();
-    if (!employeeEmail) {
-      setActionError('El empleado no tiene correo para reenviar invitación.');
-      return;
-    }
-
-    setActionError(null);
-    setInviteNotice(null);
-    setResendBusyEmployeeId(employee.id);
-
-    try {
-      await resendUserOnboarding(employeeEmail);
-      setInviteNotice(`Invitación reenviada a ${employeeEmail}.`);
-    } catch (error) {
-      setActionError(getErrorMessage(error));
-    } finally {
-      setResendBusyEmployeeId(null);
     }
   };
 
@@ -908,18 +891,6 @@ export default function StaffEmployeesPage() {
           </div>
         </Show>
 
-        <Show when={inviteNotice()}>
-          <div class="mt-4 rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-700">
-            {inviteNotice()}
-          </div>
-        </Show>
-
-        <Show when={createInviteWarning()}>
-          <div class="mt-4 rounded-lg border border-yellow-300 bg-yellow-100 px-4 py-3 text-sm text-yellow-800">
-            {createInviteWarning()}
-          </div>
-        </Show>
-
         <div class="mt-6 overflow-x-auto rounded-lg border border-yellow-200">
           <table class="min-w-[1080px] w-full text-left text-sm">
             <thead class="bg-yellow-100 text-gray-700">
@@ -1069,15 +1040,6 @@ export default function StaffEmployeesPage() {
                                 <i class="bi bi-file-earmark-arrow-up" aria-hidden="true"></i>
                               </button>
 
-                              <button
-                                type="button"
-                                class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-indigo-300 bg-indigo-50 text-indigo-700 transition-colors hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                aria-label={`Reenviar invitación a ${employee.name || 'empleado'}`}
-                                disabled={resendBusyEmployeeId() === employee.id}
-                                onClick={() => resendInvite(employee)}
-                              >
-                                <i class="bi bi-envelope" aria-hidden="true"></i>
-                              </button>
                             </Show>
 
                             <button
@@ -1110,7 +1072,7 @@ export default function StaffEmployeesPage() {
       <Modal
         open={createModalOpen()}
         title="Crear empleado"
-        description="Este registro crea también un usuario de acceso con permisos no administrativos y envía enlace para definir contraseña."
+        description="Este registro crea también un usuario de acceso con permisos no administrativos y una contraseña inicial definida por el administrador."
         confirmLabel="Crear empleado"
         cancelLabel="Cancelar"
         busy={createBusy()}
@@ -1243,6 +1205,42 @@ export default function StaffEmployeesPage() {
                   message={createFieldError('emergency_contact')}
                 />
               </label>
+              <label class="block">
+                <span class="text-sm text-gray-700">Contraseña</span>
+                <input
+                  class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  classList={{ 'field-input-invalid': !!createFieldError('password') }}
+                  type="password"
+                  value={createForm().password}
+                  onInput={(event) => setCreateField('password', event.currentTarget.value)}
+                  disabled={createBusy()}
+                  autoComplete="new-password"
+                  aria-invalid={!!createFieldError('password')}
+                  aria-describedby={createFieldError('password') ? 'create-employee-password-error' : undefined}
+                />
+                <InlineFieldAlert
+                  id="create-employee-password-error"
+                  message={createFieldError('password')}
+                />
+              </label>
+              <label class="block">
+                <span class="text-sm text-gray-700">Confirmar contraseña</span>
+                <input
+                  class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  classList={{ 'field-input-invalid': !!createFieldError('passwordConfirm') }}
+                  type="password"
+                  value={createForm().passwordConfirm}
+                  onInput={(event) => setCreateField('passwordConfirm', event.currentTarget.value)}
+                  disabled={createBusy()}
+                  autoComplete="new-password"
+                  aria-invalid={!!createFieldError('passwordConfirm')}
+                  aria-describedby={createFieldError('passwordConfirm') ? 'create-employee-password-confirm-error' : undefined}
+                />
+                <InlineFieldAlert
+                  id="create-employee-password-confirm-error"
+                  message={createFieldError('passwordConfirm')}
+                />
+              </label>
               <label class="block md:col-span-2">
                 <span class="text-sm text-gray-700">Hoja de vida (PDF, opcional)</span>
                 <input
@@ -1269,12 +1267,6 @@ export default function StaffEmployeesPage() {
             <Show when={createError()}>
               <div class="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {createError()}
-              </div>
-            </Show>
-
-            <Show when={createInviteWarning()}>
-              <div class="rounded-lg border border-yellow-300 bg-yellow-100 px-4 py-3 text-sm text-yellow-800">
-                {createInviteWarning()}
               </div>
             </Show>
           </div>

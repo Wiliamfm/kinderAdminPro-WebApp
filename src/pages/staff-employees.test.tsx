@@ -12,7 +12,6 @@ const mocks = vi.hoisted(() => {
     deactivateEmployee: vi.fn(),
     createEmployeeUser: vi.fn(),
     sendUserOnboardingEmails: vi.fn(),
-    resendUserOnboarding: vi.fn(),
     listEmployeeLeaves: vi.fn(),
     createEmployeeLeave: vi.fn(),
     updateEmployeeLeave: vi.fn(),
@@ -47,7 +46,6 @@ vi.mock('../lib/pocketbase/employee-jobs', () => ({
 vi.mock('../lib/pocketbase/users', () => ({
   createEmployeeUser: mocks.createEmployeeUser,
   sendUserOnboardingEmails: mocks.sendUserOnboardingEmails,
-  resendUserOnboarding: mocks.resendUserOnboarding,
 }));
 
 vi.mock('../lib/pocketbase/leaves', () => ({
@@ -187,8 +185,6 @@ describe('StaffEmployeesPage features', () => {
       cvFileName: '',
       cvUrl: null,
     });
-    mocks.sendUserOnboardingEmails.mockResolvedValue(undefined);
-    mocks.resendUserOnboarding.mockResolvedValue(undefined);
     mocks.hasLeaveOverlap.mockResolvedValue(false);
     mocks.createEmployeeLeave.mockResolvedValue({
       id: 'leave-1',
@@ -244,6 +240,47 @@ describe('StaffEmployeesPage features', () => {
     await screen.findByText('Facturas de Ana');
   };
 
+  const fillCreateEmployeeModal = (
+    overrides: Partial<{
+      name: string;
+      documentId: string;
+      jobId: string;
+      email: string;
+      phone: string;
+      address: string;
+      emergencyContact: string;
+      password: string;
+      passwordConfirm: string;
+    }> = {},
+  ) => {
+    const values = {
+      name: 'New Employee',
+      documentId: '9001',
+      jobId: 'j1',
+      email: 'new@test.com',
+      phone: '3001234',
+      address: 'Calle 9',
+      emergencyContact: 'Maria',
+      password: 'Password123!',
+      passwordConfirm: 'Password123!',
+      ...overrides,
+    };
+
+    fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: values.name } });
+    fireEvent.input(screen.getByLabelText('Documento'), { target: { value: values.documentId } });
+    fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: values.jobId } });
+    fireEvent.input(screen.getByLabelText('Correo'), { target: { value: values.email } });
+    fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: values.phone } });
+    fireEvent.input(screen.getByLabelText('Dirección'), { target: { value: values.address } });
+    fireEvent.input(screen.getByLabelText('Contacto de emergencia'), {
+      target: { value: values.emergencyContact },
+    });
+    fireEvent.input(screen.getByLabelText('Contraseña'), { target: { value: values.password } });
+    fireEvent.input(screen.getByLabelText('Confirmar contraseña'), {
+      target: { value: values.passwordConfirm },
+    });
+  };
+
   it('shows leaves action for admins', async () => {
     render(() => <StaffEmployeesPage />);
     await screen.findByText('Ana');
@@ -295,20 +332,13 @@ describe('StaffEmployeesPage features', () => {
     expect(screen.queryByText('Nuevo empleado')).not.toBeInTheDocument();
   });
 
-  it('creates employee, linked user, and sends onboarding invite', async () => {
+  it('creates employee and linked user with provided password', async () => {
     render(() => <StaffEmployeesPage />);
     await screen.findByText('Ana');
 
     fireEvent.click(screen.getByText('Nuevo empleado'));
     await screen.findByRole('heading', { name: 'Crear empleado' });
-
-    fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'New Employee' } });
-    fireEvent.input(screen.getByLabelText('Documento'), { target: { value: '9001' } });
-    fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'j1' } });
-    fireEvent.input(screen.getByLabelText('Correo'), { target: { value: 'new@test.com' } });
-    fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: '3001234' } });
-    fireEvent.input(screen.getByLabelText('Dirección'), { target: { value: 'Calle 9' } });
-    fireEvent.input(screen.getByLabelText('Contacto de emergencia'), { target: { value: 'Maria' } });
+    fillCreateEmployeeModal();
 
     fireEvent.click(screen.getAllByText('Crear empleado')[1]);
 
@@ -318,6 +348,7 @@ describe('StaffEmployeesPage features', () => {
     expect(mocks.createEmployeeUser).toHaveBeenCalledWith({
       email: 'new@test.com',
       name: 'New Employee',
+      password: 'Password123!',
     });
     expect(mocks.createEmployee).toHaveBeenCalledWith({
       name: 'New Employee',
@@ -329,9 +360,7 @@ describe('StaffEmployeesPage features', () => {
       emergency_contact: 'Maria',
       userId: 'u2',
     });
-    await waitFor(() => {
-      expect(mocks.sendUserOnboardingEmails).toHaveBeenCalledWith('new@test.com');
-    });
+    expect(mocks.sendUserOnboardingEmails).not.toHaveBeenCalled();
   });
 
   it('creates employee with optional cv pdf file', async () => {
@@ -341,13 +370,7 @@ describe('StaffEmployeesPage features', () => {
     fireEvent.click(screen.getByText('Nuevo empleado'));
     await screen.findByRole('heading', { name: 'Crear empleado' });
 
-    fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'New Employee' } });
-    fireEvent.input(screen.getByLabelText('Documento'), { target: { value: '9002' } });
-    fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'j1' } });
-    fireEvent.input(screen.getByLabelText('Correo'), { target: { value: 'new@test.com' } });
-    fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: '3001234' } });
-    fireEvent.input(screen.getByLabelText('Dirección'), { target: { value: 'Calle 9' } });
-    fireEvent.input(screen.getByLabelText('Contacto de emergencia'), { target: { value: 'Maria' } });
+    fillCreateEmployeeModal({ documentId: '9002' });
 
     const cvInput = screen.getByLabelText('Hoja de vida (PDF, opcional)') as HTMLInputElement;
     const cvFile = new File(['pdf-content'], 'cv.pdf', { type: 'application/pdf' });
@@ -370,28 +393,11 @@ describe('StaffEmployeesPage features', () => {
     });
   });
 
-  it('keeps employee creation when invite fails and allows resend', async () => {
-    mocks.sendUserOnboardingEmails.mockRejectedValue(new Error('smtp down'));
+  it('does not render resend invitation action', async () => {
     render(() => <StaffEmployeesPage />);
     await screen.findByText('Ana');
 
-    fireEvent.click(screen.getByText('Nuevo empleado'));
-    fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'New Employee' } });
-    fireEvent.input(screen.getByLabelText('Documento'), { target: { value: '9003' } });
-    fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'j1' } });
-    fireEvent.input(screen.getByLabelText('Correo'), { target: { value: 'new@test.com' } });
-    fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: '3001234' } });
-    fireEvent.input(screen.getByLabelText('Dirección'), { target: { value: 'Calle 9' } });
-    fireEvent.input(screen.getByLabelText('Contacto de emergencia'), { target: { value: 'Maria' } });
-    fireEvent.click(screen.getAllByText('Crear empleado')[1]);
-
-    expect(await screen.findByText(/Empleado creado, pero no se pudo enviar la invitación inicial/)).toBeInTheDocument();
-    expect(mocks.createEmployee).toHaveBeenCalledTimes(1);
-
-    fireEvent.click(screen.getByLabelText('Reenviar invitación a Ana'));
-    await waitFor(() => {
-      expect(mocks.resendUserOnboarding).toHaveBeenCalledWith('ana@test.com');
-    });
+    expect(screen.queryByLabelText('Reenviar invitación a Ana')).not.toBeInTheDocument();
   });
 
   it('blocks create employee submit when phone format is invalid', async () => {
@@ -425,6 +431,34 @@ describe('StaffEmployeesPage features', () => {
     expect(
       await screen.findByText('El teléfono debe tener entre 7 y 20 caracteres válidos.'),
     ).toBeInTheDocument();
+    expect(mocks.createEmployeeUser).not.toHaveBeenCalled();
+  });
+
+  it('blocks create employee submit when password is weak', async () => {
+    render(() => <StaffEmployeesPage />);
+    await screen.findByText('Ana');
+
+    fireEvent.click(screen.getByText('Nuevo empleado'));
+    fillCreateEmployeeModal({ password: 'weakpass', passwordConfirm: 'weakpass' });
+    fireEvent.click(screen.getAllByText('Crear empleado')[1]);
+
+    expect(
+      await screen.findByText(
+        'La contraseña debe tener mínimo 8 caracteres, una mayúscula, una minúscula, un número y un símbolo.',
+      ),
+    ).toBeInTheDocument();
+    expect(mocks.createEmployeeUser).not.toHaveBeenCalled();
+  });
+
+  it('blocks create employee submit when password confirmation does not match', async () => {
+    render(() => <StaffEmployeesPage />);
+    await screen.findByText('Ana');
+
+    fireEvent.click(screen.getByText('Nuevo empleado'));
+    fillCreateEmployeeModal({ passwordConfirm: 'Password123' });
+    fireEvent.click(screen.getAllByText('Crear empleado')[1]);
+
+    expect(await screen.findByText('La confirmación de contraseña no coincide.')).toBeInTheDocument();
     expect(mocks.createEmployeeUser).not.toHaveBeenCalled();
   });
 

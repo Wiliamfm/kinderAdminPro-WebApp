@@ -8,9 +8,6 @@ import {
   listAppUsers,
   listAppUsersPage,
   requestAuthenticatedUserEmailChange,
-  resendUserOnboarding,
-  sendPasswordSetupEmail,
-  sendUserOnboardingEmails,
   sendVerificationEmail,
   updateAppUser,
 } from './users';
@@ -88,17 +85,18 @@ describe('users pocketbase client', () => {
     const result = await createEmployeeUser({
       email: 'ana@test.com',
       name: 'Ana',
+      password: 'Password123!',
     });
 
     const payload = hoisted.create.mock.calls[0][0];
     expect(payload).toMatchObject({
       email: 'ana@test.com',
       name: 'Ana',
+      password: 'Password123!',
+      passwordConfirm: 'Password123!',
       roles: ['professor'],
       is_admin: false,
     });
-    expect(typeof payload.password).toBe('string');
-    expect(payload.password).toBe(payload.passwordConfirm);
     expect(result).toMatchObject({
       id: 'u1',
       email: 'ana@test.com',
@@ -113,25 +111,9 @@ describe('users pocketbase client', () => {
     expect(hoisted.requestVerification).toHaveBeenCalledWith('ana@test.com');
   });
 
-  it('sends password setup email', async () => {
-    await sendPasswordSetupEmail('ana@test.com');
-    expect(hoisted.requestPasswordReset).toHaveBeenCalledWith('ana@test.com');
-  });
-
   it('requests authenticated user email change', async () => {
     await requestAuthenticatedUserEmailChange('ana+new@test.com');
     expect(hoisted.requestEmailChange).toHaveBeenCalledWith('ana+new@test.com');
-  });
-
-  it('sends onboarding emails in order and supports resend', async () => {
-    await sendUserOnboardingEmails('ana@test.com');
-    expect(hoisted.requestVerification).not.toHaveBeenCalled();
-    expect(hoisted.requestPasswordReset).toHaveBeenCalledTimes(1);
-
-    vi.clearAllMocks();
-    await resendUserOnboarding('ana@test.com');
-    expect(hoisted.requestVerification).not.toHaveBeenCalled();
-    expect(hoisted.requestPasswordReset).toHaveBeenCalledTimes(1);
   });
 
   it('confirms verification token', async () => {
