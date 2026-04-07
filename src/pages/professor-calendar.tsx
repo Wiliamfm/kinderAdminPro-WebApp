@@ -16,6 +16,7 @@ import {
   createSignal,
   onCleanup,
   onMount,
+  Show,
 } from 'solid-js';
 import { canAccessModule } from '../lib/pocketbase/auth';
 import {
@@ -90,8 +91,15 @@ export default function ProfessorCalendarPage() {
   let calendarApi: CalendarApi | null = null;
 
   const [visibleRange, setVisibleRange] = createSignal<CalendarRange>(getDefaultRange());
+  const [calendarLoadError, setCalendarLoadError] = createSignal<string | null>(null);
 
-  const [calendarItems] = createResource(visibleRange, loadCalendarItems);
+  const [calendarItems] = createResource(visibleRange, (range) =>
+    loadCalendarItems(range).catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'No se pudieron cargar los eventos.';
+      setCalendarLoadError(msg);
+      return [] as CalendarItemRecord[];
+    }),
+  );
 
   createEffect(() => {
     if (!canAccessModule('professor-events')) {
@@ -217,6 +225,12 @@ export default function ProfessorCalendarPage() {
             Volver
           </button>
         </div>
+
+        <Show when={calendarLoadError()}>
+          <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            No se pudieron cargar los eventos: {calendarLoadError()}
+          </div>
+        </Show>
 
         <div ref={calendarHostRef} />
       </div>
