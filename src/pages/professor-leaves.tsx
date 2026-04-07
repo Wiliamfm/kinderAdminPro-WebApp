@@ -50,6 +50,15 @@ function parseLocalDateTime(value: string): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function toDateTimeLocalValue(isoValue: string): string {
+  if (!isoValue) return '';
+  const parsed = new Date(isoValue);
+  if (Number.isNaN(parsed.getTime())) return '';
+
+  const tzOffsetMs = parsed.getTimezoneOffset() * 60_000;
+  return new Date(parsed.getTime() - tzOffsetMs).toISOString().slice(0, 16);
+}
+
 function validateLeaveForm(current: LeaveCreateInput): FieldErrorMap<LeaveField> {
   const errors: FieldErrorMap<LeaveField> = {};
   if (current.semesterId.trim().length === 0) {
@@ -122,6 +131,7 @@ export default function ProfessorLeavesPage() {
   const [leaveBusy, setLeaveBusy] = createSignal(false);
   const [leaveError, setLeaveError] = createSignal<string | null>(null);
   const [leaveAsyncError, setLeaveAsyncError] = createSignal<string | null>(null);
+  const [leaveSemesterLoadError, setLeaveSemesterLoadError] = createSignal<string | null>(null);
   const [editingLeaveId, setEditingLeaveId] = createSignal<string | null>(null);
   const [createModalOpen, setCreateModalOpen] = createSignal(false);
 
@@ -137,10 +147,48 @@ export default function ProfessorLeavesPage() {
       listEmployeeLeaves(eid, page, DEFAULT_TABLE_PAGE_SIZE, { sortField, sortDirection }),
   );
 
-  const [leaveSemesters] = createResource(listSemesterOptions);
-  const [currentSemesterData] = createResource(getCurrentSemester);
+  const [leaveSemesters] = createResource(
+    () => {
+      const eid = employeeId();
+      if (!createModalOpen() || !eid) return undefined;
+      return eid;
+    },
+    async () => {
+      setLeaveSemesterLoadError(null);
+
+      try {
+        return await listSemesterOptions();
+      } catch (error) {
+        setLeaveSemesterLoadError(getErrorMessage(error));
+        return [];
+      }
+    },
+  );
+  const [currentSemesterData] = createResource(
+    () => {
+      const eid = employeeId();
+      if (!createModalOpen() || editingLeaveId() || !eid) return undefined;
+      return eid;
+    },
+    async () => {
+      try {
+        return await getCurrentSemester();
+      } catch {
+        return null;
+      }
+    },
+  );
 
   const leaveSemesterOptions = () => leaveSemesters() ?? [];
+  const leaveSemesterAvailabilityError = createMemo(() => {
+    if (!createModalOpen()) return undefined;
+    if (leaveSemesterLoadError()) return leaveSemesterLoadError() ?? undefined;
+    if (!leaveSemesters.loading && leaveSemesterOptions().length === 0) {
+      return 'No hay semestres registrados. Debes crear uno antes de guardar una salida.';
+    }
+
+    return undefined;
+  });
 
   const currentLeaveSemester = createMemo(() => {
     const current = currentSemesterData();
@@ -154,10 +202,36 @@ export default function ProfessorLeavesPage() {
 
   const leaveFieldError = (field: LeaveField): string | undefined => {
     if (field === 'semesterId') {
-      return leaveAsyncError() ?? (leaveTouched().semesterId ? leaveFieldErrors().semesterId : undefined);
+      return leaveSemesterAvailabilityError()
+        ?? (leaveTouched().semesterId ? leaveFieldErrors().semesterId : undefined);
     }
-    return leaveTouched()[field] ? leaveFieldErrors()[field] : undefined;
+
+    const clientError = leaveTouched()[field] ? leaveFieldErrors()[field] : undefined;
+    if (field === 'end_datetime' && !clientError && leaveTouched().end_datetime) {
+      return leaveAsyncError() ?? undefined;
+    }
+
+    return clientError;
   };
+
+  createEffect(() => {
+    if (!createModalOpen() || editingLeaveId()) return;
+
+    const eid = employeeId();
+    const currentSemester = currentLeaveSemester();
+    if (!eid || !currentSemester) return;
+
+    setLeaveForm((current) => {
+      if (current.employeeId !== eid || current.semesterId.trim().length > 0) {
+        return current;
+      }
+
+      return {
+        ...current,
+        semesterId: currentSemester.id,
+      };
+    });
+  });
 
   const openCreate = () => {
     const currentSemester = currentLeaveSemester();
@@ -178,8 +252,8 @@ export default function ProfessorLeavesPage() {
     setLeaveForm({
       employeeId: employeeId(),
       semesterId: leave.semesterId,
-      start_datetime: leave.start_datetime,
-      end_datetime: leave.end_datetime,
+      start_datetime: toDateTimeLocalValue(leave.start_datetime),
+      end_datetime: toDateTimeLocalValue(leave.end_datetime),
     });
     setLeaveTouched(createInitialTouchedMap(LEAVE_FIELDS));
     setLeaveError(null);
@@ -200,12 +274,21 @@ export default function ProfessorLeavesPage() {
       setLeaveTouched((current) => touchField(current, field as LeaveField));
     }
     setLeaveError(null);
-    if (field === 'semesterId') setLeaveAsyncError(null);
+    setLeaveAsyncError(null);
   };
 
   const submitLeave = async () => {
     const touched = touchAllFields(leaveTouched());
     setLeaveTouched(touched);
+    if (leaveSemesters.loading) {
+      setLeaveError('Cargando semestres. Intenta nuevamente.');
+      return;
+    }
+    const semesterAvailabilityError = leaveSemesterAvailabilityError();
+    if (semesterAvailabilityError) {
+      setLeaveError(semesterAvailabilityError);
+      return;
+    }
     if (hasAnyError(leaveFieldErrors())) return;
 
     const start = parseLocalDateTime(leaveForm().start_datetime.trim());
@@ -415,7 +498,7 @@ export default function ProfessorLeavesPage() {
               classList={{ 'field-input-invalid': !!leaveFieldError('semesterId') }}
               value={leaveForm().semesterId}
               onChange={(event) => updateLeaveField('semesterId', event.currentTarget.value)}
-              disabled={leaveBusy() || leaveSemesters.loading || leaveSemesterOptions().length === 0}
+              disabled={leaveBusy() || leaveSemesters.loading || !!leaveSemesterAvailabilityError()}
               aria-invalid={!!leaveFieldError('semesterId')}
               aria-describedby={leaveFieldError('semesterId') ? 'leave-semester-error' : undefined}
             >

@@ -126,6 +126,7 @@ describe('semesters pocketbase client', () => {
     expect(hoisted.getList).toHaveBeenCalledWith(1, 1, {
       filter: 'is_current = true',
       sort: '-updated_at',
+      requestKey: null,
     });
     expect(result).toEqual({
       id: 's1',
@@ -170,6 +171,7 @@ describe('semesters pocketbase client', () => {
     expect(hoisted.getFullList).toHaveBeenCalledWith({
       sort: '-start_date',
       fields: 'id,name,start_date,end_date,is_current,created_at,updated_at',
+      requestKey: null,
     });
     expect(result).toEqual([
       {

@@ -122,6 +122,7 @@ export async function listSemesterOptions(): Promise<SemesterRecord[]> {
     const records = await pb.collection('semesters').getFullList({
       sort: '-start_date',
       fields: 'id,name,start_date,end_date,is_current,created_at,updated_at',
+      requestKey: null,
     });
 
     return records.map((record) => mapSemesterRecord(record));
@@ -144,6 +145,7 @@ export async function getCurrentSemester(): Promise<SemesterRecord | null> {
     const result = await pb.collection('semesters').getList(1, 1, {
       filter: 'is_current = true',
       sort: '-updated_at',
+      requestKey: null,
     });
 
     const current = result.items[0];

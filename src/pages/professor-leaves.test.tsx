@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@solidjs/testing-library';
+import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ProfessorLeavesPage from './professor-leaves';
 
@@ -115,5 +115,35 @@ describe('ProfessorLeavesPage', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /editar salida/i })).toBeInTheDocument();
     });
+  });
+
+  it('shows an inline error when semester options cannot be loaded', async () => {
+    mocks.getEmployeeByUserId.mockResolvedValue({
+      id: 'e1',
+      name: 'Ana',
+      documentId: '123',
+      email: 'ana@test.com',
+      phone: '300',
+      address: 'Calle 1',
+      emergency_contact: 'Luis',
+      active: true,
+      userId: 'u1',
+      jobId: 'j1',
+      jobName: 'Docente',
+      jobSalary: 1000,
+      cvFileName: '',
+      cvUrl: null,
+    });
+    mocks.listSemesterOptions.mockRejectedValue({
+      message: 'No autorizado para consultar semestres.',
+      status: 403,
+      isAbort: false,
+    });
+
+    render(() => <ProfessorLeavesPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /nueva salida/i }));
+
+    expect(await screen.findByText('No autorizado para consultar semestres.')).toBeInTheDocument();
   });
 });
