@@ -362,6 +362,28 @@ export async function listBulletinsStudentsForExport(
   }
 }
 
+export async function listBulletinStudentsByStudentAndGrade(
+  studentId: string,
+  gradeId: string,
+): Promise<BulletinStudentRecord[]> {
+  try {
+    const records = await pb.collection('bulletins_students').getFullList({
+      filter: [
+        'is_deleted != true',
+        `student_id = "${escapeFilterValue(toStringValue(studentId))}"`,
+        `grade_id = "${escapeFilterValue(toStringValue(gradeId))}"`,
+      ].join(' && '),
+      sort: '-created_at',
+      expand: 'bulletin_id,bulletin_id.category_id,student_id,grade_id,semester_id,created_by,updated_by',
+      requestKey: 'professor-student-detail-bulletins-students',
+    });
+
+    return records.map((record) => mapBulletinStudentRecord(record));
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
 export async function createBulletinStudent(
   payload: BulletinStudentCreateInput,
 ): Promise<BulletinStudentRecord> {

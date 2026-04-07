@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createBulletin,
+  listBulletinsByGradeId,
   listBulletinsPage,
   softDeleteBulletin,
   updateBulletin,
@@ -8,6 +9,7 @@ import {
 
 const hoisted = vi.hoisted(() => {
   const getList = vi.fn();
+  const getFullList = vi.fn();
   const create = vi.fn();
   const update = vi.fn();
   const normalizePocketBaseError = vi.fn();
@@ -16,6 +18,7 @@ const hoisted = vi.hoisted(() => {
   const pb = {
     collection: vi.fn(() => ({
       getList,
+      getFullList,
       create,
       update,
     })),
@@ -23,6 +26,7 @@ const hoisted = vi.hoisted(() => {
 
   return {
     getList,
+    getFullList,
     create,
     update,
     normalizePocketBaseError,
@@ -44,6 +48,12 @@ describe('bulletins pocketbase client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     hoisted.getAuthUserId.mockReturnValue('u-admin');
+    hoisted.pb.collection.mockImplementation(() => ({
+      getList: hoisted.getList,
+      getFullList: hoisted.getFullList,
+      create: hoisted.create,
+      update: hoisted.update,
+    }));
   });
 
   it('lists bulletins page with relation expansion', async () => {
@@ -133,6 +143,43 @@ describe('bulletins pocketbase client', () => {
         expand: 'category_id,grade_id,created_by,updated_by',
       },
     );
+  });
+
+  it('lists bulletins by grade id ordered by description', async () => {
+    hoisted.getFullList.mockResolvedValue([
+      {
+        id: 'b1',
+        category_id: 'c1',
+        description: 'Excelente desempeño.',
+        grade_id: 'g1',
+        created_by: 'u1',
+        updated_by: 'u2',
+        created_at: '2026-03-01T00:00:00.000Z',
+        updated_at: '2026-03-02T00:00:00.000Z',
+        is_deleted: false,
+        expand: {
+          category_id: { name: 'Académico' },
+          grade_id: { name: 'Primero A' },
+          created_by: { name: 'Admin Uno' },
+          updated_by: { email: 'admin2@example.com' },
+        },
+      },
+    ]);
+
+    const result = await listBulletinsByGradeId('g1');
+
+    expect(hoisted.getFullList).toHaveBeenCalledWith({
+      filter: expect.any(String),
+      sort: 'description',
+      expand: 'category_id,grade_id,created_by,updated_by',
+    });
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: 'b1',
+        description: 'Excelente desempeño.',
+        grade_name: 'Primero A',
+      }),
+    ]);
   });
 
   it('updates bulletin and only refreshes updated_by audit field', async () => {

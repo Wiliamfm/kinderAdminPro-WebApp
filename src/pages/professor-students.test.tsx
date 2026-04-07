@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@solidjs/testing-library';
+import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ProfessorStudentsPage from './professor-students';
 
@@ -125,19 +125,71 @@ describe('ProfessorStudentsPage', () => {
     });
   });
 
-  it('shows grade filter when employee has multiple grades', async () => {
+  it('shows grouped grade sections when the professor has multiple grades', async () => {
     mocks.getEmployeeByUserId.mockResolvedValue(employee);
     mocks.listGradesByEmployeeId.mockResolvedValue([
       { id: 'g1', name: 'Primero A', capacity: 30, employeeId: 'e1', employeeName: 'Ana' },
       { id: 'g2', name: 'Segundo A', capacity: 32, employeeId: 'e1', employeeName: 'Ana' },
     ]);
-    mocks.listActiveStudentsByGradeIds.mockResolvedValue([]);
+    mocks.listActiveStudentsByGradeIds.mockResolvedValue([
+      {
+        id: 's1',
+        name: 'Carlos',
+        grade_id: 'g1',
+        grade_name: 'Primero A',
+        date_of_birth: '2015-06-15 13:30:00.000Z',
+        birth_place: 'Bogota',
+        department: 'Cundinamarca',
+        document_id: 'DOC-1',
+        weight: null,
+        height: null,
+        blood_type: 'O+',
+        social_security: '',
+        allergies: '',
+        active: true,
+        father_names: [],
+      },
+    ]);
 
     render(() => <ProfessorStudentsPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('Primero A')).toBeInTheDocument();
-      expect(screen.getByText('Segundo A')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Primero A' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Segundo A' })).toBeInTheDocument();
     });
+    expect(screen.queryByText(/filtrar por grado/i)).not.toBeInTheDocument();
+  });
+
+  it('navigates to the student detail page when a row is clicked', async () => {
+    mocks.getEmployeeByUserId.mockResolvedValue(employee);
+    mocks.listGradesByEmployeeId.mockResolvedValue([
+      { id: 'g1', name: 'Primero A', capacity: 30, employeeId: 'e1', employeeName: 'Ana' },
+    ]);
+    mocks.listActiveStudentsByGradeIds.mockResolvedValue([
+      {
+        id: 's1',
+        name: 'Carlos',
+        grade_id: 'g1',
+        grade_name: 'Primero A',
+        date_of_birth: '2015-06-15 13:30:00.000Z',
+        birth_place: 'Bogota',
+        department: 'Cundinamarca',
+        document_id: 'DOC-1',
+        weight: null,
+        height: null,
+        blood_type: 'O+',
+        social_security: '',
+        allergies: '',
+        active: true,
+        father_names: [],
+      },
+    ]);
+
+    render(() => <ProfessorStudentsPage />);
+
+    const rowLink = await screen.findByRole('link', { name: 'Ver detalle de Carlos' });
+    fireEvent.click(rowLink);
+
+    expect(mocks.navigate).toHaveBeenCalledWith('/professor/students/s1');
   });
 });

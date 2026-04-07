@@ -13,23 +13,23 @@ The Gestión de Estudiantes page MUST show only active students whose `grade_id`
 - **THEN** the page renders an empty state message
 - **THEN** no student rows are displayed
 
-### Requirement: Professor student view SHALL be read-only
-The Gestión de Estudiantes page for professors MUST NOT render any create, edit, or delete actions. All columns are display-only.
-
-#### Scenario: No action buttons in professor student view
-- **WHEN** a professor views the student list
-- **THEN** no add, edit, or deactivate buttons are present
-
 ### Requirement: Professor student view SHALL display grade grouping or filtering
-The student list MUST indicate which grade each student belongs to. When the professor is assigned to multiple grades, a grade filter MUST allow narrowing the list to a single grade.
+The student list MUST display students grouped under flat grade-section headers (one header per assigned grade, sorted by grade name). The grade filter dropdown MUST be removed. Each student row MUST be a clickable link that navigates to `/professor/students/:id`.
 
-#### Scenario: Grade column is visible
-- **WHEN** a professor views the student list with students from multiple grades
-- **THEN** each student row displays the grade name
+#### Scenario: Students displayed under grade headers
+- **WHEN** a professor with grades A and B opens Gestión de Estudiantes
+- **THEN** a section header for grade A appears above grade A students
+- **THEN** a section header for grade B appears above grade B students
+- **THEN** no filter dropdown is rendered
 
-#### Scenario: Grade filter narrows the list
-- **WHEN** a professor selects a specific grade in the filter
-- **THEN** only students belonging to that grade are shown
+#### Scenario: Clicking a student row navigates to detail page
+- **WHEN** the professor clicks any student row
+- **THEN** the browser navigates to `/professor/students/{student_id}`
+
+#### Scenario: Single grade — header still shown
+- **WHEN** a professor is assigned to exactly one grade
+- **THEN** that grade's header is rendered above its students
+- **THEN** no filter dropdown is rendered
 
 ### Requirement: Professor student view SHALL resolve grades via employee record
 The page MUST first fetch the employee record for the logged-in user, then fetch grades assigned to that employee, then fetch students. If the employee lookup yields no record, the page MUST show an error state.

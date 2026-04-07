@@ -52,6 +52,10 @@ function toBooleanValue(value: unknown): boolean {
   return value === true;
 }
 
+function escapeFilterValue(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
 function getExpandedRecord(
   record: Record<string, unknown> & { get?: (key: string) => unknown },
   key: string,
@@ -160,6 +164,20 @@ export async function listBulletinsPage(
       totalItems: result.totalItems,
       totalPages: result.totalPages,
     };
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
+export async function listBulletinsByGradeId(gradeId: string): Promise<BulletinRecord[]> {
+  try {
+    const records = await pb.collection('bulletins').getFullList({
+      filter: `grade_id = "${escapeFilterValue(toStringValue(gradeId))}" && is_deleted != true`,
+      sort: 'description',
+      expand: 'category_id,grade_id,created_by,updated_by',
+    });
+
+    return records.map((record) => mapBulletinRecord(record));
   } catch (error) {
     throw normalizePocketBaseError(error);
   }

@@ -26,6 +26,7 @@ import EventManagementEmailPage from './pages/event-management-email';
 import ProfessorManagementPage from './pages/professor-management';
 import ProfessorLeavesPage from './pages/professor-leaves';
 import ProfessorInvoicesPage from './pages/professor-invoices';
+import ProfessorStudentDetailPage from './pages/professor-student-detail';
 import ProfessorStudentsPage from './pages/professor-students';
 import ProfessorCalendarPage from './pages/professor-calendar';
 
@@ -133,6 +134,10 @@ export const routes: RouteDefinition[] = [
   {
     path: '/professor/students',
     component: ProfessorStudentsPage,
+  },
+  {
+    path: '/professor/students/:id',
+    component: ProfessorStudentDetailPage,
   },
   {
     path: '/professor/events',

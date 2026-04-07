@@ -3,6 +3,7 @@ import {
   createBulletinStudent,
   listBulletinStudentFormOptions,
   listBulletinStudentsAnalyticsRecords,
+  listBulletinStudentsByStudentAndGrade,
   listBulletinsStudentsForExport,
   listBulletinsStudentsPage,
   softDeleteBulletinStudent,
@@ -236,6 +237,55 @@ describe('bulletins-students pocketbase client', () => {
       expand: 'bulletin_id,bulletin_id.category_id,student_id,grade_id,semester_id,created_by,updated_by',
       requestKey: 'reports-students-table-list',
     });
+  });
+
+  it('lists bulletin students by student and grade for professor detail view', async () => {
+    hoisted.getFullList.mockResolvedValue([
+      {
+        id: 'bs1',
+        bulletin_id: 'b1',
+        student_id: 's1',
+        grade_id: 'g1',
+        semester_id: 'sem1',
+        note: 8.5,
+        comments: ' Buen trabajo ',
+        created_by: 'u1',
+        updated_by: 'u2',
+        created_at: '2026-03-01T00:00:00.000Z',
+        updated_at: '2026-03-02T00:00:00.000Z',
+        is_deleted: false,
+        expand: {
+          bulletin_id: {
+            description: 'Notas de periodo',
+            expand: {
+              category_id: { name: 'Académico' },
+            },
+          },
+          student_id: { name: 'Ana Pérez', document_id: '1001' },
+          grade_id: { name: 'Primero A' },
+          semester_id: { name: '2026-1' },
+          created_by: { name: 'Admin Uno' },
+          updated_by: { email: 'admin2@example.com' },
+        },
+      },
+    ]);
+
+    const result = await listBulletinStudentsByStudentAndGrade(' s1 ', ' g1 ');
+
+    expect(hoisted.getFullList).toHaveBeenCalledWith({
+      filter: 'is_deleted != true && student_id = "s1" && grade_id = "g1"',
+      sort: '-created_at',
+      expand: 'bulletin_id,bulletin_id.category_id,student_id,grade_id,semester_id,created_by,updated_by',
+      requestKey: 'professor-student-detail-bulletins-students',
+    });
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: 'bs1',
+        note: 8.5,
+        comments: 'Buen trabajo',
+        semester_name: '2026-1',
+      }),
+    ]);
   });
 
   it('creates bulletin student with audit defaults', async () => {

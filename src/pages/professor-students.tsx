@@ -1,5 +1,5 @@
 import { useNavigate } from '@solidjs/router';
-import { createEffect, createMemo, createResource, createSignal, For, Show } from 'solid-js';
+import { createEffect, createMemo, createResource, For, Show } from 'solid-js';
 import { canAccessModule } from '../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../lib/pocketbase/client';
 import { getEmployeeByUserId } from '../lib/pocketbase/employees';
@@ -35,8 +35,6 @@ export default function ProfessorStudentsPage() {
     (uid) => getEmployeeByUserId(uid),
   );
 
-  const [selectedGradeId, setSelectedGradeId] = createSignal<string>('');
-
   const [grades] = createResource(
     () => {
       const emp = employee();
@@ -55,14 +53,25 @@ export default function ProfessorStudentsPage() {
     (gradeIds) => listActiveStudentsByGradeIds(gradeIds),
   );
 
-  const filteredStudents = createMemo((): StudentRecord[] => {
-    const all = students() ?? [];
-    const filter = selectedGradeId();
-    if (!filter) return all;
-    return all.filter((s) => s.grade_id === filter);
+  const studentsByGradeId = createMemo(() => {
+    const grouped = new Map<string, StudentRecord[]>();
+
+    for (const grade of grades() ?? []) {
+      grouped.set(grade.id, []);
+    }
+
+    for (const student of students() ?? []) {
+      const bucket = grouped.get(student.grade_id) ?? [];
+      bucket.push(student);
+      grouped.set(student.grade_id, bucket);
+    }
+
+    return grouped;
   });
 
-  const gradeOptions = () => grades() ?? [];
+  const navigateToStudent = (studentId: string) => {
+    navigate(`/professor/students/${studentId}`);
+  };
 
   return (
     <section class="min-h-screen bg-yellow-50 p-4 sm:p-6 lg:p-8 text-gray-800">
@@ -91,96 +100,108 @@ export default function ProfessorStudentsPage() {
               </div>
             }
           >
-            <Show when={!grades.loading}>
-              <Show
-                when={(grades() ?? []).length > 1}
-              >
-                <div class="mt-4">
-                  <label class="block text-sm text-gray-700">
-                    Filtrar por grado
-                    <select
-                      class="mt-1 w-full max-w-xs rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                      value={selectedGradeId()}
-                      onInput={(event) => setSelectedGradeId(event.currentTarget.value)}
-                    >
-                      <option value="">Todos los grados</option>
-                      <For each={gradeOptions()}>
-                        {(grade) => (
-                          <option value={grade.id}>{grade.name}</option>
-                        )}
-                      </For>
-                    </select>
-                  </label>
+            <Show
+              when={!students.loading && !grades.loading}
+              fallback={
+                <div class="mt-6 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-gray-600">
+                  Cargando estudiantes...
                 </div>
-              </Show>
-            </Show>
-
-            <div class="mt-4 overflow-x-auto rounded-lg border border-yellow-200">
-              <table class="min-w-[640px] w-full text-left text-sm">
-                <thead class="bg-yellow-100 text-gray-700">
-                  <tr>
-                    <th class="px-4 py-3 font-semibold">Nombre</th>
-                    <th class="px-4 py-3 font-semibold">Grado</th>
-                    <th class="px-4 py-3 font-semibold">Documento</th>
-                    <th class="px-4 py-3 font-semibold">Fecha de nacimiento</th>
-                  </tr>
-                </thead>
-                <tbody>
+              }
+            >
+              <Show
+                when={!students.error && !grades.error}
+                fallback={
+                  <div class="mt-6 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {getErrorMessage(students.error ?? grades.error)}
+                  </div>
+                }
+              >
+                <Show
+                  when={(grades() ?? []).length > 0}
+                  fallback={
+                    <div class="mt-6 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-gray-600">
+                      No tienes grados asignados.
+                    </div>
+                  }
+                >
                   <Show
-                    when={!students.loading && !grades.loading}
+                    when={(students() ?? []).length > 0}
                     fallback={
-                      <tr>
-                        <td class="px-4 py-4 text-gray-600" colSpan={4}>
-                          Cargando estudiantes...
-                        </td>
-                      </tr>
+                      <div class="mt-6 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-gray-600">
+                        No hay estudiantes en los grados asignados.
+                      </div>
                     }
                   >
-                    <Show
-                      when={students.error || grades.error}
-                    >
-                      <tr>
-                        <td class="px-4 py-4 text-red-700" colSpan={4}>
-                          {getErrorMessage(students.error ?? grades.error)}
-                        </td>
-                      </tr>
-                    </Show>
-                    <Show
-                      when={!students.error && !grades.error}
-                    >
-                      <Show
-                        when={(grades() ?? []).length === 0}
-                      >
-                        <tr>
-                          <td class="px-4 py-4 text-gray-600" colSpan={4}>
-                            No tienes grados asignados.
-                          </td>
-                        </tr>
-                      </Show>
-                      <Show
-                        when={(grades() ?? []).length > 0 && filteredStudents().length === 0}
-                      >
-                        <tr>
-                          <td class="px-4 py-4 text-gray-600" colSpan={4}>
-                            No hay estudiantes en los grados asignados.
-                          </td>
-                        </tr>
-                      </Show>
-                      <For each={filteredStudents()}>
-                        {(student: StudentRecord) => (
-                          <tr class="border-t border-yellow-100 align-top">
-                            <td class="px-4 py-3">{formatText(student.name)}</td>
-                            <td class="px-4 py-3">{formatText(student.grade_name)}</td>
-                            <td class="px-4 py-3">{formatText(student.document_id)}</td>
-                            <td class="px-4 py-3">{formatText(student.date_of_birth)}</td>
-                          </tr>
-                        )}
+                    <div class="mt-6 space-y-6">
+                      <For each={grades() ?? []}>
+                        {(grade) => {
+                          const gradeStudents = () => studentsByGradeId().get(grade.id) ?? [];
+
+                          return (
+                            <section>
+                              <div class="mb-3 flex items-center justify-between gap-3">
+                                <h2 class="text-lg font-semibold text-gray-800">{formatText(grade.name)}</h2>
+                                <span class="text-sm text-gray-500">
+                                  {gradeStudents().length} estudiante{gradeStudents().length === 1 ? '' : 's'}
+                                </span>
+                              </div>
+
+                              <div class="overflow-x-auto rounded-lg border border-yellow-200">
+                                <table class="min-w-[640px] w-full text-left text-sm">
+                                  <thead class="bg-yellow-100 text-gray-700">
+                                    <tr>
+                                      <th class="px-4 py-3 font-semibold">Nombre</th>
+                                      <th class="px-4 py-3 font-semibold">Grado</th>
+                                      <th class="px-4 py-3 font-semibold">Documento</th>
+                                      <th class="px-4 py-3 font-semibold">Fecha de nacimiento</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    <Show
+                                      when={gradeStudents().length > 0}
+                                      fallback={
+                                        <tr class="border-t border-yellow-100">
+                                          <td class="px-4 py-4 text-gray-600" colSpan={4}>
+                                            No hay estudiantes en este grado.
+                                          </td>
+                                        </tr>
+                                      }
+                                    >
+                                      <For each={gradeStudents()}>
+                                        {(student: StudentRecord) => (
+                                          <tr
+                                            class="border-t border-yellow-100 align-top transition-colors hover:bg-yellow-50 focus-within:bg-yellow-50 cursor-pointer"
+                                            role="link"
+                                            tabIndex={0}
+                                            aria-label={`Ver detalle de ${student.name}`}
+                                            onClick={() => navigateToStudent(student.id)}
+                                            onKeyDown={(event) => {
+                                              if (event.key === 'Enter' || event.key === ' ') {
+                                                event.preventDefault();
+                                                navigateToStudent(student.id);
+                                              }
+                                            }}
+                                          >
+                                            <td class="px-4 py-3">{formatText(student.name)}</td>
+                                            <td class="px-4 py-3">{formatText(student.grade_name)}</td>
+                                            <td class="px-4 py-3">{formatText(student.document_id)}</td>
+                                            <td class="px-4 py-3">{formatText(student.date_of_birth)}</td>
+                                          </tr>
+                                        )}
+                                      </For>
+                                    </Show>
+                                  </tbody>
+                                </table>
+                              </div>
+                            </section>
+                          );
+                        }}
                       </For>
-                    </Show>
+                    </div>
                   </Show>
-                </tbody>
-              </table>
-            </div>
+                </Show>
+              </Show>
+            </Show>
           </Show>
         </Show>
       </div>
