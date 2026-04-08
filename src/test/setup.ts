@@ -1,6 +1,8 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@solidjs/testing-library';
-import { afterEach } from 'vitest';
+import { afterEach, vi } from 'vitest';
+
+vi.mock('solid-devtools', () => ({}));
 
 if (!window.matchMedia) {
   Object.defineProperty(window, 'matchMedia', {
@@ -15,6 +17,13 @@ if (!window.matchMedia) {
       removeEventListener: () => undefined,
       dispatchEvent: () => false,
     }),
+  });
+}
+
+if (!window.scrollTo) {
+  Object.defineProperty(window, 'scrollTo', {
+    writable: true,
+    value: () => undefined,
   });
 }
 

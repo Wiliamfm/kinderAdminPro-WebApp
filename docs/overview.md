@@ -163,9 +163,9 @@ Primary functional areas exposed through routes:
 - Bun (preferred package manager and script runner)
 
 ## Environment
-- `VITE_PB_URL` (optional; defaults to `http://127.0.0.1:8090`)
+- `PB_URL` (optional; defaults to `http://127.0.0.1:8090`)
 - PocketBase route runtime for event email messaging requires:
   - `RESEND_API_KEY`
   - `RESEND_FROM_EMAIL`
   - optional `RESEND_FROM_NAME`
-- Note: `VITE_*` variables are compile-time in Vite.
+- Note: PocketBase connectivity now uses a server-only environment variable and is not bundled into client JavaScript.

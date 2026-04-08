@@ -17,6 +17,7 @@ const hoisted = vi.hoisted(() => {
   const deleteRecord = vi.fn();
   const normalizePocketBaseError = vi.fn();
   const listStudentNamesByFatherIds = vi.fn();
+  const getAuthenticatedPb = vi.fn();
 
   const pb = {
     collection: vi.fn(() => ({
@@ -38,12 +39,16 @@ const hoisted = vi.hoisted(() => {
     deleteRecord,
     normalizePocketBaseError,
     listStudentNamesByFatherIds,
+    getAuthenticatedPb,
     pb,
   };
 });
 
-vi.mock('./client', () => ({
-  default: hoisted.pb,
+vi.mock('../server/get-authenticated-pb', () => ({
+  getAuthenticatedPb: hoisted.getAuthenticatedPb,
+}));
+
+vi.mock('./errors', () => ({
   normalizePocketBaseError: hoisted.normalizePocketBaseError,
 }));
 
@@ -54,6 +59,7 @@ vi.mock('./students-fathers', () => ({
 describe('fathers pocketbase client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    hoisted.getAuthenticatedPb.mockResolvedValue(hoisted.pb);
     hoisted.listStudentNamesByFatherIds.mockResolvedValue({});
   });
 

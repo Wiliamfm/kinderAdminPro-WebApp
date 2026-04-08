@@ -19,11 +19,12 @@ const hoisted = vi.hoisted(() => {
   const update = vi.fn();
   const del = vi.fn();
   const requestVerification = vi.fn();
-  const requestPasswordReset = vi.fn();
   const requestEmailChange = vi.fn();
   const confirmVerification = vi.fn();
   const confirmPasswordReset = vi.fn();
   const normalizePocketBaseError = vi.fn();
+  const getAuthenticatedPb = vi.fn();
+  const getRequestEvent = vi.fn();
 
   const pb = {
     collection: vi.fn(() => ({
@@ -33,15 +34,10 @@ const hoisted = vi.hoisted(() => {
       update,
       delete: del,
       requestVerification,
-      requestPasswordReset,
       requestEmailChange,
       confirmVerification,
       confirmPasswordReset,
     })),
-    authStore: {
-      model: null as { id?: string } | null,
-      record: null as { id?: string } | null,
-    },
   };
 
   return {
@@ -51,25 +47,33 @@ const hoisted = vi.hoisted(() => {
     update,
     del,
     requestVerification,
-    requestPasswordReset,
     requestEmailChange,
     confirmVerification,
     confirmPasswordReset,
     normalizePocketBaseError,
+    getAuthenticatedPb,
+    getRequestEvent,
     pb,
   };
 });
 
-vi.mock('./client', () => ({
-  default: hoisted.pb,
+vi.mock('../server/get-authenticated-pb', () => ({
+  getAuthenticatedPb: hoisted.getAuthenticatedPb,
+}));
+
+vi.mock('./errors', () => ({
   normalizePocketBaseError: hoisted.normalizePocketBaseError,
+}));
+
+vi.mock('solid-js/web', () => ({
+  getRequestEvent: hoisted.getRequestEvent,
 }));
 
 describe('users pocketbase client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    hoisted.pb.authStore.model = null;
-    hoisted.pb.authStore.record = null;
+    hoisted.getAuthenticatedPb.mockResolvedValue(hoisted.pb);
+    hoisted.getRequestEvent.mockReturnValue(undefined);
   });
 
   it('creates employee user with professor role and non-admin', async () => {
@@ -254,15 +258,17 @@ describe('users pocketbase client', () => {
     expect(hoisted.del).toHaveBeenCalledWith('u2');
   });
 
-  it('returns authenticated user id from model or record', () => {
-    hoisted.pb.authStore.model = { id: 'u-model' };
-    expect(getAuthUserId()).toBe('u-model');
+  it('returns authenticated user id from auth session state', () => {
+    hoisted.getRequestEvent.mockReturnValue({
+      locals: {
+        authUser: {
+          id: 'u-session',
+        },
+      },
+    });
+    expect(getAuthUserId()).toBe('u-session');
 
-    hoisted.pb.authStore.model = null;
-    hoisted.pb.authStore.record = { id: 'u-record' };
-    expect(getAuthUserId()).toBe('u-record');
-
-    hoisted.pb.authStore.record = null;
+    hoisted.getRequestEvent.mockReturnValue(undefined);
     expect(getAuthUserId()).toBeNull();
   });
 });

@@ -15,6 +15,7 @@ const hoisted = vi.hoisted(() => {
   const create = vi.fn();
   const update = vi.fn();
   const normalizePocketBaseError = vi.fn();
+  const getAuthenticatedPb = vi.fn();
 
   const pb = {
     collection: vi.fn(() => ({
@@ -33,18 +34,23 @@ const hoisted = vi.hoisted(() => {
     create,
     update,
     normalizePocketBaseError,
+    getAuthenticatedPb,
     pb,
   };
 });
 
-vi.mock('./client', () => ({
-  default: hoisted.pb,
+vi.mock('../server/get-authenticated-pb', () => ({
+  getAuthenticatedPb: hoisted.getAuthenticatedPb,
+}));
+
+vi.mock('./errors', () => ({
   normalizePocketBaseError: hoisted.normalizePocketBaseError,
 }));
 
 describe('semesters pocketbase client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    hoisted.getAuthenticatedPb.mockResolvedValue(hoisted.pb);
   });
 
   it('lists semesters page with sorting', async () => {

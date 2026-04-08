@@ -15,7 +15,8 @@ const hoisted = vi.hoisted(() => {
   const create = vi.fn();
   const update = vi.fn();
   const normalizePocketBaseError = vi.fn();
-  const getAuthUserId = vi.fn();
+  const getAuthenticatedPb = vi.fn();
+  const getAuthenticatedPbWithUserId = vi.fn();
 
   const pb = {
     collection: vi.fn(() => ({
@@ -32,24 +33,26 @@ const hoisted = vi.hoisted(() => {
     create,
     update,
     normalizePocketBaseError,
-    getAuthUserId,
+    getAuthenticatedPb,
+    getAuthenticatedPbWithUserId,
     pb,
   };
 });
 
-vi.mock('./client', () => ({
-  default: hoisted.pb,
-  normalizePocketBaseError: hoisted.normalizePocketBaseError,
+vi.mock('../server/get-authenticated-pb', () => ({
+  getAuthenticatedPb: hoisted.getAuthenticatedPb,
+  getAuthenticatedPbWithUserId: hoisted.getAuthenticatedPbWithUserId,
 }));
 
-vi.mock('./users', () => ({
-  getAuthUserId: hoisted.getAuthUserId,
+vi.mock('./errors', () => ({
+  normalizePocketBaseError: hoisted.normalizePocketBaseError,
 }));
 
 describe('employee-reports pocketbase client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    hoisted.getAuthUserId.mockReturnValue('u-admin');
+    hoisted.getAuthenticatedPb.mockResolvedValue(hoisted.pb);
+    hoisted.getAuthenticatedPbWithUserId.mockResolvedValue({ pb: hoisted.pb, userId: 'u-admin' });
     hoisted.pb.collection.mockImplementation(() => ({
       getList: hoisted.getList,
       getFullList: hoisted.getFullList,
@@ -426,14 +429,22 @@ describe('employee-reports pocketbase client', () => {
   });
 
   it('throws when there is no authenticated user', async () => {
-    hoisted.getAuthUserId.mockReturnValue(null);
+    hoisted.getAuthenticatedPbWithUserId.mockRejectedValue({
+      message: 'Debes iniciar sesión para continuar.',
+      status: 401,
+      isAbort: false,
+    });
 
     await expect(createEmployeeReport({
       employee_id: 'e1',
       job_id: 'j1',
       semester_id: 'sem1',
       comments: '',
-    })).rejects.toThrow('No hay usuario autenticado');
+    })).rejects.toMatchObject({
+      message: 'Debes iniciar sesión para continuar.',
+      status: 401,
+      isAbort: false,
+    });
   });
 
   it('normalizes and rethrows errors', async () => {

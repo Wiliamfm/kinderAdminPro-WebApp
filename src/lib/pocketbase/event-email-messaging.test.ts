@@ -16,6 +16,7 @@ const hoisted = vi.hoisted(() => {
   const listActiveEmployees = vi.fn();
   const listActiveStudents = vi.fn();
   const listGrades = vi.fn();
+  const getAuthenticatedPb = vi.fn();
 
   const pb = {
     send,
@@ -54,12 +55,16 @@ const hoisted = vi.hoisted(() => {
     listActiveEmployees,
     listActiveStudents,
     listGrades,
+    getAuthenticatedPb,
     pb,
   };
 });
 
-vi.mock('./client', () => ({
-  default: hoisted.pb,
+vi.mock('../server/get-authenticated-pb', () => ({
+  getAuthenticatedPb: hoisted.getAuthenticatedPb,
+}));
+
+vi.mock('./errors', () => ({
   normalizePocketBaseError: hoisted.normalizePocketBaseError,
 }));
 
@@ -78,6 +83,7 @@ vi.mock('./grades', () => ({
 describe('event-email-messaging pocketbase client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    hoisted.getAuthenticatedPb.mockResolvedValue(hoisted.pb);
   });
 
   it('resolves active employee recipients from selected ids', async () => {

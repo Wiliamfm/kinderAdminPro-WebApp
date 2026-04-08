@@ -1,4 +1,5 @@
-import pb, { normalizePocketBaseError } from './client';
+import { getAuthenticatedPb } from '../server/get-authenticated-pb';
+import { normalizePocketBaseError } from './errors';
 import type { PaginatedListResult } from '../table/pagination';
 import { listFatherNamesByStudentIds } from './students-fathers';
 
@@ -191,6 +192,8 @@ function buildSortExpression(
 }
 
 export async function listActiveStudentsByGradeIds(gradeIds: string[]): Promise<StudentRecord[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   if (gradeIds.length === 0) return [];
 
   const escapedFilter = gradeIds
@@ -211,6 +214,8 @@ export async function listActiveStudentsByGradeIds(gradeIds: string[]): Promise<
 }
 
 export async function listActiveStudents(options: ActiveStudentListOptions = {}): Promise<StudentRecord[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const includeFatherNames = options.includeFatherNames ?? true;
     const records = await pb.collection('students').getFullList({
@@ -246,6 +251,8 @@ export async function listActiveStudentsPage(
   perPage: number,
   options: StudentListOptions = {},
 ): Promise<PaginatedStudentsResult> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const sortField = options.sortField ?? 'name';
     const sortDirection = options.sortDirection ?? 'asc';
@@ -271,6 +278,8 @@ export async function listActiveStudentsPage(
 }
 
 export async function getStudentById(id: string): Promise<StudentRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const record = await pb.collection('students').getOne(id, {
       expand: 'grade_id',
@@ -287,6 +296,8 @@ export async function getStudentById(id: string): Promise<StudentRecord> {
 }
 
 export async function createStudent(payload: StudentCreateInput): Promise<StudentRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const record = await pb.collection('students').create(
       {
@@ -304,6 +315,8 @@ export async function createStudent(payload: StudentCreateInput): Promise<Studen
 }
 
 export async function updateStudent(id: string, payload: StudentUpdateInput): Promise<StudentRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const record = await pb.collection('students').update(id, mapStudentPayload(payload), {
       expand: 'grade_id',
@@ -315,6 +328,8 @@ export async function updateStudent(id: string, payload: StudentUpdateInput): Pr
 }
 
 export async function deactivateStudent(id: string): Promise<void> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     await pb.collection('students').update(id, { active: false });
   } catch (error) {
@@ -323,6 +338,8 @@ export async function deactivateStudent(id: string): Promise<void> {
 }
 
 export async function deleteStudent(id: string): Promise<void> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     await pb.collection('students').delete(id);
   } catch (error) {

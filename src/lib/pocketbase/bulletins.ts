@@ -1,6 +1,6 @@
-import pb, { normalizePocketBaseError } from './client';
+import { getAuthenticatedPb, getAuthenticatedPbWithUserId } from '../server/get-authenticated-pb';
+import { normalizePocketBaseError } from './errors';
 import type { PaginatedListResult } from '../table/pagination';
-import { getAuthUserId } from './users';
 
 export type BulletinRecord = {
   id: string;
@@ -134,20 +134,14 @@ function buildSortExpression(
   return sortDirection === 'desc' ? `-${mappedField}` : mappedField;
 }
 
-function requireAuthUserId(): string {
-  const userId = getAuthUserId();
-  if (!userId) {
-    throw new Error('No hay usuario autenticado para completar la operación.');
-  }
-
-  return userId;
-}
-
 export async function listBulletinsPage(
   page: number,
   perPage: number,
   options: BulletinListOptions = {},
 ): Promise<PaginatedBulletinsResult> {
+  "use server";
+  const pb = await getAuthenticatedPb();
+
   try {
     const sortField = options.sortField ?? 'updated_at';
     const sortDirection = options.sortDirection ?? 'desc';
@@ -170,6 +164,9 @@ export async function listBulletinsPage(
 }
 
 export async function listBulletinsByGradeId(gradeId: string): Promise<BulletinRecord[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
+
   try {
     const records = await pb.collection('bulletins').getFullList({
       filter: `grade_id = "${escapeFilterValue(toStringValue(gradeId))}" && is_deleted != true`,
@@ -184,7 +181,8 @@ export async function listBulletinsByGradeId(gradeId: string): Promise<BulletinR
 }
 
 export async function createBulletin(payload: BulletinCreateInput): Promise<BulletinRecord> {
-  const authUserId = requireAuthUserId();
+  "use server";
+  const { pb, userId: authUserId } = await getAuthenticatedPbWithUserId();
 
   try {
     const record = await pb.collection('bulletins').create(
@@ -211,7 +209,8 @@ export async function updateBulletin(
   id: string,
   payload: BulletinUpdateInput,
 ): Promise<BulletinRecord> {
-  const authUserId = requireAuthUserId();
+  "use server";
+  const { pb, userId: authUserId } = await getAuthenticatedPbWithUserId();
 
   try {
     const record = await pb.collection('bulletins').update(
@@ -234,7 +233,8 @@ export async function updateBulletin(
 }
 
 export async function softDeleteBulletin(id: string): Promise<void> {
-  const authUserId = requireAuthUserId();
+  "use server";
+  const { pb, userId: authUserId } = await getAuthenticatedPbWithUserId();
 
   try {
     await pb.collection('bulletins').update(id, {

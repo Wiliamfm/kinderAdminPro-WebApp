@@ -1,4 +1,6 @@
-import pb, { normalizePocketBaseError } from './client';
+import type PocketBase from 'pocketbase';
+import { getAuthenticatedPb } from '../server/get-authenticated-pb';
+import { normalizePocketBaseError } from './errors';
 
 export const STUDENT_FATHER_RELATIONSHIPS = ['father', 'mother', 'other'] as const;
 
@@ -156,7 +158,7 @@ type ExistingFatherLink = {
   relationship: StudentFatherRelationship;
 };
 
-async function cleanupCreatedLinks(linkIds: string[]): Promise<void> {
+async function cleanupCreatedLinks(pb: PocketBase, linkIds: string[]): Promise<void> {
   for (const linkId of linkIds) {
     try {
       await pb.collection('students_fathers').delete(linkId);
@@ -167,6 +169,8 @@ async function cleanupCreatedLinks(linkIds: string[]): Promise<void> {
 }
 
 export async function listLinksByStudentId(studentId: string): Promise<StudentFatherLinkRecord[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const normalizedStudentId = studentId.trim();
     if (!normalizedStudentId) return [];
@@ -196,6 +200,8 @@ export async function listLinksByStudentId(studentId: string): Promise<StudentFa
 }
 
 export async function listLinksByFatherId(fatherId: string): Promise<StudentFatherLinkRecord[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const normalizedFatherId = fatherId.trim();
     if (!normalizedFatherId) return [];
@@ -228,6 +234,8 @@ export async function createLinksForStudent(
   studentId: string,
   links: StudentFatherLinkInput[],
 ): Promise<void> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   const createdLinkIds: string[] = [];
 
   try {
@@ -244,7 +252,7 @@ export async function createLinksForStudent(
     }
   } catch (error) {
     if (createdLinkIds.length > 0) {
-      await cleanupCreatedLinks(createdLinkIds);
+      await cleanupCreatedLinks(pb, createdLinkIds);
     }
     throw normalizePocketBaseError(error);
   }
@@ -254,6 +262,8 @@ export async function createLinksForFather(
   fatherId: string,
   links: FatherStudentLinkInput[],
 ): Promise<void> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   const createdLinkIds: string[] = [];
 
   try {
@@ -270,7 +280,7 @@ export async function createLinksForFather(
     }
   } catch (error) {
     if (createdLinkIds.length > 0) {
-      await cleanupCreatedLinks(createdLinkIds);
+      await cleanupCreatedLinks(pb, createdLinkIds);
     }
     throw normalizePocketBaseError(error);
   }
@@ -280,6 +290,8 @@ export async function replaceLinksForStudent(
   studentId: string,
   links: StudentFatherLinkInput[],
 ): Promise<void> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const normalizedStudentId = studentId.trim();
     validateStudentLinkInputs(links);
@@ -326,6 +338,8 @@ export async function replaceLinksForFather(
   fatherId: string,
   links: FatherStudentLinkInput[],
 ): Promise<void> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const normalizedFatherId = fatherId.trim();
     validateFatherLinkInputs(links);
@@ -369,6 +383,8 @@ export async function replaceLinksForFather(
 }
 
 export async function countLinksByFatherId(fatherId: string): Promise<number> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const normalizedFatherId = fatherId.trim();
     if (!normalizedFatherId) return 0;
@@ -385,6 +401,8 @@ export async function countLinksByFatherId(fatherId: string): Promise<number> {
 }
 
 export async function countLinksByStudentId(studentId: string): Promise<number> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const normalizedStudentId = studentId.trim();
     if (!normalizedStudentId) return 0;
@@ -403,6 +421,8 @@ export async function countLinksByStudentId(studentId: string): Promise<number> 
 export async function listFatherNamesByStudentIds(
   studentIds: string[],
 ): Promise<Record<string, string[]>> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const normalizedIds = studentIds.map((id) => id.trim()).filter((id) => id.length > 0);
     if (normalizedIds.length === 0) return {};
@@ -440,6 +460,8 @@ export async function listFatherNamesByStudentIds(
 export async function listStudentNamesByFatherIds(
   fatherIds: string[],
 ): Promise<Record<string, string[]>> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const normalizedIds = fatherIds.map((id) => id.trim()).filter((id) => id.length > 0);
     if (normalizedIds.length === 0) return {};

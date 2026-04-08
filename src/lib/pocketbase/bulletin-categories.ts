@@ -1,4 +1,5 @@
-import pb, { normalizePocketBaseError } from './client';
+import { getAuthenticatedPb } from '../server/get-authenticated-pb';
+import { normalizePocketBaseError } from './errors';
 import type { PaginatedListResult } from '../table/pagination';
 
 export type BulletinCategoryRecord = {
@@ -55,6 +56,8 @@ function buildSortExpression(
 }
 
 export async function listBulletinCategories(): Promise<BulletinCategoryRecord[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const records = await pb.collection('bulletin_categories').getFullList({
       sort: 'name',
@@ -71,6 +74,8 @@ export async function listBulletinCategoriesPage(
   perPage: number,
   options: BulletinCategoryListOptions = {},
 ): Promise<PaginatedBulletinCategoriesResult> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const sortField = options.sortField ?? 'name';
     const sortDirection = options.sortDirection ?? 'asc';
@@ -93,6 +98,8 @@ export async function listBulletinCategoriesPage(
 export async function createBulletinCategory(
   payload: BulletinCategoryCreateInput,
 ): Promise<BulletinCategoryRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const record = await pb.collection('bulletin_categories').create({
       name: payload.name.trim(),
@@ -109,6 +116,8 @@ export async function updateBulletinCategory(
   id: string,
   payload: BulletinCategoryUpdateInput,
 ): Promise<BulletinCategoryRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const record = await pb.collection('bulletin_categories').update(id, {
       name: payload.name.trim(),
@@ -122,6 +131,8 @@ export async function updateBulletinCategory(
 }
 
 export async function deleteBulletinCategory(id: string): Promise<void> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     await pb.collection('bulletin_categories').delete(id);
   } catch (error) {
@@ -134,6 +145,8 @@ function escapeFilterValue(value: string): string {
 }
 
 export async function countBulletinsByCategoryId(categoryId: string): Promise<number> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const result = await pb.collection('bulletins').getList(1, 1, {
       filter: `category_id = "${escapeFilterValue(categoryId)}"`,

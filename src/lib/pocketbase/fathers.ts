@@ -1,4 +1,5 @@
-import pb, { normalizePocketBaseError } from './client';
+import { getAuthenticatedPb } from '../server/get-authenticated-pb';
+import { normalizePocketBaseError } from './errors';
 import type { PaginatedListResult } from '../table/pagination';
 import { listStudentNamesByFatherIds } from './students-fathers';
 
@@ -114,6 +115,8 @@ async function withAssociatedStudents(items: FatherRecord[]): Promise<FatherReco
 }
 
 export async function listActiveFathers(options: ActiveFatherListOptions = {}): Promise<FatherRecord[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const includeStudentNames = options.includeStudentNames ?? true;
     const records = await pb.collection('fathers').getFullList({
@@ -137,6 +140,8 @@ export async function listActiveFathersPage(
   perPage: number,
   options: FatherListOptions = {},
 ): Promise<PaginatedFathersResult> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const sortField = options.sortField ?? 'full_name';
     const sortDirection = options.sortDirection ?? 'asc';
@@ -162,6 +167,8 @@ export async function listActiveFathersPage(
 }
 
 export async function getFatherById(id: string): Promise<FatherRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const record = await pb.collection('fathers').getOne(id);
     const mapped = mapFatherRecord(record);
@@ -177,6 +184,8 @@ export async function getFatherById(id: string): Promise<FatherRecord> {
 }
 
 export async function createFather(payload: FatherCreateInput): Promise<FatherRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const record = await pb.collection('fathers').create({
       ...mapFatherPayload(payload),
@@ -190,6 +199,8 @@ export async function createFather(payload: FatherCreateInput): Promise<FatherRe
 }
 
 export async function updateFather(id: string, payload: FatherUpdateInput): Promise<FatherRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const record = await pb.collection('fathers').update(id, mapFatherPayload(payload));
     return mapFatherRecord(record);
@@ -199,6 +210,8 @@ export async function updateFather(id: string, payload: FatherUpdateInput): Prom
 }
 
 export async function deactivateFather(id: string): Promise<void> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     await pb.collection('fathers').update(id, { is_active: false });
   } catch (error) {
@@ -207,6 +220,8 @@ export async function deactivateFather(id: string): Promise<void> {
 }
 
 export async function deleteFather(id: string): Promise<void> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     await pb.collection('fathers').delete(id);
   } catch (error) {

@@ -1,18 +1,19 @@
 # Architecture Reference
 
-Last updated: 2026-04-06
+Last updated: 2026-04-08
 
 ## Purpose
 Provide a stable technical reference for module responsibilities, data flow, and key design constraints.
 
 ## Source Of Truth
-- Route definitions: `src/routes.ts`
+- Route definitions: `src/routes/`
 - App shell and guards: `src/app.tsx`, `src/lib/auth/guard.ts`
 - PocketBase wrappers: `src/lib/pocketbase/*.ts`
-- Main leaves workflow UI: `src/pages/staff-employees.tsx`
+- Main leaves workflow UI: `src/routes/staff-management/employees.tsx`
 
 ## Frontend Structure
-- `src/pages/`: route-level pages and feature workflows.
+- `src/routes/`: route-level pages and feature workflows using SolidStart file routing.
+- `src/pages/`: compatibility re-export layer kept for colocated page tests during the migration.
 - `src/components/`: reusable UI components (for example `Modal.tsx`).
 - `src/lib/`: non-UI logic, auth guards, PocketBase API wrappers, helpers.
 - `src/test/`: global test setup.
@@ -33,9 +34,10 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - API/backend errors remain as form-level alert blocks (for example submit/network failures).
 
 ## Data Access Pattern
-- PocketBase SDK initialization and error normalization live in `src/lib/pocketbase/client.ts`.
-- Feature modules wrap collection calls and expose typed functions.
-- UI pages call wrapper functions via `createResource` and action handlers.
+- PocketBase request auth resolution lives in `src/lib/server/auth-session.ts`.
+- Authenticated server wrappers obtain the request-scoped PocketBase client through `src/lib/server/get-authenticated-pb.ts`.
+- Feature modules in `src/lib/pocketbase/*.ts` expose typed `"use server"` functions that keep existing call signatures while moving SDK access off the browser.
+- UI pages call those wrapper functions via `createResource` and action handlers.
 - Wrapper modules use mapper functions to keep camelCase TypeScript semantics while translating to PocketBase snake_case fields (for example `employeeId` <-> `employee_id`).
 
 ## Temporal Data Standard

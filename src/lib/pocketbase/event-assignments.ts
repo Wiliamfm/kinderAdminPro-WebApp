@@ -1,4 +1,5 @@
-import pb, { normalizePocketBaseError } from './client';
+import { getAuthenticatedPb } from '../server/get-authenticated-pb';
+import { normalizePocketBaseError } from './errors';
 
 export type EventAssignmentRecord = {
   id: string;
@@ -67,6 +68,8 @@ type ExistingAssignment = {
 export async function listEventAssignmentsByEventIds(
   eventIds: string[],
 ): Promise<EventAssignmentRecord[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   const normalizedEventIds = normalizeIds(eventIds);
   if (normalizedEventIds.length === 0) {
     return [];
@@ -91,6 +94,8 @@ export async function listEventAssignmentsByEventIds(
 }
 
 export async function syncEventAssignments(eventId: string, employeeIds: string[]): Promise<void> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   const normalizedEventId = eventId.trim();
   if (!normalizedEventId) {
     throw new Error('El evento es obligatorio para sincronizar responsables.');
@@ -130,6 +135,8 @@ export async function syncEventAssignments(eventId: string, employeeIds: string[
 }
 
 export async function deleteEventAssignmentsByEventId(eventId: string): Promise<void> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   const normalizedEventId = eventId.trim();
   if (!normalizedEventId) {
     throw new Error('El evento es obligatorio para eliminar responsables.');

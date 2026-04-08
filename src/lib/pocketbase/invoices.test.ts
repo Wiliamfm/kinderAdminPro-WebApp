@@ -7,6 +7,7 @@ const hoisted = vi.hoisted(() => {
   const update = vi.fn();
   const filter = vi.fn();
   const normalizePocketBaseError = vi.fn();
+  const getAuthenticatedPb = vi.fn();
 
   const pb = {
     collection: vi.fn(() => ({
@@ -23,18 +24,23 @@ const hoisted = vi.hoisted(() => {
     update,
     filter,
     normalizePocketBaseError,
+    getAuthenticatedPb,
     pb,
   };
 });
 
-vi.mock('./client', () => ({
-  default: hoisted.pb,
+vi.mock('../server/get-authenticated-pb', () => ({
+  getAuthenticatedPb: hoisted.getAuthenticatedPb,
+}));
+
+vi.mock('./errors', () => ({
   normalizePocketBaseError: hoisted.normalizePocketBaseError,
 }));
 
 describe('invoices pocketbase client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    hoisted.getAuthenticatedPb.mockResolvedValue(hoisted.pb);
   });
 
   it('lists invoices using employee_id filter and maps to camelCase', async () => {

@@ -1,4 +1,5 @@
-import pb, { normalizePocketBaseError } from './client';
+import { getAuthenticatedPb } from '../server/get-authenticated-pb';
+import { normalizePocketBaseError } from './errors';
 
 export type InvoiceFileCreateInput = {
   file: File;
@@ -23,6 +24,8 @@ function mapInvoiceFileRecord(
 }
 
 export async function createInvoiceFile(payload: InvoiceFileCreateInput): Promise<InvoiceFileRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const formData = new FormData();
     formData.set('file', payload.file);

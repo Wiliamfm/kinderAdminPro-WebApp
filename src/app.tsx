@@ -1,26 +1,54 @@
-import { createEffect, createSignal, onCleanup, Suspense, type Component } from 'solid-js';
-import { useLocation, useNavigate } from '@solidjs/router';
+import 'bootstrap-icons/font/bootstrap-icons.css';
+import './index.css';
+
+import { Router, Route, useLocation, useNavigate } from '@solidjs/router';
+import { lazy } from 'solid-js';
+import {
+  Show,
+  createEffect,
+  onMount,
+  Suspense,
+  type Component,
+} from 'solid-js';
 import {
   getAuthUserIdentity,
   isAuthenticated,
+  isAuthResolved,
   logout,
-  subscribeAuth,
+  refreshAuth,
 } from './lib/pocketbase/auth';
 import { requireAuth } from './lib/auth/guard';
 import Navbar from './components/Navbar';
 
-const App: Component<{ children: Element }> = (props) => {
+import Index from './routes/index';
+import Login from './routes/login';
+import StaffManagement from './routes/staff-management';
+import EnrollmentManagement from './routes/enrollment-management';
+import EventManagement from './routes/event-management';
+import Reports from './routes/reports';
+
+import ProfessorEvents from './routes/professor/events';
+import ProfessorPersonal from './routes/professor/personal';
+import ProfessorStudents from './routes/professor/students';
+
+const AppShell: Component<{ children: Element }> = (props) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [authed, setAuthed] = createSignal(isAuthenticated());
 
-  const unsubscribe = subscribeAuth((valid) => setAuthed(valid));
-  onCleanup(() => unsubscribe());
+  onMount(() => {
+    if (!isAuthResolved()) {
+      void refreshAuth().catch(() => undefined);
+    }
+  });
 
   createEffect(() => {
+    if (!isAuthResolved()) {
+      return;
+    }
+
     const pathname = location.pathname;
     const search = location.search;
-    const valid = authed();
+    const valid = isAuthenticated();
     const isPublicAuthRoute = pathname === '/login' || pathname === '/auth/set-password';
 
     if (isPublicAuthRoute) {
@@ -37,13 +65,15 @@ const App: Component<{ children: Element }> = (props) => {
   });
 
   const handleLogout = () => {
-    logout();
-    navigate('/login', { replace: true });
+    void logout().finally(() => {
+      navigate('/login', { replace: true });
+    });
   };
 
   const userIdentity = () => getAuthUserIdentity();
   const showNavbar = () =>
-    location.pathname !== '/login'
+    isAuthenticated()
+    && location.pathname !== '/login'
     && location.pathname !== '/auth/set-password';
 
   return (
@@ -58,10 +88,59 @@ const App: Component<{ children: Element }> = (props) => {
       )}
 
       <main>
-        <Suspense>{props.children}</Suspense>
+        <Show
+          when={isAuthResolved()}
+          fallback={(
+            <div class="min-h-screen flex items-center justify-center p-8 text-sm text-gray-600">
+              Cargando sesión...
+            </div>
+          )}
+        >
+          <Suspense>{props.children}</Suspense>
+        </Show>
       </main>
     </>
   );
 };
 
-export default App;
+export default function App() {
+  return (
+    <Router root={AppShell}>
+      <Route path="/" component={Index} />
+      <Route path="/login" component={Login} />
+
+      <Route path="/staff-management" component={StaffManagement} />
+      <Route path="/staff-management/employees" component={lazy(() => import('./routes/staff-management/employees'))} />
+      <Route path="/staff-management/employees/:id" component={lazy(() => import('./routes/staff-management/employees/[id]'))} />
+      <Route path="/staff-management/jobs" component={lazy(() => import('./routes/staff-management/jobs'))} />
+      <Route path="/staff-management/app-users" component={lazy(() => import('./routes/staff-management/app-users'))} />
+
+      <Route path="/enrollment-management" component={EnrollmentManagement} />
+      <Route path="/enrollment-management/students" component={lazy(() => import('./routes/enrollment-management/students'))} />
+      <Route path="/enrollment-management/students/:id" component={lazy(() => import('./routes/enrollment-management/students/[id]'))} />
+      <Route path="/enrollment-management/tutors" component={lazy(() => import('./routes/enrollment-management/tutors'))} />
+      <Route path="/enrollment-management/tutors/:id" component={lazy(() => import('./routes/enrollment-management/tutors/[id]'))} />
+      <Route path="/enrollment-management/semesters" component={lazy(() => import('./routes/enrollment-management/semesters'))} />
+      <Route path="/enrollment-management/semesters/:id" component={lazy(() => import('./routes/enrollment-management/semesters/[id]'))} />
+      <Route path="/enrollment-management/grades" component={lazy(() => import('./routes/enrollment-management/grades'))} />
+      <Route path="/enrollment-management/bulletins" component={lazy(() => import('./routes/enrollment-management/bulletins'))} />
+
+      <Route path="/event-management" component={EventManagement} />
+      <Route path="/event-management/calendar" component={lazy(() => import('./routes/event-management/calendar'))} />
+      <Route path="/event-management/email" component={lazy(() => import('./routes/event-management/email'))} />
+
+      <Route path="/reports" component={Reports} />
+      <Route path="/reports/students" component={lazy(() => import('./routes/reports/students'))} />
+      <Route path="/reports/employees" component={lazy(() => import('./routes/reports/employees'))} />
+
+      <Route path="/professor/events" component={ProfessorEvents} />
+      <Route path="/professor/personal" component={ProfessorPersonal} />
+      <Route path="/professor/personal/invoices" component={lazy(() => import('./routes/professor/personal/invoices'))} />
+      <Route path="/professor/personal/leaves" component={lazy(() => import('./routes/professor/personal/leaves'))} />
+      <Route path="/professor/students" component={ProfessorStudents} />
+      <Route path="/professor/students/:id" component={lazy(() => import('./routes/professor/students/[id]'))} />
+
+      <Route path="*404" component={() => import('./routes/[...404]').then(m => m.default)} />
+    </Router>
+  );
+}

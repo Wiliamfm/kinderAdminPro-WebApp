@@ -1,4 +1,6 @@
-import pb, { normalizePocketBaseError } from './client';
+import type PocketBase from 'pocketbase';
+import { getAuthenticatedPb } from '../server/get-authenticated-pb';
+import { normalizePocketBaseError } from './errors';
 import type { PaginatedListResult } from '../table/pagination';
 
 export type EmployeeRecord = {
@@ -130,6 +132,7 @@ function getExpandedJob(record: Record<string, unknown> & { get?: (key: string) 
 
 function mapEmployeeRecord(
   record: Record<string, unknown> & { id: string; get?: (key: string) => unknown },
+  pb: PocketBase,
 ): EmployeeRecord {
   const expandedJob = getExpandedJob(record);
   const cvFileName = toFileNameValue(record.get?.('cv') ?? record.cv);
@@ -209,12 +212,14 @@ function buildSortExpression(
 }
 
 export async function listActiveEmployees(): Promise<EmployeeRecord[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const records = await pb.collection('employees').getFullList({
       sort: 'name',
       expand: 'job_id',
     });
-    return records.map((record) => mapEmployeeRecord(record)).filter((record) => record.active);
+    return records.map((record) => mapEmployeeRecord(record, pb)).filter((record) => record.active);
   } catch (error) {
     throw normalizePocketBaseError(error);
   }
@@ -225,6 +230,8 @@ export async function listActiveEmployeesPage(
   perPage: number,
   options: EmployeeListOptions = {},
 ): Promise<PaginatedEmployeesResult> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const sortField = options.sortField ?? 'name';
     const sortDirection = options.sortDirection ?? 'asc';
@@ -235,7 +242,7 @@ export async function listActiveEmployeesPage(
     });
 
     return {
-      items: result.items.map((record) => mapEmployeeRecord(record)),
+      items: result.items.map((record) => mapEmployeeRecord(record, pb)),
       page: result.page,
       perPage: result.perPage,
       totalItems: result.totalItems,
@@ -247,30 +254,36 @@ export async function listActiveEmployeesPage(
 }
 
 export async function getEmployeeByUserId(userId: string): Promise<EmployeeRecord | null> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const result = await pb.collection('employees').getList(1, 1, {
       filter: pb.filter('user_id = {:userId}', { userId }),
       expand: 'job_id',
     });
     if (result.items.length === 0) return null;
-    return mapEmployeeRecord(result.items[0]);
+    return mapEmployeeRecord(result.items[0], pb);
   } catch (error) {
     throw normalizePocketBaseError(error);
   }
 }
 
 export async function getEmployeeById(id: string): Promise<EmployeeRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const record = await pb.collection('employees').getOne(id, {
       expand: 'job_id',
     });
-    return mapEmployeeRecord(record);
+    return mapEmployeeRecord(record, pb);
   } catch (error) {
     throw normalizePocketBaseError(error);
   }
 }
 
 export async function createEmployee(payload: EmployeeCreateInput): Promise<EmployeeRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const mappedPayload = mapEmployeeCreatePayload(payload);
     const createPayload = payload.cv
@@ -279,13 +292,15 @@ export async function createEmployee(payload: EmployeeCreateInput): Promise<Empl
     const record = await pb.collection('employees').create(createPayload, {
       expand: 'job_id',
     });
-    return mapEmployeeRecord(record);
+    return mapEmployeeRecord(record, pb);
   } catch (error) {
     throw normalizePocketBaseError(error);
   }
 }
 
 export async function updateEmployee(id: string, payload: EmployeeUpdateInput): Promise<EmployeeRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const mappedPayload = mapEmployeeUpdatePayload(payload);
     const updatePayload = payload.cv
@@ -298,13 +313,15 @@ export async function updateEmployee(id: string, payload: EmployeeUpdateInput): 
         expand: 'job_id',
       },
     );
-    return mapEmployeeRecord(record);
+    return mapEmployeeRecord(record, pb);
   } catch (error) {
     throw normalizePocketBaseError(error);
   }
 }
 
 export async function deactivateEmployee(id: string): Promise<void> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     await pb.collection('employees').update(id, { active: false });
   } catch (error) {

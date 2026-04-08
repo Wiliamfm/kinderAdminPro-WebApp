@@ -1,92 +1,88 @@
-import pb from './client';
+import { createSignal } from 'solid-js';
+import {
+  APP_ROLE_LABELS,
+  APP_ROLES,
+  canUserAccessModule,
+  canUserAccessModules,
+  getAuthUserIdentity as getIdentity,
+  type AppRole,
+  type AuthUser,
+  type ProtectedModule,
+} from '../auth/shared';
+import {
+  getCurrentUser as getCurrentUserServer,
+  loginWithPassword as loginWithPasswordServer,
+  logout as logoutServer,
+} from '../server/auth';
 
-export type AuthChangeCallback = (isAuthenticated: boolean) => void;
-export const APP_ROLES = ['admin', 'professor', 'father'] as const;
+const [authUser, setAuthUser] = createSignal<AuthUser | null>(null);
+const [authResolved, setAuthResolved] = createSignal(false);
 
-export type AppRole = (typeof APP_ROLES)[number];
-export type ProtectedModule =
-  | 'staff'
-  | 'enrollment'
-  | 'reports'
-  | 'events'
-  | 'users'
-  | 'professor-personal'
-  | 'professor-students'
-  | 'professor-events';
+let refreshPromise: Promise<AuthUser | null> | null = null;
 
-export const APP_ROLE_LABELS: Record<AppRole, string> = {
-  admin: 'Administrador',
-  professor: 'Profesor',
-  father: 'Padre',
-};
+export { APP_ROLES, APP_ROLE_LABELS };
+export type { AppRole, AuthUser, ProtectedModule };
 
-type AuthRecordLike = {
-  email?: unknown;
-  get?: (key: string) => unknown;
-  is_admin?: unknown;
-  name?: unknown;
-  roles?: unknown;
-} | null;
-
-function toStringValue(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
+export function primeAuthState(user: AuthUser | null): void {
+  setAuthUser(() => user);
+  setAuthResolved(true);
 }
 
-function toBooleanValue(value: unknown): boolean {
-  return value === true;
+export function clearAuthState(): void {
+  setAuthUser(null);
+  setAuthResolved(true);
 }
 
-function isAppRole(value: string): value is AppRole {
-  return (APP_ROLES as readonly string[]).includes(value);
-}
-
-function normalizeRoleValues(value: unknown): AppRole[] {
-  if (!Array.isArray(value)) {
-    return [];
+export async function refreshAuth(): Promise<AuthUser | null> {
+  if (refreshPromise) {
+    return refreshPromise;
   }
 
-  const seen = new Set<AppRole>();
-  const result: AppRole[] = [];
+  refreshPromise = getCurrentUserServer()
+    .then((user) => {
+      primeAuthState(user);
+      return user;
+    })
+    .catch((error) => {
+      clearAuthState();
+      throw error;
+    })
+    .finally(() => {
+      refreshPromise = null;
+    });
 
-  for (const entry of value) {
-    const normalized = toStringValue(entry);
-    if (!isAppRole(normalized) || seen.has(normalized)) {
-      continue;
-    }
-
-    seen.add(normalized);
-    result.push(normalized);
-  }
-
-  return result;
+  return refreshPromise;
 }
 
-export async function loginWithPassword(email: string, password: string): Promise<void> {
-  await pb.collection('users').authWithPassword(email, password);
+export async function loginWithPassword(email: string, password: string): Promise<AuthUser> {
+  const user = await loginWithPasswordServer(email, password);
+  primeAuthState(user);
+  return user;
 }
 
-export function logout(): void {
-  pb.authStore.clear();
+export async function logout(): Promise<void> {
+  await logoutServer();
+  clearAuthState();
+}
+
+export function isAuthResolved(): boolean {
+  return authResolved();
 }
 
 export function isAuthenticated(): boolean {
-  return pb.authStore.isValid;
+  return authUser() !== null;
 }
 
-export function getAuthUser() {
-  return pb.authStore.record;
+export function getAuthUser(): AuthUser | null {
+  return authUser();
+}
+
+export function getAuthUserId(): string | null {
+  return authUser()?.id ?? null;
 }
 
 export function getAuthUserRoles(): AppRole[] {
-  const record = getAuthUser() as AuthRecordLike;
-  const rawRoles = record?.get?.('roles') ?? record?.roles;
-  const roles = normalizeRoleValues(rawRoles);
-
-  if (toBooleanValue(record?.get?.('is_admin') ?? record?.is_admin) && !roles.includes('admin')) {
-    return ['admin', ...roles];
-  }
-
-  return roles;
+  return authUser()?.roles ?? [];
 }
 
 export function hasRole(role: AppRole): boolean {
@@ -97,25 +93,12 @@ export function hasAnyRole(roles: readonly AppRole[]): boolean {
   return roles.some((role) => hasRole(role));
 }
 
-const PROFESSOR_MODULES: readonly ProtectedModule[] = [
-  'professor-personal',
-  'professor-students',
-  'professor-events',
-];
-
 export function canAccessModule(module: ProtectedModule): boolean {
-  if (PROFESSOR_MODULES.includes(module)) {
-    return hasRole('professor');
-  }
-  return hasRole('admin');
+  return canUserAccessModule(authUser(), module);
 }
 
 export function canAccessModules(modules: readonly ProtectedModule[]): boolean {
-  if (modules.length === 0) {
-    return true;
-  }
-
-  return modules.some((module) => canAccessModule(module));
+  return canUserAccessModules(authUser(), modules);
 }
 
 export function isAuthUserAdmin(): boolean {
@@ -123,18 +106,5 @@ export function isAuthUserAdmin(): boolean {
 }
 
 export function getAuthUserIdentity(): { name: string; email: string } {
-  const record = getAuthUser() as AuthRecordLike;
-  const rawName = toStringValue(record?.get?.('name') ?? record?.name);
-  const rawEmail = toStringValue(record?.get?.('email') ?? record?.email);
-
-  return {
-    name: rawName || 'Usuario',
-    email: rawEmail || 'Sin correo',
-  };
-}
-
-export function subscribeAuth(callback: AuthChangeCallback): () => void {
-  return pb.authStore.onChange(() => {
-    callback(pb.authStore.isValid);
-  });
+  return getIdentity(authUser());
 }

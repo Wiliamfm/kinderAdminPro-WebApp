@@ -1,6 +1,6 @@
-import pb, { normalizePocketBaseError } from './client';
+import { getAuthenticatedPb, getAuthenticatedPbWithUserId } from '../server/get-authenticated-pb';
+import { normalizePocketBaseError } from './errors';
 import type { PaginatedListResult } from '../table/pagination';
-import { getAuthUserId } from './users';
 
 export type BulletinStudentRecord = {
   id: string;
@@ -292,15 +292,6 @@ function buildFilterExpression(options: BulletinStudentListOptions): string {
   return clauses.join(' && ');
 }
 
-function requireAuthUserId(): string {
-  const userId = getAuthUserId();
-  if (!userId) {
-    throw new Error('No hay usuario autenticado para completar la operación.');
-  }
-
-  return userId;
-}
-
 function mapBulletinStudentPayload(payload: BulletinStudentCreateInput | BulletinStudentUpdateInput) {
   return {
     bulletin_id: payload.bulletin_id.trim(),
@@ -317,6 +308,8 @@ export async function listBulletinsStudentsPage(
   perPage: number,
   options: BulletinStudentListOptions = {},
 ): Promise<PaginatedBulletinsStudentsResult> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const sortField = options.sortField ?? 'created_at';
     const sortDirection = options.sortDirection ?? 'desc';
@@ -344,6 +337,8 @@ export async function listBulletinsStudentsPage(
 export async function listBulletinsStudentsForExport(
   options: BulletinStudentExportOptions = {},
 ): Promise<BulletinStudentRecord[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const sortField = options.sortField ?? 'created_at';
     const sortDirection = options.sortDirection ?? 'desc';
@@ -366,6 +361,8 @@ export async function listBulletinStudentsByStudentAndGrade(
   studentId: string,
   gradeId: string,
 ): Promise<BulletinStudentRecord[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const records = await pb.collection('bulletins_students').getFullList({
       filter: [
@@ -387,7 +384,8 @@ export async function listBulletinStudentsByStudentAndGrade(
 export async function createBulletinStudent(
   payload: BulletinStudentCreateInput,
 ): Promise<BulletinStudentRecord> {
-  const authUserId = requireAuthUserId();
+  "use server";
+  const { pb, userId: authUserId } = await getAuthenticatedPbWithUserId();
 
   try {
     const record = await pb.collection('bulletins_students').create(
@@ -412,7 +410,8 @@ export async function updateBulletinStudent(
   id: string,
   payload: BulletinStudentUpdateInput,
 ): Promise<BulletinStudentRecord> {
-  const authUserId = requireAuthUserId();
+  "use server";
+  const { pb, userId: authUserId } = await getAuthenticatedPbWithUserId();
 
   try {
     const record = await pb.collection('bulletins_students').update(
@@ -433,7 +432,8 @@ export async function updateBulletinStudent(
 }
 
 export async function softDeleteBulletinStudent(id: string): Promise<void> {
-  const authUserId = requireAuthUserId();
+  "use server";
+  const { pb, userId: authUserId } = await getAuthenticatedPbWithUserId();
 
   try {
     await pb.collection('bulletins_students').update(id, {
@@ -446,6 +446,8 @@ export async function softDeleteBulletinStudent(id: string): Promise<void> {
 }
 
 export async function listBulletinStudentFormOptions(): Promise<BulletinStudentFormOptions> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const [bulletins, students, grades, semesters] = await Promise.all([
       pb.collection('bulletins').getFullList({
@@ -499,6 +501,8 @@ export async function listBulletinStudentFormOptions(): Promise<BulletinStudentF
 }
 
 export async function listBulletinStudentsAnalyticsRecords(): Promise<BulletinStudentAnalyticsRecord[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const records = await pb.collection('bulletins_students').getFullList({
       sort: '-created_at',

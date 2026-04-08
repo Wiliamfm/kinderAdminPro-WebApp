@@ -10,6 +10,7 @@ const hoisted = vi.hoisted(() => {
   const create = vi.fn();
   const del = vi.fn();
   const normalizePocketBaseError = vi.fn();
+  const getAuthenticatedPb = vi.fn();
 
   const pb = {
     collection: vi.fn(() => ({
@@ -24,18 +25,23 @@ const hoisted = vi.hoisted(() => {
     create,
     del,
     normalizePocketBaseError,
+    getAuthenticatedPb,
     pb,
   };
 });
 
-vi.mock('./client', () => ({
-  default: hoisted.pb,
+vi.mock('../server/get-authenticated-pb', () => ({
+  getAuthenticatedPb: hoisted.getAuthenticatedPb,
+}));
+
+vi.mock('./errors', () => ({
   normalizePocketBaseError: hoisted.normalizePocketBaseError,
 }));
 
 describe('event-assignments pocketbase client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    hoisted.getAuthenticatedPb.mockResolvedValue(hoisted.pb);
   });
 
   it('lists assignments for multiple events with employee expansion', async () => {

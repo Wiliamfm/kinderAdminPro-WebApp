@@ -1,4 +1,5 @@
-import pb, { normalizePocketBaseError } from './client';
+import { getAuthenticatedPb } from '../server/get-authenticated-pb';
+import { normalizePocketBaseError } from './errors';
 import type { PaginatedListResult } from '../table/pagination';
 
 export type EmployeeJobRecord = {
@@ -61,6 +62,8 @@ function buildSortExpression(
 }
 
 export async function listEmployeeJobs(): Promise<EmployeeJobRecord[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const records = await pb.collection('employee_jobs').getFullList({
       sort: 'name',
@@ -77,6 +80,8 @@ export async function listEmployeeJobsPage(
   perPage: number,
   options: EmployeeJobListOptions = {},
 ): Promise<PaginatedEmployeeJobsResult> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const sortField = options.sortField ?? 'name';
     const sortDirection = options.sortDirection ?? 'asc';
@@ -97,6 +102,8 @@ export async function listEmployeeJobsPage(
 }
 
 export async function createEmployeeJob(payload: EmployeeJobCreateInput): Promise<EmployeeJobRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const record = await pb.collection('employee_jobs').create({
       name: payload.name.trim(),
@@ -113,6 +120,8 @@ export async function updateEmployeeJob(
   id: string,
   payload: EmployeeJobUpdateInput,
 ): Promise<EmployeeJobRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const record = await pb.collection('employee_jobs').update(id, {
       name: payload.name.trim(),
@@ -126,6 +135,8 @@ export async function updateEmployeeJob(
 }
 
 export async function deleteEmployeeJob(id: string): Promise<void> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     await pb.collection('employee_jobs').delete(id);
   } catch (error) {
@@ -138,6 +149,8 @@ function escapeFilterValue(value: string): string {
 }
 
 export async function countEmployeesByJobId(jobId: string): Promise<number> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const result = await pb.collection('employees').getList(1, 1, {
       filter: `job_id = "${escapeFilterValue(jobId)}" && active = true`,

@@ -16,6 +16,7 @@ const hoisted = vi.hoisted(() => {
   const del = vi.fn();
   const getList = vi.fn();
   const normalizePocketBaseError = vi.fn();
+  const getAuthenticatedPb = vi.fn();
 
   const pb = {
     collection: vi.fn((name: string) => {
@@ -43,18 +44,23 @@ const hoisted = vi.hoisted(() => {
     del,
     getList,
     normalizePocketBaseError,
+    getAuthenticatedPb,
     pb,
   };
 });
 
-vi.mock('./client', () => ({
-  default: hoisted.pb,
+vi.mock('../server/get-authenticated-pb', () => ({
+  getAuthenticatedPb: hoisted.getAuthenticatedPb,
+}));
+
+vi.mock('./errors', () => ({
   normalizePocketBaseError: hoisted.normalizePocketBaseError,
 }));
 
 describe('employee-jobs pocketbase client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    hoisted.getAuthenticatedPb.mockResolvedValue(hoisted.pb);
   });
 
   it('lists jobs', async () => {

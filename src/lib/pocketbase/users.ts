@@ -1,6 +1,8 @@
-import pb, { normalizePocketBaseError } from './client';
+import { getRequestEvent } from 'solid-js/web';
+import { getAuthenticatedPb } from '../server/get-authenticated-pb';
+import { normalizePocketBaseError } from './errors';
+import type { AppRole } from '../auth/shared';
 import type { PaginatedListResult } from '../table/pagination';
-import type { AppRole } from './auth';
 
 export type AppUserRecord = {
   id: string;
@@ -93,6 +95,8 @@ function buildSortExpression(
 }
 
 export async function createEmployeeUser(payload: CreateEmployeeUserInput): Promise<AppUserRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   const email = payload.email.trim();
   const name = payload.name.trim();
   const password = payload.password;
@@ -114,18 +118,13 @@ export async function createEmployeeUser(payload: CreateEmployeeUserInput): Prom
 }
 
 export function getAuthUserId(): string | null {
-  const authModel = pb.authStore.model as { id?: unknown } | null;
-  const modelId = toStringValue(authModel?.id);
-  if (modelId.length > 0) {
-    return modelId;
-  }
-
-  const authRecord = pb.authStore.record as { id?: unknown } | null;
-  const recordId = toStringValue(authRecord?.id);
-  return recordId.length > 0 ? recordId : null;
+  const event = getRequestEvent();
+  return event?.locals.authUser?.id ?? null;
 }
 
 export async function listEmployeeUserIds(): Promise<Set<string>> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const records = await pb.collection('employees').getFullList({
       fields: 'user_id',
@@ -142,6 +141,8 @@ export async function listEmployeeUserIds(): Promise<Set<string>> {
 }
 
 export async function listAppUsers(): Promise<AppUserRecord[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const records = await pb.collection('users').getFullList({
       sort: 'name',
@@ -157,6 +158,8 @@ export async function listAppUsersPage(
   perPage: number,
   options: AppUserListOptions = {},
 ): Promise<PaginatedAppUsersResult> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const sortField = options.sortField ?? 'name';
     const sortDirection = options.sortDirection ?? 'asc';
@@ -177,6 +180,8 @@ export async function listAppUsersPage(
 }
 
 export async function updateAppUser(id: string, payload: UpdateAppUserInput): Promise<AppUserRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const record = await pb.collection('users').update(id, {
       email: payload.email.trim(),
@@ -191,6 +196,8 @@ export async function updateAppUser(id: string, payload: UpdateAppUserInput): Pr
 }
 
 export async function deleteAppUser(id: string): Promise<void> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     await pb.collection('users').delete(id);
   } catch (error) {
@@ -199,6 +206,8 @@ export async function deleteAppUser(id: string): Promise<void> {
 }
 
 export async function requestAuthenticatedUserEmailChange(newEmail: string): Promise<void> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     await pb.collection('users').requestEmailChange(newEmail.trim());
   } catch (error) {
@@ -207,6 +216,8 @@ export async function requestAuthenticatedUserEmailChange(newEmail: string): Pro
 }
 
 export async function sendVerificationEmail(email: string): Promise<void> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     await pb.collection('users').requestVerification(email.trim());
   } catch (error) {
@@ -215,6 +226,8 @@ export async function sendVerificationEmail(email: string): Promise<void> {
 }
 
 export async function confirmVerificationToken(token: string): Promise<void> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     await pb.collection('users').confirmVerification(token.trim());
   } catch (error) {
@@ -227,6 +240,8 @@ export async function confirmPasswordSetupToken(
   password: string,
   passwordConfirm: string,
 ): Promise<void> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     await pb.collection('users').confirmPasswordReset(token.trim(), password, passwordConfirm);
   } catch (error) {

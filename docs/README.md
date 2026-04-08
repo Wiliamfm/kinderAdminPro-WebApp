@@ -1,6 +1,6 @@
 # Documentation Map
 
-Last updated: 2026-02-23
+Last updated: 2026-04-08
 
 ## Purpose
 This folder is the canonical documentation set for architecture, change process, and LLM collaboration in this repository.
@@ -18,7 +18,7 @@ Implementation-specific specs are stored in:
 
 ## Source Of Truth
 - Runtime and script truth: `package.json`
-- Routes and page wiring: `src/routes.ts`
+- Routes and page wiring: `src/routes/`, `src/app.tsx`
 - PocketBase access layer: `src/lib/pocketbase/`
 - Agent behavior and repo conventions: `AGENTS.md`
 

@@ -13,7 +13,8 @@ const hoisted = vi.hoisted(() => {
   const update = vi.fn();
   const del = vi.fn();
   const normalizePocketBaseError = vi.fn();
-  const getAuthUserId = vi.fn();
+  const getAuthenticatedPb = vi.fn();
+  const getAuthenticatedPbWithUserId = vi.fn();
 
   const pb = {
     collection: vi.fn(() => ({
@@ -30,24 +31,26 @@ const hoisted = vi.hoisted(() => {
     update,
     del,
     normalizePocketBaseError,
-    getAuthUserId,
+    getAuthenticatedPb,
+    getAuthenticatedPbWithUserId,
     pb,
   };
 });
 
-vi.mock('./client', () => ({
-  default: hoisted.pb,
-  normalizePocketBaseError: hoisted.normalizePocketBaseError,
+vi.mock('../server/get-authenticated-pb', () => ({
+  getAuthenticatedPb: hoisted.getAuthenticatedPb,
+  getAuthenticatedPbWithUserId: hoisted.getAuthenticatedPbWithUserId,
 }));
 
-vi.mock('./users', () => ({
-  getAuthUserId: hoisted.getAuthUserId,
+vi.mock('./errors', () => ({
+  normalizePocketBaseError: hoisted.normalizePocketBaseError,
 }));
 
 describe('events pocketbase client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    hoisted.getAuthUserId.mockReturnValue('u-admin');
+    hoisted.getAuthenticatedPb.mockResolvedValue(hoisted.pb);
+    hoisted.getAuthenticatedPbWithUserId.mockResolvedValue({ pb: hoisted.pb, userId: 'u-admin' });
   });
 
   it('lists non-deleted events that overlap the requested range', async () => {
@@ -196,7 +199,11 @@ describe('events pocketbase client', () => {
   });
 
   it('throws when there is no authenticated user', async () => {
-    hoisted.getAuthUserId.mockReturnValue(null);
+    hoisted.getAuthenticatedPbWithUserId.mockRejectedValue({
+      message: 'Debes iniciar sesión para continuar.',
+      status: 401,
+      isAbort: false,
+    });
 
     await expect(createCalendarEvent({
       title: 'Evento',
@@ -205,7 +212,11 @@ describe('events pocketbase client', () => {
       isAllDay: false,
       kind: 'event',
       status: 'planned',
-    })).rejects.toThrow('No hay usuario autenticado');
+    })).rejects.toMatchObject({
+      message: 'Debes iniciar sesión para continuar.',
+      status: 401,
+      isAbort: false,
+    });
   });
 
   it('normalizes errors', async () => {

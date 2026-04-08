@@ -27,3 +27,18 @@ export function downloadBlobFile(fileName: string, blob: Blob): void {
   anchor.remove();
   URL.revokeObjectURL(objectUrl);
 }
+
+export function downloadBase64File(fileName: string, base64Data: string, mimeType: string): void {
+  if (typeof document === 'undefined' || typeof URL === 'undefined') {
+    throw new Error('La descarga de archivos solo está disponible en el navegador.');
+  }
+
+  const byteCharacters = atob(base64Data);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: mimeType });
+  downloadBlobFile(fileName, blob);
+}

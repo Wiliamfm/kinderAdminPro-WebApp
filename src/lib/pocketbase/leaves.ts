@@ -1,4 +1,5 @@
-import pb, { normalizePocketBaseError } from './client';
+import { getAuthenticatedPb } from '../server/get-authenticated-pb';
+import { normalizePocketBaseError } from './errors';
 import type { PaginatedListResult } from '../table/pagination';
 
 type PbLeaveRecord = {
@@ -135,6 +136,8 @@ export async function listEmployeeLeaves(
   perPage: number,
   options: LeaveListOptions = {},
 ): Promise<PaginatedLeavesResult> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const sortField = options.sortField ?? 'start_datetime';
     const sortDirection = options.sortDirection ?? 'desc';
@@ -157,6 +160,8 @@ export async function listEmployeeLeaves(
 }
 
 export async function createEmployeeLeave(payload: LeaveCreateInput): Promise<LeaveRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const record = await pb.collection('leaves').create(mapLeavePayload(payload));
     return mapLeaveRecord(record);
@@ -169,6 +174,8 @@ export async function updateEmployeeLeave(
   id: string,
   payload: LeaveCreateInput,
 ): Promise<LeaveRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const record = await pb.collection('leaves').update(id, mapLeavePayload(payload));
     return mapLeaveRecord(record);
@@ -178,6 +185,8 @@ export async function updateEmployeeLeave(
 }
 
 export async function listLeaveAnalyticsRecords(): Promise<LeaveAnalyticsRecord[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const records = await pb.collection('leaves').getFullList({
       sort: '-start_datetime',
@@ -206,6 +215,8 @@ export async function hasLeaveOverlap(
   endIso: string,
   excludeLeaveId?: string,
 ): Promise<boolean> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const baseFilter =
       'employee_id = {:employeeId} && start_datetime < {:endIso} && end_datetime > {:startIso}';

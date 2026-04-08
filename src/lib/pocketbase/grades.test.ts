@@ -18,6 +18,7 @@ const hoisted = vi.hoisted(() => {
   const del = vi.fn();
   const getList = vi.fn();
   const normalizePocketBaseError = vi.fn();
+  const getAuthenticatedPb = vi.fn();
 
   const filter = vi.fn((template: string, _params: unknown) => template);
 
@@ -49,18 +50,23 @@ const hoisted = vi.hoisted(() => {
     getList,
     filter,
     normalizePocketBaseError,
+    getAuthenticatedPb,
     pb,
   };
 });
 
-vi.mock('./client', () => ({
-  default: hoisted.pb,
+vi.mock('../server/get-authenticated-pb', () => ({
+  getAuthenticatedPb: hoisted.getAuthenticatedPb,
+}));
+
+vi.mock('./errors', () => ({
   normalizePocketBaseError: hoisted.normalizePocketBaseError,
 }));
 
 describe('grades pocketbase client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    hoisted.getAuthenticatedPb.mockResolvedValue(hoisted.pb);
   });
 
   it('lists grades with employee expand', async () => {

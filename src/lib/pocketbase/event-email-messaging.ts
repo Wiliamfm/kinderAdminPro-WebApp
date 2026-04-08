@@ -8,7 +8,8 @@ import {
   type EmailRecipientType,
   type ResolvedEmailRecipient,
 } from '../event-email-messaging';
-import pb, { normalizePocketBaseError } from './client';
+import { getAuthenticatedPb } from '../server/get-authenticated-pb';
+import { normalizePocketBaseError } from './errors';
 import { listActiveEmployees } from './employees';
 import { listGrades } from './grades';
 import { listActiveStudents } from './students';
@@ -216,6 +217,8 @@ function mapEmailMessageRecipientRecord(
 export async function resolveEmployeeRecipients(
   employeeIds: string[],
 ): Promise<ResolvedEmailRecipient[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   const normalizedIds = Array.from(new Set(employeeIds.map((id) => id.trim()).filter((id) => id.length > 0)));
   if (normalizedIds.length === 0) return [];
 
@@ -249,6 +252,8 @@ export async function resolveFatherRecipients(filters: {
   studentIds: string[];
   gradeIds: string[];
 }): Promise<ResolvedEmailRecipient[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   const selectedStudentIds = Array.from(new Set(filters.studentIds.map((id) => id.trim()).filter((id) => id.length > 0)));
   const selectedGradeIds = Array.from(new Set(filters.gradeIds.map((id) => id.trim()).filter((id) => id.length > 0)));
 
@@ -333,6 +338,8 @@ export async function resolveFatherRecipients(filters: {
 }
 
 export async function listEmailMessages(limit = 10): Promise<EmailMessageRecord[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const result = await pb.collection('email_messages').getList(1, limit, {
       sort: '-created_at',
@@ -348,6 +355,8 @@ export async function listEmailMessages(limit = 10): Promise<EmailMessageRecord[
 export async function listEmailMessageRecipients(
   messageId: string,
 ): Promise<EmailMessageRecipientRecord[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   const normalizedMessageId = messageId.trim();
   if (!normalizedMessageId) return [];
 
@@ -366,54 +375,44 @@ export async function listEmailMessageRecipients(
 export async function sendEventEmail(
   input: SendEventEmailInput,
 ): Promise<SendEventEmailSummary> {
-  try {
-    const response = await pb.send('/api/tesis/event-email-messaging/send', {
-      method: 'POST',
-      body: {
-        subject: input.subject.trim(),
-        bodyText: input.bodyText.trim(),
-        bodyHtml: buildEmailPreviewHtml(input.bodyText),
-        recipients: input.recipients.map((recipient) => ({
-          recipientType: recipient.recipientType,
-          recipientId: recipient.recipientId,
-          recipientName: recipient.recipientName,
-          recipientEmail: recipient.recipientEmail,
-          sources: recipient.sources,
-        })),
-      },
-    });
+  "use server";
+  const { sendBulkEmail } = await import('../server/email');
 
-    const mappedResponse = response as Record<string, unknown>;
-    const rawRecipients = Array.isArray(mappedResponse.recipients)
-      ? mappedResponse.recipients as Array<Record<string, unknown>>
-      : [];
+  const result = await sendBulkEmail({
+    subject: input.subject.trim(),
+    bodyText: input.bodyText.trim(),
+    recipients: input.recipients.map((recipient) => ({
+      recipientType: recipient.recipientType,
+      recipientId: recipient.recipientId,
+      recipientName: recipient.recipientName,
+      recipientEmail: recipient.recipientEmail,
+      sources: recipient.sources,
+    })),
+  });
 
-    return {
-      messageId: toStringValue(mappedResponse.messageId),
-      totalResolved: toNumberValue(mappedResponse.totalResolved),
-      totalSendable: toNumberValue(mappedResponse.totalSendable),
-      totalMissingEmail: toNumberValue(mappedResponse.totalMissingEmail),
-      totalSent: toNumberValue(mappedResponse.totalSent),
-      totalFailed: toNumberValue(mappedResponse.totalFailed),
-      totalSkipped: toNumberValue(mappedResponse.totalSkipped),
-      recipients: rawRecipients.map((recipient) => ({
-        recipientType: toStringValue(recipient.recipientType) === 'father' ? 'father' : 'employee',
-        recipientId: toStringValue(recipient.recipientId),
-        recipientName: toStringValue(recipient.recipientName),
-        recipientEmail: toStringValue(recipient.recipientEmail),
-        status: (
-          toStringValue(recipient.status) === 'sent'
-          || toStringValue(recipient.status) === 'failed'
-          || toStringValue(recipient.status) === 'missing_email'
-          || toStringValue(recipient.status) === 'skipped'
-        )
-          ? toStringValue(recipient.status) as Exclude<EmailDeliveryStatus, 'pending'>
-          : 'pending',
-        errorMessage: toStringValue(recipient.errorMessage),
-        providerMessageId: toStringValue(recipient.providerMessageId),
-      })),
-    };
-  } catch (error) {
-    throw normalizePocketBaseError(error);
-  }
+  return {
+    messageId: result.messageId,
+    totalResolved: result.totalResolved,
+    totalSendable: result.totalSendable,
+    totalMissingEmail: result.totalMissingEmail,
+    totalSent: result.totalSent,
+    totalFailed: result.totalFailed,
+    totalSkipped: result.totalSkipped,
+    recipients: result.recipients.map((recipient) => ({
+      recipientType: recipient.recipientType === 'father' ? 'father' : 'employee',
+      recipientId: recipient.recipientId,
+      recipientName: recipient.recipientName,
+      recipientEmail: recipient.recipientEmail,
+      status: (
+        recipient.status === 'sent'
+        || recipient.status === 'failed'
+        || recipient.status === 'missing_email'
+        || recipient.status === 'skipped'
+      )
+        ? recipient.status as Exclude<EmailDeliveryStatus, 'pending'>
+        : 'pending',
+      errorMessage: recipient.errorMessage,
+      providerMessageId: recipient.providerMessageId,
+    })),
+  };
 }

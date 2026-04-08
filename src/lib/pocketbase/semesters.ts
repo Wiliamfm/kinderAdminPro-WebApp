@@ -1,4 +1,6 @@
-import pb, { normalizePocketBaseError } from './client';
+import { getAuthenticatedPb } from '../server/get-authenticated-pb';
+import { normalizePocketBaseError } from './errors';
+import type PocketBase from 'pocketbase';
 import type { PaginatedListResult } from '../table/pagination';
 
 export type SemesterRecord = {
@@ -75,7 +77,7 @@ function mapSemesterPayload(payload: SemesterCreateInput | SemesterUpdateInput) 
   };
 }
 
-async function unsetCurrentSemesters(excludeId?: string): Promise<void> {
+async function unsetCurrentSemesters(pb: PocketBase, excludeId?: string): Promise<void> {
   const filter = excludeId
     ? `is_current = true && id != "${excludeId.replace(/"/g, '\\"')}"`
     : 'is_current = true';
@@ -97,6 +99,8 @@ export async function listSemestersPage(
   perPage: number,
   options: SemesterListOptions = {},
 ): Promise<PaginatedSemestersResult> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const sortField = options.sortField ?? 'name';
     const sortDirection = options.sortDirection ?? 'asc';
@@ -118,6 +122,8 @@ export async function listSemestersPage(
 }
 
 export async function listSemesterOptions(): Promise<SemesterRecord[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const records = await pb.collection('semesters').getFullList({
       sort: '-start_date',
@@ -132,6 +138,8 @@ export async function listSemesterOptions(): Promise<SemesterRecord[]> {
 }
 
 export async function getSemesterById(id: string): Promise<SemesterRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const record = await pb.collection('semesters').getOne(id);
     return mapSemesterRecord(record);
@@ -141,6 +149,8 @@ export async function getSemesterById(id: string): Promise<SemesterRecord> {
 }
 
 export async function getCurrentSemester(): Promise<SemesterRecord | null> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const result = await pb.collection('semesters').getList(1, 1, {
       filter: 'is_current = true',
@@ -156,9 +166,11 @@ export async function getCurrentSemester(): Promise<SemesterRecord | null> {
 }
 
 export async function createSemester(payload: SemesterCreateInput): Promise<SemesterRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     if (payload.is_current) {
-      await unsetCurrentSemesters();
+      await unsetCurrentSemesters(pb);
     }
 
     const record = await pb.collection('semesters').create(mapSemesterPayload(payload));
@@ -172,9 +184,11 @@ export async function updateSemester(
   id: string,
   payload: SemesterUpdateInput,
 ): Promise<SemesterRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     if (payload.is_current) {
-      await unsetCurrentSemesters(id);
+      await unsetCurrentSemesters(pb, id);
     }
 
     const record = await pb.collection('semesters').update(id, mapSemesterPayload(payload));

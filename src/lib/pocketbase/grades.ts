@@ -1,4 +1,5 @@
-import pb, { normalizePocketBaseError } from './client';
+import { getAuthenticatedPb } from '../server/get-authenticated-pb';
+import { normalizePocketBaseError } from './errors';
 import type { PaginatedListResult } from '../table/pagination';
 
 export type GradeRecord = {
@@ -91,6 +92,8 @@ function buildSortExpression(
 }
 
 export async function listGrades(): Promise<GradeRecord[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const records = await pb.collection('grades').getFullList({
       sort: 'name',
@@ -108,6 +111,8 @@ export async function listGradesPage(
   perPage: number,
   options: GradeListOptions = {},
 ): Promise<PaginatedGradesResult> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const sortField = options.sortField ?? 'name';
     const sortDirection = options.sortDirection ?? 'asc';
@@ -129,6 +134,8 @@ export async function listGradesPage(
 }
 
 export async function createGrade(payload: GradeCreateInput): Promise<GradeRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const record = await pb.collection('grades').create({
       name: payload.name.trim(),
@@ -145,6 +152,8 @@ export async function updateGrade(
   id: string,
   payload: GradeUpdateInput,
 ): Promise<GradeRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const record = await pb.collection('grades').update(id, {
       name: payload.name.trim(),
@@ -158,6 +167,8 @@ export async function updateGrade(
 }
 
 export async function deleteGrade(id: string): Promise<void> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     await pb.collection('grades').delete(id);
   } catch (error) {
@@ -170,6 +181,8 @@ function escapeFilterValue(value: string): string {
 }
 
 export async function listGradesByEmployeeId(employeeId: string): Promise<GradeRecord[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const records = await pb.collection('grades').getFullList({
       filter: pb.filter('employee_id = {:employeeId}', { employeeId }),
@@ -186,6 +199,8 @@ export async function updateGradeProfessor(
   gradeId: string,
   employeeId: string | null,
 ): Promise<GradeRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const record = await pb.collection('grades').update(gradeId, {
       employee_id: employeeId ?? '',
@@ -199,6 +214,8 @@ export async function updateGradeProfessor(
 }
 
 export async function countActiveStudentsByGradeId(gradeId: string): Promise<number> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const result = await pb.collection('students').getList(1, 1, {
       filter: `grade_id = "${escapeFilterValue(gradeId)}" && active = true`,

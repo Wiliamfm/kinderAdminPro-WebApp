@@ -1,22 +1,4 @@
-import PocketBase, { ClientResponseError } from 'pocketbase';
-
-function getPocketBaseUrl(): string {
-  const rawUrl = import.meta.env.VITE_PB_URL?.trim() || 'http://127.0.0.1:8090';
-
-  try {
-    const parsed = new URL(rawUrl);
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      throw new Error('PocketBase URL must use http or https.');
-    }
-  } catch {
-    throw new Error('Invalid VITE_PB_URL. Expected a valid absolute URL.');
-  }
-
-  return rawUrl;
-}
-
-const pocketBaseUrl = getPocketBaseUrl();
-const pb = new PocketBase(pocketBaseUrl);
+import { ClientResponseError } from 'pocketbase';
 
 export type PocketBaseRequestError = {
   message: string;
@@ -68,5 +50,3 @@ export function normalizePocketBaseError(error: unknown): PocketBaseRequestError
     isAbort: false,
   };
 }
-
-export default pb;

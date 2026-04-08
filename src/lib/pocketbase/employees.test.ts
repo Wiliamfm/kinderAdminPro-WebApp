@@ -18,6 +18,7 @@ const hoisted = vi.hoisted(() => {
   const update = vi.fn();
   const getURL = vi.fn();
   const normalizePocketBaseError = vi.fn();
+  const getAuthenticatedPb = vi.fn();
 
   const filter = vi.fn((template: string, _params: unknown) => template);
 
@@ -44,18 +45,23 @@ const hoisted = vi.hoisted(() => {
     getURL,
     filter,
     normalizePocketBaseError,
+    getAuthenticatedPb,
     pb,
   };
 });
 
-vi.mock('./client', () => ({
-  default: hoisted.pb,
+vi.mock('../server/get-authenticated-pb', () => ({
+  getAuthenticatedPb: hoisted.getAuthenticatedPb,
+}));
+
+vi.mock('./errors', () => ({
   normalizePocketBaseError: hoisted.normalizePocketBaseError,
 }));
 
 describe('employees pocketbase client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    hoisted.getAuthenticatedPb.mockResolvedValue(hoisted.pb);
     hoisted.getURL.mockImplementation((_record: unknown, fileName: string) => `https://files/${fileName}`);
   });
 

@@ -13,10 +13,10 @@ bun install
 2. Configure environment variables:
 
 ```bash
-VITE_PB_URL=http://127.0.0.1:8090
+PB_URL=http://127.0.0.1:8090
 ```
 
-`VITE_PB_URL` is optional. If unset, the app defaults to `http://127.0.0.1:8090`.
+`PB_URL` is optional. If unset, the app defaults to `http://127.0.0.1:8090`.
 
 ## Run
 
@@ -41,18 +41,18 @@ bun run serve
 Build the image:
 
 ```bash
-docker build -t tesis-front --build-arg VITE_PB_URL=http://host.docker.internal:8090 .
+docker build -t tesis-front .
 ```
 
 Run the container:
 
 ```bash
-docker run --rm -p 3000:3000 tesis-front
+docker run --rm -p 3000:3000 -e PB_URL=http://host.docker.internal:8090 tesis-front
 ```
 
 Open `http://localhost:3000`.
 
-`VITE_PB_URL` is a Vite compile-time variable. Changing it requires rebuilding the image.
+`PB_URL` is read on the server at runtime. Changing it does not require rebuilding the image.
 
 ## Backend Connectivity Behavior
 

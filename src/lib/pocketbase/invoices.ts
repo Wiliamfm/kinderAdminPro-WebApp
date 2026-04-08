@@ -1,4 +1,5 @@
-import pb, { normalizePocketBaseError } from './client';
+import { getAuthenticatedPb } from '../server/get-authenticated-pb';
+import { normalizePocketBaseError } from './errors';
 import type { PaginatedListResult } from '../table/pagination';
 
 type PbInvoiceRecord = {
@@ -196,6 +197,8 @@ export async function listEmployeeInvoices(
   perPage: number,
   options: InvoiceListOptions = {},
 ): Promise<PaginatedInvoicesResult> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const sortField = options.sortField ?? 'update_datetime';
     const sortDirection = options.sortDirection ?? 'desc';
@@ -219,6 +222,8 @@ export async function listEmployeeInvoices(
 }
 
 export async function createInvoice(payload: InvoiceCreateInput): Promise<InvoiceRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const collection = pb.collection('invoices');
     const created = await collection.create(mapInvoicePayload(payload));
@@ -246,6 +251,8 @@ export async function createInvoice(payload: InvoiceCreateInput): Promise<Invoic
 }
 
 export async function updateInvoice(id: string, payload: InvoiceUpdateInput): Promise<InvoiceRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const collection = pb.collection('invoices');
     const updated = await collection.update(id, mapInvoiceUpdatePayload(payload));

@@ -1,12 +1,5 @@
 /// <reference types="vite/client" />
-
-interface ImportMetaEnv {
-  readonly VITE_PB_URL?: string;
-}
-
-interface ImportMeta {
-  readonly env: ImportMetaEnv;
-}
+/// <reference types="@solidjs/start/env" />
 
 declare namespace JSX {
   interface IntrinsicElements {

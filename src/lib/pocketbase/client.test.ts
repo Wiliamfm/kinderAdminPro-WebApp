@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizePocketBaseError, type PocketBaseRequestError } from './client';
+import { normalizePocketBaseError, type PocketBaseRequestError } from './errors';
 
 describe('pocketbase client error normalization', () => {
   it('keeps already normalized errors', () => {

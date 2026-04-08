@@ -1,5 +1,5 @@
-import pb, { normalizePocketBaseError } from './client';
-import { getAuthUserId } from './users';
+import { getAuthenticatedPb, getAuthenticatedPbWithUserId } from '../server/get-authenticated-pb';
+import { normalizePocketBaseError } from './errors';
 
 export const CALENDAR_EVENT_KINDS = ['event', 'task'] as const;
 export type CalendarEventKind = (typeof CALENDAR_EVENT_KINDS)[number];
@@ -96,15 +96,6 @@ function escapeFilterValue(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
-function requireAuthUserId(): string {
-  const userId = getAuthUserId();
-  if (!userId) {
-    throw new Error('No hay usuario autenticado para completar la operación.');
-  }
-
-  return userId;
-}
-
 function buildPayload(payload: CalendarEventCreateInput | CalendarEventUpdateInput) {
   return {
     title: payload.title.trim(),
@@ -121,12 +112,15 @@ export async function listCalendarEventsInRange(
   startDateTime: string,
   endDateTime: string,
 ): Promise<CalendarEventRecord[]> {
+  "use server";
   const normalizedStart = normalizeDateTimeInput(startDateTime);
   const normalizedEnd = normalizeDateTimeInput(endDateTime);
 
   if (!normalizedStart || !normalizedEnd) {
     return [];
   }
+
+  const pb = await getAuthenticatedPb();
 
   try {
     const records = await pb.collection('events').getFullList({
@@ -146,7 +140,8 @@ export async function listCalendarEventsInRange(
 export async function createCalendarEvent(
   payload: CalendarEventCreateInput,
 ): Promise<CalendarEventRecord> {
-  const authUserId = requireAuthUserId();
+  "use server";
+  const { pb, userId: authUserId } = await getAuthenticatedPbWithUserId();
 
   try {
     const record = await pb.collection('events').create({
@@ -166,7 +161,8 @@ export async function updateCalendarEvent(
   id: string,
   payload: CalendarEventUpdateInput,
 ): Promise<CalendarEventRecord> {
-  const authUserId = requireAuthUserId();
+  "use server";
+  const { pb, userId: authUserId } = await getAuthenticatedPbWithUserId();
 
   try {
     const record = await pb.collection('events').update(id, {
@@ -181,7 +177,8 @@ export async function updateCalendarEvent(
 }
 
 export async function softDeleteCalendarEvent(id: string): Promise<void> {
-  const authUserId = requireAuthUserId();
+  "use server";
+  const { pb, userId: authUserId } = await getAuthenticatedPbWithUserId();
 
   try {
     await pb.collection('events').update(id, {
@@ -194,10 +191,13 @@ export async function softDeleteCalendarEvent(id: string): Promise<void> {
 }
 
 export async function deleteCalendarEvent(id: string): Promise<void> {
+  "use server";
   const normalizedId = id.trim();
   if (!normalizedId) {
     throw new Error('El evento es obligatorio para eliminarlo.');
   }
+
+  const pb = await getAuthenticatedPb();
 
   try {
     await pb.collection('events').delete(normalizedId);

@@ -1,6 +1,6 @@
-import pb, { normalizePocketBaseError } from './client';
+import { getAuthenticatedPb, getAuthenticatedPbWithUserId } from '../server/get-authenticated-pb';
+import { normalizePocketBaseError } from './errors';
 import type { PaginatedListResult } from '../table/pagination';
-import { getAuthUserId } from './users';
 
 export type EmployeeReportRecord = {
   id: string;
@@ -261,15 +261,6 @@ function buildFilterExpression(options: EmployeeReportListOptions): string {
   return clauses.join(' && ');
 }
 
-function requireAuthUserId(): string {
-  const userId = getAuthUserId();
-  if (!userId) {
-    throw new Error('No hay usuario autenticado para completar la operación.');
-  }
-
-  return userId;
-}
-
 function mapEmployeeReportPayload(payload: EmployeeReportCreateInput | EmployeeReportUpdateInput) {
   return {
     employee_id: payload.employee_id.trim(),
@@ -284,6 +275,8 @@ export async function listEmployeeReportsPage(
   perPage: number,
   options: EmployeeReportListOptions = {},
 ): Promise<PaginatedEmployeeReportsResult> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const sortField = options.sortField ?? 'created_at';
     const sortDirection = options.sortDirection ?? 'desc';
@@ -311,6 +304,8 @@ export async function listEmployeeReportsPage(
 export async function listEmployeeReportsForExport(
   options: EmployeeReportExportOptions = {},
 ): Promise<EmployeeReportRecord[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const sortField = options.sortField ?? 'created_at';
     const sortDirection = options.sortDirection ?? 'desc';
@@ -332,7 +327,8 @@ export async function listEmployeeReportsForExport(
 export async function createEmployeeReport(
   payload: EmployeeReportCreateInput,
 ): Promise<EmployeeReportRecord> {
-  const authUserId = requireAuthUserId();
+  "use server";
+  const { pb, userId: authUserId } = await getAuthenticatedPbWithUserId();
 
   try {
     const record = await pb.collection('employee_reports').create(
@@ -357,7 +353,8 @@ export async function updateEmployeeReport(
   id: string,
   payload: EmployeeReportUpdateInput,
 ): Promise<EmployeeReportRecord> {
-  const authUserId = requireAuthUserId();
+  "use server";
+  const { pb, userId: authUserId } = await getAuthenticatedPbWithUserId();
 
   try {
     const record = await pb.collection('employee_reports').update(
@@ -378,7 +375,8 @@ export async function updateEmployeeReport(
 }
 
 export async function softDeleteEmployeeReport(id: string): Promise<void> {
-  const authUserId = requireAuthUserId();
+  "use server";
+  const { pb, userId: authUserId } = await getAuthenticatedPbWithUserId();
 
   try {
     await pb.collection('employee_reports').update(id, {
@@ -391,6 +389,8 @@ export async function softDeleteEmployeeReport(id: string): Promise<void> {
 }
 
 export async function listEmployeeReportFormOptions(): Promise<EmployeeReportFormOptions> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const [employees, jobs, semesters] = await Promise.all([
       pb.collection('employees').getFullList({
@@ -445,6 +445,8 @@ export async function listEmployeeReportFormOptions(): Promise<EmployeeReportFor
 }
 
 export async function listEmployeeReportsAnalyticsRecords(): Promise<EmployeeReportAnalyticsRecord[]> {
+  "use server";
+  const pb = await getAuthenticatedPb();
   try {
     const records = await pb.collection('employee_reports').getFullList({
       sort: '-created_at',
