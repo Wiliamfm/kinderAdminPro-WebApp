@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from '@solidjs/router';
 import { createEffect, createMemo, createResource, createSignal, For, Show } from 'solid-js';
-import { canAccessModule } from '../../../lib/pocketbase/auth';
+import { canAccessModule, getAuthUserId } from '../../../lib/pocketbase/auth';
 import {
   createBulletinStudent,
   listBulletinStudentsByStudentAndGrade,
@@ -13,7 +13,6 @@ import { getEmployeeByUserId } from '../../../lib/pocketbase/employees';
 import { listGradesByEmployeeId } from '../../../lib/pocketbase/grades';
 import { getCurrentSemester } from '../../../lib/pocketbase/semesters';
 import { getStudentById } from '../../../lib/pocketbase/students';
-import { getAuthUserId } from '../../../lib/pocketbase/users';
 
 type EditingState = {
   bulletinId: string;

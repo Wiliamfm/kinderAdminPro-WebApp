@@ -1,11 +1,10 @@
 import { useNavigate } from '@solidjs/router';
 import { createEffect, createMemo, createResource, For, Show } from 'solid-js';
-import { canAccessModule } from '../../lib/pocketbase/auth';
+import { canAccessModule, getAuthUserId } from '../../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../../lib/pocketbase/errors';
 import { getEmployeeByUserId } from '../../lib/pocketbase/employees';
 import { listGradesByEmployeeId } from '../../lib/pocketbase/grades';
 import { listActiveStudentsByGradeIds, type StudentRecord } from '../../lib/pocketbase/students';
-import { getAuthUserId } from '../../lib/pocketbase/users';
 
 function formatText(value: unknown): string {
   if (typeof value !== 'string') return '—';

@@ -124,6 +124,7 @@ export async function listSemestersPage(
 export async function listSemesterOptions(): Promise<SemesterRecord[]> {
   "use server";
   const pb = await getAuthenticatedPb();
+  console.log(pb.authStore.record);
   try {
     const records = await pb.collection('semesters').getFullList({
       sort: '-start_date',
@@ -133,6 +134,7 @@ export async function listSemesterOptions(): Promise<SemesterRecord[]> {
 
     return records.map((record) => mapSemesterRecord(record));
   } catch (error) {
+    console.error(error);
     throw normalizePocketBaseError(error);
   }
 }

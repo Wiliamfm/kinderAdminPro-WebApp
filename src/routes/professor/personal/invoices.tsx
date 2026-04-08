@@ -4,7 +4,7 @@ import PaginationControls from '../../../components/PaginationControls';
 import SortableHeaderCell from '../../../components/SortableHeaderCell';
 import { toggleSort, type SortState } from '../../../lib/table/sorting';
 import { DEFAULT_TABLE_PAGE_SIZE } from '../../../lib/table/pagination';
-import { canAccessModule } from '../../../lib/pocketbase/auth';
+import { canAccessModule, getAuthUserId } from '../../../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../../../lib/pocketbase/errors';
 import { getEmployeeByUserId } from '../../../lib/pocketbase/employees';
 import {
@@ -12,7 +12,6 @@ import {
   type InvoiceRecord,
   type InvoiceSortField,
 } from '../../../lib/pocketbase/invoices';
-import { getAuthUserId } from '../../../lib/pocketbase/users';
 
 function formatDateTime(value: unknown): string {
   if (typeof value !== 'string' || value.length === 0) return '—';

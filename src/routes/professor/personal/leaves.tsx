@@ -20,7 +20,7 @@ import {
 } from '../../../lib/forms/realtime-validation';
 import { toggleSort, type SortState } from '../../../lib/table/sorting';
 import { clampPage, DEFAULT_TABLE_PAGE_SIZE } from '../../../lib/table/pagination';
-import { canAccessModule } from '../../../lib/pocketbase/auth';
+import { canAccessModule, getAuthUserId } from '../../../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../../../lib/pocketbase/errors';
 import { getEmployeeByUserId } from '../../../lib/pocketbase/employees';
 import {
@@ -33,7 +33,6 @@ import {
   type LeaveSortField,
 } from '../../../lib/pocketbase/leaves';
 import { getCurrentSemester, listSemesterOptions } from '../../../lib/pocketbase/semesters';
-import { getAuthUserId } from '../../../lib/pocketbase/users';
 
 const LEAVE_FIELDS = ['semesterId', 'start_datetime', 'end_datetime'] as const;
 type LeaveField = (typeof LEAVE_FIELDS)[number];
@@ -184,7 +183,7 @@ export default function ProfessorLeavesPage() {
     if (!createModalOpen()) return undefined;
     if (leaveSemesterLoadError()) return leaveSemesterLoadError() ?? undefined;
     if (!leaveSemesters.loading && leaveSemesterOptions().length === 0) {
-      return 'No hay semestres registrados. Debes crear uno antes de guardar una salida.';
+      return 'No hay semestres registrados. Debes crear uno antes de guardar una ausencia.';
     }
 
     return undefined;
@@ -308,7 +307,7 @@ export default function ProfessorLeavesPage() {
       );
 
       if (overlap) {
-        setLeaveAsyncError('Ya existe una salida que se superpone con las fechas seleccionadas.');
+        setLeaveAsyncError('Ya existe una ausencia que se superpone con las fechas seleccionadas.');
         return;
       }
 
@@ -357,8 +356,8 @@ export default function ProfessorLeavesPage() {
       <div class="mx-auto max-w-5xl rounded-xl border border-yellow-300 bg-white p-4 sm:p-6">
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 class="text-2xl font-semibold">Registrar salida</h1>
-            <p class="mt-2 text-gray-600">Consulta y registra tus salidas.</p>
+            <h1 class="text-2xl font-semibold">Registrar ausencia</h1>
+            <p class="mt-2 text-gray-600">Consulta y registra tus ausencias.</p>
           </div>
 
           <button
@@ -385,7 +384,7 @@ export default function ProfessorLeavesPage() {
                 class="rounded-lg bg-yellow-600 px-4 py-2 text-sm text-white transition-colors hover:bg-yellow-700"
                 onClick={openCreate}
               >
-                Nueva salida
+                Nueva ausencia
               </button>
             </div>
 
@@ -416,7 +415,7 @@ export default function ProfessorLeavesPage() {
                     fallback={
                       <tr>
                         <td class="px-4 py-4 text-gray-600" colSpan={3}>
-                          Cargando salidas...
+                          Cargando ausencias...
                         </td>
                       </tr>
                     }
@@ -436,7 +435,7 @@ export default function ProfessorLeavesPage() {
                         fallback={
                           <tr>
                             <td class="px-4 py-4 text-gray-600" colSpan={3}>
-                              No hay salidas registradas.
+                              No hay ausencias registradas.
                             </td>
                           </tr>
                         }
@@ -450,7 +449,7 @@ export default function ProfessorLeavesPage() {
                                 <button
                                   type="button"
                                   class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-yellow-300 bg-yellow-100 text-gray-700 transition-colors hover:bg-yellow-200"
-                                  aria-label="Editar salida"
+                                  aria-label="Editar ausencia"
                                   onClick={() => openEdit(leave)}
                                 >
                                   <i class="bi bi-pencil-square" aria-hidden="true"></i>
@@ -478,8 +477,8 @@ export default function ProfessorLeavesPage() {
 
       <Modal
         open={createModalOpen()}
-        title={editingLeaveId() ? 'Editar salida' : 'Nueva salida'}
-        confirmLabel={editingLeaveId() ? 'Guardar cambios' : 'Registrar salida'}
+        title={editingLeaveId() ? 'Editar ausencia' : 'Nueva ausencia'}
+        confirmLabel={editingLeaveId() ? 'Guardar cambios' : 'Registrar ausencia'}
         busy={leaveBusy()}
         onConfirm={submitLeave}
         onClose={closeLeaveModal}
