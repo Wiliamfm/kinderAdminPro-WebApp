@@ -1,5 +1,6 @@
 import { useNavigate } from '@solidjs/router';
 import { createEffect, createResource, createSignal, For, Show } from 'solid-js';
+import Modal from '../../../components/Modal';
 import PaginationControls from '../../../components/PaginationControls';
 import SortableHeaderCell from '../../../components/SortableHeaderCell';
 import { toggleSort, type SortState } from '../../../lib/table/sorting';
@@ -7,11 +8,13 @@ import { DEFAULT_TABLE_PAGE_SIZE } from '../../../lib/table/pagination';
 import { canAccessModule, getAuthUserId } from '../../../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../../../lib/pocketbase/errors';
 import { getEmployeeByUserId } from '../../../lib/pocketbase/employees';
+import { getInvoiceFileUrl } from '../../../lib/pocketbase/invoice-files';
 import {
   listEmployeeInvoices,
   type InvoiceRecord,
   type InvoiceSortField,
 } from '../../../lib/pocketbase/invoices';
+import { downloadBlobFile } from '../../../lib/reports/download';
 
 function formatDateTime(value: unknown): string {
   if (typeof value !== 'string' || value.length === 0) return '—';
@@ -38,6 +41,27 @@ function getErrorMessage(error: unknown): string {
 
 type InvoiceSortKey = InvoiceSortField;
 const DEFAULT_INVOICE_SORT: SortState<InvoiceSortKey> = { key: 'update_datetime', direction: 'desc' };
+const BULK_DOWNLOAD_DELAY_MS = 250;
+
+function formatDownloadFileName(value: unknown): string {
+  if (typeof value !== 'string') return 'factura.pdf';
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : 'factura.pdf';
+}
+
+async function fetchFileBlob(fileUrl: string): Promise<Blob> {
+  const response = await fetch(fileUrl);
+  if (!response.ok) {
+    throw new Error('No se pudo descargar el archivo.');
+  }
+  return response.blob();
+}
+
+function wait(delayMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
+}
 
 export default function ProfessorInvoicesPage() {
   const navigate = useNavigate();
@@ -56,8 +80,19 @@ export default function ProfessorInvoicesPage() {
 
   const [invoicePage, setInvoicePage] = createSignal(1);
   const [invoiceSort, setInvoiceSort] = createSignal<SortState<InvoiceSortKey>>(DEFAULT_INVOICE_SORT);
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = createSignal<string[]>([]);
+  const [bulkDownloadBusy, setBulkDownloadBusy] = createSignal(false);
+  const [bulkDownloadError, setBulkDownloadError] = createSignal('');
+  const [previewInvoice, setPreviewInvoice] = createSignal<InvoiceRecord | null>(null);
+  const [previewFileUrl, setPreviewFileUrl] = createSignal('');
+  const [previewLoading, setPreviewLoading] = createSignal(false);
+  const [previewError, setPreviewError] = createSignal('');
+  const [previewDownloadBusy, setPreviewDownloadBusy] = createSignal(false);
+  const [previewDownloadError, setPreviewDownloadError] = createSignal('');
 
   const employeeId = () => employee()?.id ?? '';
+  let previewRequestId = 0;
+  let selectAllCheckboxRef: HTMLInputElement | undefined;
 
   const [invoices] = createResource(
     () => {
@@ -75,6 +110,115 @@ export default function ProfessorInvoicesPage() {
   };
 
   const invoiceRows = () => invoices()?.items ?? [];
+  const visibleInvoiceIds = () => invoiceRows().map((invoice) => invoice.id);
+  const selectedVisibleInvoiceIds = () => visibleInvoiceIds().filter((id) => selectedInvoiceIds().includes(id));
+  const allVisibleSelected = () =>
+    visibleInvoiceIds().length > 0 && selectedVisibleInvoiceIds().length === visibleInvoiceIds().length;
+  const someVisibleSelected = () =>
+    selectedVisibleInvoiceIds().length > 0 && selectedVisibleInvoiceIds().length < visibleInvoiceIds().length;
+
+  createEffect(() => {
+    const visibleIds = new Set(visibleInvoiceIds());
+    setSelectedInvoiceIds((current) => current.filter((id) => visibleIds.has(id)));
+  });
+
+  createEffect(() => {
+    if (!selectAllCheckboxRef) return;
+    selectAllCheckboxRef.indeterminate = someVisibleSelected();
+  });
+
+  const toggleInvoiceSelection = (invoiceId: string) => {
+    setSelectedInvoiceIds((current) =>
+      current.includes(invoiceId)
+        ? current.filter((id) => id !== invoiceId)
+        : [...current, invoiceId],
+    );
+    setBulkDownloadError('');
+  };
+
+  const toggleAllVisibleInvoices = () => {
+    setSelectedInvoiceIds(allVisibleSelected() ? [] : visibleInvoiceIds());
+    setBulkDownloadError('');
+  };
+
+  const closePreviewModal = () => {
+    previewRequestId += 1;
+    setPreviewInvoice(null);
+    setPreviewFileUrl('');
+    setPreviewLoading(false);
+    setPreviewError('');
+    setPreviewDownloadBusy(false);
+    setPreviewDownloadError('');
+  };
+
+  const openPreviewModal = async (invoice: InvoiceRecord) => {
+    const requestId = ++previewRequestId;
+    setPreviewInvoice(invoice);
+    setPreviewFileUrl('');
+    setPreviewLoading(true);
+    setPreviewError('');
+    setPreviewDownloadError('');
+
+    try {
+      const fileUrl = await getInvoiceFileUrl(invoice.fileId);
+      if (requestId !== previewRequestId) return;
+      setPreviewFileUrl(fileUrl);
+    } catch (error) {
+      if (requestId !== previewRequestId) return;
+      setPreviewError(getErrorMessage(error));
+    } finally {
+      if (requestId === previewRequestId) {
+        setPreviewLoading(false);
+      }
+    }
+  };
+
+  const downloadInvoice = async (invoice: InvoiceRecord, fileUrl?: string) => {
+    const resolvedFileUrl = fileUrl && fileUrl.length > 0
+      ? fileUrl
+      : await getInvoiceFileUrl(invoice.fileId);
+    const blob = await fetchFileBlob(resolvedFileUrl);
+    downloadBlobFile(formatDownloadFileName(invoice.name), blob);
+  };
+
+  const handlePreviewDownload = async () => {
+    const invoice = previewInvoice();
+    if (!invoice || previewDownloadBusy()) return;
+
+    setPreviewDownloadBusy(true);
+    setPreviewDownloadError('');
+
+    try {
+      await downloadInvoice(invoice, previewFileUrl() || undefined);
+    } catch (error) {
+      setPreviewDownloadError(getErrorMessage(error));
+    } finally {
+      setPreviewDownloadBusy(false);
+    }
+  };
+
+  const handleBulkDownload = async () => {
+    if (bulkDownloadBusy()) return;
+
+    const selectedInvoices = invoiceRows().filter((invoice) => selectedInvoiceIds().includes(invoice.id));
+    if (selectedInvoices.length === 0) return;
+
+    setBulkDownloadBusy(true);
+    setBulkDownloadError('');
+
+    try {
+      for (const [index, invoice] of selectedInvoices.entries()) {
+        await downloadInvoice(invoice);
+        if (index < selectedInvoices.length - 1) {
+          await wait(BULK_DOWNLOAD_DELAY_MS);
+        }
+      }
+    } catch (error) {
+      setBulkDownloadError(getErrorMessage(error));
+    } finally {
+      setBulkDownloadBusy(false);
+    }
+  };
 
   return (
     <section class="min-h-screen bg-yellow-50 p-4 sm:p-6 lg:p-8 text-gray-800">
@@ -94,6 +238,27 @@ export default function ProfessorInvoicesPage() {
           </button>
         </div>
 
+        <Show when={selectedInvoiceIds().length > 0}>
+          <div class="mt-4 flex justify-end">
+            <button
+              type="button"
+              class="rounded-lg bg-yellow-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-yellow-700 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={bulkDownloadBusy()}
+              onClick={() => void handleBulkDownload()}
+            >
+              {bulkDownloadBusy()
+                ? 'Descargando...'
+                : `Descargar seleccionadas (${selectedInvoiceIds().length})`}
+            </button>
+          </div>
+        </Show>
+
+        <Show when={bulkDownloadError().length > 0}>
+          <div class="mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {bulkDownloadError()}
+          </div>
+        </Show>
+
         <Show when={!employee.loading}>
           <Show
             when={employee() !== null && employee() !== undefined}
@@ -104,9 +269,19 @@ export default function ProfessorInvoicesPage() {
             }
           >
             <div class="mt-6 overflow-x-auto rounded-lg border border-yellow-200">
-              <table class="min-w-[520px] w-full text-left text-sm">
+              <table class="min-w-[580px] w-full text-left text-sm">
                 <thead class="bg-yellow-100 text-gray-700">
                   <tr>
+                    <th class="w-14 px-4 py-3 font-semibold">
+                      <input
+                        ref={selectAllCheckboxRef}
+                        type="checkbox"
+                        class="h-4 w-4 rounded border-gray-300 text-yellow-600 focus:ring-yellow-500"
+                        checked={allVisibleSelected()}
+                        aria-label="Seleccionar todas las facturas visibles"
+                        onChange={toggleAllVisibleInvoices}
+                      />
+                    </th>
                     <SortableHeaderCell
                       class="px-4 py-3 font-semibold"
                       label="Nombre"
@@ -135,7 +310,7 @@ export default function ProfessorInvoicesPage() {
                     when={!invoices.loading}
                     fallback={
                       <tr>
-                        <td class="px-4 py-4 text-gray-600" colSpan={3}>
+                        <td class="px-4 py-4 text-gray-600" colSpan={4}>
                           Cargando facturas...
                         </td>
                       </tr>
@@ -145,7 +320,7 @@ export default function ProfessorInvoicesPage() {
                       when={!invoices.error}
                       fallback={
                         <tr>
-                          <td class="px-4 py-4 text-red-700" colSpan={3}>
+                          <td class="px-4 py-4 text-red-700" colSpan={4}>
                             {getErrorMessage(invoices.error)}
                           </td>
                         </tr>
@@ -155,7 +330,7 @@ export default function ProfessorInvoicesPage() {
                         when={invoiceRows().length > 0}
                         fallback={
                           <tr>
-                            <td class="px-4 py-4 text-gray-600" colSpan={3}>
+                            <td class="px-4 py-4 text-gray-600" colSpan={4}>
                               No hay facturas registradas.
                             </td>
                           </tr>
@@ -163,7 +338,28 @@ export default function ProfessorInvoicesPage() {
                       >
                         <For each={invoiceRows()}>
                           {(invoice: InvoiceRecord) => (
-                            <tr class="border-t border-yellow-100 align-top">
+                            <tr
+                              class="cursor-pointer border-t border-yellow-100 align-top transition-colors hover:bg-yellow-50 focus-within:bg-yellow-50"
+                              tabindex="0"
+                              onClick={() => void openPreviewModal(invoice)}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault();
+                                  void openPreviewModal(invoice);
+                                }
+                              }}
+                            >
+                              <td class="px-4 py-3" onClick={(event) => event.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  class="h-4 w-4 rounded border-gray-300 text-yellow-600 focus:ring-yellow-500"
+                                  checked={selectedInvoiceIds().includes(invoice.id)}
+                                  aria-label={`Seleccionar factura ${formatText(invoice.name)}`}
+                                  onClick={(event) => event.stopPropagation()}
+                                  onKeyDown={(event) => event.stopPropagation()}
+                                  onChange={() => toggleInvoiceSelection(invoice.id)}
+                                />
+                              </td>
                               <td class="px-4 py-3">{formatText(invoice.name)}</td>
                               <td class="px-4 py-3">{formatText(invoice.semesterName || invoice.semesterId)}</td>
                               <td class="px-4 py-3">{formatDateTime(invoice.updated)}</td>
@@ -186,6 +382,76 @@ export default function ProfessorInvoicesPage() {
           </Show>
         </Show>
       </div>
+
+      <Modal
+        open={previewInvoice() !== null}
+        title={formatText(previewInvoice()?.name)}
+        description="Vista previa del archivo PDF."
+        confirmLabel="Descargar"
+        size="xl"
+        onConfirm={() => {}}
+        onClose={closePreviewModal}
+        footer={(
+          <div class="mt-6 flex shrink-0 justify-end gap-2">
+            <button
+              type="button"
+              class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100"
+              onClick={closePreviewModal}
+            >
+              Cerrar
+            </button>
+            <button
+              type="button"
+              class="rounded-lg bg-yellow-600 px-4 py-2 text-sm text-white transition-colors hover:bg-yellow-700 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={previewLoading() || previewFileUrl().length === 0 || previewDownloadBusy()}
+              onClick={() => void handlePreviewDownload()}
+            >
+              {previewDownloadBusy() ? 'Descargando...' : 'Descargar'}
+            </button>
+          </div>
+        )}
+      >
+        <div class="space-y-4">
+          <Show when={previewDownloadError().length > 0}>
+            <div class="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {previewDownloadError()}
+            </div>
+          </Show>
+
+          <Show
+            when={!previewLoading()}
+            fallback={(
+              <div class="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-6 text-sm text-gray-700">
+                Cargando vista previa...
+              </div>
+            )}
+          >
+            <Show
+              when={previewError().length === 0}
+              fallback={(
+                <div class="rounded-lg border border-red-300 bg-red-50 px-4 py-6 text-sm text-red-700">
+                  {previewError()}
+                </div>
+              )}
+            >
+              <Show
+                when={previewFileUrl().length > 0}
+                fallback={(
+                  <div class="rounded-lg border border-red-300 bg-red-50 px-4 py-6 text-sm text-red-700">
+                    No se encontró el archivo de la factura.
+                  </div>
+                )}
+              >
+                <iframe
+                  class="h-[65vh] w-full rounded-lg border border-yellow-200 bg-white"
+                  src={previewFileUrl()}
+                  title={`Vista previa de ${formatText(previewInvoice()?.name)}`}
+                />
+              </Show>
+            </Show>
+          </Show>
+        </div>
+      </Modal>
     </section>
   );
 }

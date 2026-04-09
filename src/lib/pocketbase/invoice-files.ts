@@ -35,3 +35,15 @@ export async function createInvoiceFile(payload: InvoiceFileCreateInput): Promis
     throw normalizePocketBaseError(error);
   }
 }
+
+export async function getInvoiceFileUrl(fileId: string): Promise<string> {
+  "use server";
+  const pb = await getAuthenticatedPb();
+  try {
+    const record = await pb.collection('invoice_files').getOne(fileId);
+    const fileName = toStringValue(record.get?.('file') ?? record.file);
+    return pb.files.getURL(record, fileName);
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
