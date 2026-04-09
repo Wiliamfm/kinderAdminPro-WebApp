@@ -17,7 +17,7 @@ import type { PocketBaseRequestError } from '../../lib/pocketbase/errors';
 import {
   createBulletinStudent,
   listBulletinStudentFormOptions,
-  listBulletinsStudentsAnalyticsRecords,
+  listBulletinStudentsAnalyticsRecords,
   listBulletinsStudentsPage,
   softDeleteBulletinStudent,
   updateBulletinStudent,
