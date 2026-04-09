@@ -1,4 +1,4 @@
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Professor SHALL have access to a read-only event calendar (Eventos)
 The Eventos section for professors MUST render the event calendar (month view with navigation) showing all published events. Professors MUST NOT be able to create, edit, or delete events from this view. Professors SHALL be able to click an event to open a read-only detail modal.
@@ -20,9 +20,8 @@ The Eventos section for professors MUST render the event calendar (month view wi
 - **WHEN** a professor clicks the next or previous month button
 - **THEN** the calendar advances or retreats one month and loads the corresponding events
 
-### Requirement: Professor event calendar SHALL reuse the shared calendar rendering logic
-The professor calendar MUST use the same underlying calendar component as the admin event-management calendar, with admin-only actions (create, edit, delete, email) hidden via a read-only prop or equivalent mechanism.
+## REMOVED Requirements
 
-#### Scenario: Events are displayed consistently with admin view
-- **WHEN** an event exists on a given date
-- **THEN** it appears on the professor calendar on the same date and with the same label as in the admin view
+### Requirement: Professor event calendar shows tooltip on hover
+**Reason**: Replaced by the click-to-preview modal which provides the same information in a better UX.
+**Migration**: The native browser tooltip (`title` attribute) is removed from calendar events. Users click events instead.

@@ -274,6 +274,27 @@ describe('EventManagementCalendarPage', () => {
     });
   });
 
+  it('opens edit from the preview modal footer', async () => {
+    render(() => <EventManagementCalendarPage />);
+
+    await waitFor(() => {
+      const instance = getCalendarInstance();
+      expect((instance.options.events as unknown[] | undefined)?.length).toBe(1);
+    });
+
+    const calendar = getCalendarInstance();
+
+    (calendar.options.eventClick as ((arg: unknown) => void))?.({
+      event: { id: 'evt1' },
+    });
+
+    expect(await screen.findByRole('heading', { name: 'Reunión general' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+
+    expect(await screen.findByRole('heading', { name: 'Editar elemento del calendario' })).toBeInTheDocument();
+  });
+
   it('hard deletes the previewed item from the detail modal', async () => {
     render(() => <EventManagementCalendarPage />);
 

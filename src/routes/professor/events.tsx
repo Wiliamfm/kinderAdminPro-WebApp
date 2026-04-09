@@ -3,6 +3,7 @@ import listPlugin from '@fullcalendar/list';
 import {
   Calendar,
   type CalendarApi,
+  type EventClickArg,
   type EventContentArg,
   type EventInput,
 } from '@fullcalendar/core';
@@ -18,7 +19,9 @@ import {
   onMount,
   Show,
 } from 'solid-js';
+import EventPreviewModal from '../../components/EventPreviewModal';
 import { canAccessModule } from '../../lib/pocketbase/auth';
+import type { CalendarItemRecord } from '../../lib/types/calendar';
 import {
   listCalendarEventsInRange,
 } from '../../lib/pocketbase/events';
@@ -26,16 +29,10 @@ import {
   listEventAssignmentsByEventIds,
   type EventAssignmentRecord,
 } from '../../lib/pocketbase/event-assignments';
-import type { CalendarEventRecord } from '../../lib/pocketbase/events';
 
 type CalendarRange = {
   start: string;
   end: string;
-};
-
-type CalendarItemRecord = CalendarEventRecord & {
-  assignees: EventAssignmentRecord[];
-  assigneeNames: string[];
 };
 
 function startOfMonth(date: Date): Date {
@@ -52,16 +49,6 @@ function getDefaultRange(): CalendarRange {
     start: startOfMonth(now).toISOString(),
     end: addMonths(startOfMonth(now), 1).toISOString(),
   };
-}
-
-function buildTooltip(item: CalendarItemRecord): string {
-  const assignees = item.assigneeNames.length > 0 ? item.assigneeNames.join(', ') : 'Sin responsables';
-  return [
-    item.title,
-    `Tipo: ${item.kind === 'task' ? 'Tarea' : 'Evento'}`,
-    `Estado: ${item.status === 'planned' ? 'Planificado' : item.status === 'done' ? 'Realizado' : 'Cancelado'}`,
-    `Responsables: ${assignees}`,
-  ].join('\n');
 }
 
 async function loadCalendarItems(range: CalendarRange): Promise<CalendarItemRecord[]> {
@@ -92,6 +79,7 @@ export default function ProfessorCalendarPage() {
 
   const [visibleRange, setVisibleRange] = createSignal<CalendarRange>(getDefaultRange());
   const [calendarLoadError, setCalendarLoadError] = createSignal<string | null>(null);
+  const [previewEventId, setPreviewEventId] = createSignal<string | null>(null);
 
   const [calendarItems] = createResource(visibleRange, (range) =>
     loadCalendarItems(range).catch((err: unknown) => {
@@ -110,6 +98,10 @@ export default function ProfessorCalendarPage() {
   const eventItemsById = createMemo(
     () => new Map((calendarItems() ?? []).map((item) => [item.id, item])),
   );
+  const previewEvent = createMemo(() => {
+    const previewId = previewEventId();
+    return previewId ? eventItemsById().get(previewId) ?? null : null;
+  });
 
   const fullCalendarEvents = createMemo<EventInput[]>(() => (
     (calendarItems() ?? []).map((item) => ({
@@ -118,12 +110,6 @@ export default function ProfessorCalendarPage() {
       start: item.startDateTime,
       end: item.endDateTime,
       allDay: item.isAllDay,
-      extendedProps: {
-        kind: item.kind,
-        status: item.status,
-        assigneeNames: item.assigneeNames,
-        tooltip: buildTooltip(item),
-      },
     }))
   ));
 
@@ -174,13 +160,8 @@ export default function ProfessorCalendarPage() {
       selectable: false,
       events: [],
       eventContent: renderEventContent,
-      eventDidMount: (arg) => {
-        const tooltip = typeof arg.event.extendedProps.tooltip === 'string'
-          ? arg.event.extendedProps.tooltip
-          : '';
-        if (tooltip) {
-          arg.el.setAttribute('title', tooltip);
-        }
+      eventClick: (arg: EventClickArg) => {
+        setPreviewEventId(arg.event.id);
       },
       datesSet: (arg) => {
         const nextRange = {
@@ -233,6 +214,11 @@ export default function ProfessorCalendarPage() {
         </Show>
 
         <div ref={calendarHostRef} />
+
+        <EventPreviewModal
+          event={previewEvent()}
+          onClose={() => setPreviewEventId(null)}
+        />
       </div>
     </section>
   );

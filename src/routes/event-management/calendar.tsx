@@ -21,6 +21,10 @@ import {
   onMount,
   Show,
 } from 'solid-js';
+import EventPreviewModal, {
+  formatDate,
+  formatDateTime,
+} from '../../components/EventPreviewModal';
 import InlineFieldAlert from '../../components/InlineFieldAlert';
 import Modal from '../../components/Modal';
 import {
@@ -30,6 +34,7 @@ import {
   touchField,
   type FieldErrorMap,
 } from '../../lib/forms/realtime-validation';
+import type { CalendarItemRecord } from '../../lib/types/calendar';
 import { canAccessModule } from '../../lib/pocketbase/auth';
 import type { PocketBaseRequestError } from '../../lib/pocketbase/errors';
 import {
@@ -54,11 +59,6 @@ import { listActiveEmployees, type EmployeeRecord } from '../../lib/pocketbase/e
 type CalendarRange = {
   start: string;
   end: string;
-};
-
-type CalendarItemRecord = CalendarEventRecord & {
-  assignees: EventAssignmentRecord[];
-  assigneeNames: string[];
 };
 
 type EventForm = {
@@ -262,25 +262,6 @@ function validateEventForm(form: EventForm): FieldErrorMap<EventFormField> {
   }
 
   return errors;
-}
-
-function formatDateTime(value: string): string {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return '—';
-
-  return new Intl.DateTimeFormat('es-CO', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(parsed);
-}
-
-function formatDate(value: string): string {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return '—';
-
-  return new Intl.DateTimeFormat('es-CO', {
-    dateStyle: 'medium',
-  }).format(parsed);
 }
 
 function buildTooltip(item: CalendarItemRecord): string {
@@ -951,12 +932,8 @@ export default function EventManagementCalendarPage() {
         </div>
       </Modal>
 
-      <Modal
-        open={Boolean(previewEvent())}
-        title={previewEvent()?.title ?? 'Detalle del elemento'}
-        description="Revisa la información principal antes de editar."
-        confirmLabel="Editar"
-        cancelLabel="Cerrar"
+      <EventPreviewModal
+        event={previewEvent()}
         footer={(
           <div class="mt-6 flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <button
@@ -993,58 +970,8 @@ export default function EventManagementCalendarPage() {
             </div>
           </div>
         )}
-        onConfirm={() => {
-          const current = previewEvent();
-          if (!current) return;
-          openEditModal(current);
-        }}
         onClose={() => setPreviewEventId(null)}
-      >
-        <Show when={previewEvent()}>
-          {(item) => (
-            <div class="space-y-4 text-sm text-gray-700">
-              <div class="grid gap-4 sm:grid-cols-2">
-                <div class="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3">
-                  <p class="text-xs uppercase tracking-wide text-yellow-700">Tipo</p>
-                  <p class="mt-1 font-medium text-gray-900">
-                    {item().kind === 'task' ? 'Tarea' : 'Evento'}
-                  </p>
-                </div>
-
-                <div class="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3">
-                  <p class="text-xs uppercase tracking-wide text-yellow-700">Estado</p>
-                  <p class="mt-1 font-medium text-gray-900">
-                    {item().status === 'planned' ? 'Planificado' : item().status === 'done' ? 'Realizado' : 'Cancelado'}
-                  </p>
-                </div>
-              </div>
-
-              <div class="rounded-xl border border-gray-200 px-4 py-3">
-                <p class="text-xs uppercase tracking-wide text-gray-500">Horario</p>
-                <p class="mt-1 font-medium text-gray-900">
-                  {item().isAllDay
-                    ? `${formatDate(item().startDateTime)} (todo el día)`
-                    : `${formatDateTime(item().startDateTime)} - ${formatDateTime(item().endDateTime)}`}
-                </p>
-              </div>
-
-              <div class="rounded-xl border border-gray-200 px-4 py-3">
-                <p class="text-xs uppercase tracking-wide text-gray-500">Responsables</p>
-                <p class="mt-1 text-gray-900">
-                  {item().assigneeNames.length > 0 ? item().assigneeNames.join(', ') : 'Sin responsables'}
-                </p>
-              </div>
-
-              <div class="rounded-xl border border-gray-200 px-4 py-3">
-                <p class="text-xs uppercase tracking-wide text-gray-500">Descripción</p>
-                <p class="mt-1 whitespace-pre-wrap text-gray-900">
-                  {item().description || 'Sin descripción.'}
-                </p>
-              </div>
-            </div>
-          )}
-        </Show>
-      </Modal>
+      />
 
       <Modal
         open={deleteConfirmOpen()}
