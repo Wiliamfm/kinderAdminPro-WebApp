@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => {
     listEmployeeLeaves: vi.fn(),
     createEmployeeLeave: vi.fn(),
     updateEmployeeLeave: vi.fn(),
+    getLeaveFileUrl: vi.fn(),
     hasLeaveOverlap: vi.fn(),
     listEmployeeInvoices: vi.fn(),
     createInvoice: vi.fn(),
@@ -22,6 +23,7 @@ const mocks = vi.hoisted(() => {
     createInvoiceFile: vi.fn(),
     getCurrentSemester: vi.fn(),
     listSemesterOptions: vi.fn(),
+    downloadBlobFile: vi.fn(),
   };
 });
 
@@ -52,6 +54,7 @@ vi.mock('../lib/pocketbase/leaves', () => ({
   listEmployeeLeaves: mocks.listEmployeeLeaves,
   createEmployeeLeave: mocks.createEmployeeLeave,
   updateEmployeeLeave: mocks.updateEmployeeLeave,
+  getLeaveFileUrl: mocks.getLeaveFileUrl,
   hasLeaveOverlap: mocks.hasLeaveOverlap,
 }));
 
@@ -63,6 +66,10 @@ vi.mock('../lib/pocketbase/invoices', () => ({
 
 vi.mock('../lib/pocketbase/invoice-files', () => ({
   createInvoiceFile: mocks.createInvoiceFile,
+}));
+
+vi.mock('../lib/reports/download', () => ({
+  downloadBlobFile: mocks.downloadBlobFile,
 }));
 
 vi.mock('../lib/pocketbase/semesters', () => ({
@@ -141,6 +148,10 @@ const defaultInvoicesSort = {
 describe('StaffEmployeesPage features', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      blob: async () => new Blob(['pdf-content'], { type: 'application/pdf' }),
+    }));
     mocks.canAccessModule.mockReturnValue(true);
     mocks.listActiveEmployeesPage.mockResolvedValue(employeePageFixture);
     mocks.listEmployeeJobs.mockResolvedValue([
@@ -192,6 +203,7 @@ describe('StaffEmployeesPage features', () => {
       semesterId: 'sem-current',
       start_datetime: '2026-02-20T10:00:00.000Z',
       end_datetime: '2026-02-20T12:00:00.000Z',
+      file: '',
     });
     mocks.updateEmployeeLeave.mockResolvedValue({
       id: 'leave-1',
@@ -199,7 +211,9 @@ describe('StaffEmployeesPage features', () => {
       semesterId: 'sem-current',
       start_datetime: '2026-02-20T10:00:00.000Z',
       end_datetime: '2026-02-20T12:00:00.000Z',
+      file: 'support.pdf',
     });
+    mocks.getLeaveFileUrl.mockResolvedValue('https://files.test/support.pdf');
     mocks.createInvoiceFile.mockResolvedValue({
       id: 'file-1',
       fileName: 'invoice.pdf',
@@ -614,6 +628,45 @@ describe('StaffEmployeesPage features', () => {
     expect(lastCall).toEqual(['e1', 1, 10, defaultLeavesSort]);
   });
 
+  it('creates leave with an optional pdf attachment', async () => {
+    await openLeavesModal();
+
+    fireEvent.input(screen.getByLabelText('Inicio de licencia'), {
+      target: { value: '2026-02-20T10:00' },
+    });
+    fireEvent.input(screen.getByLabelText('Fin de licencia'), {
+      target: { value: '2026-02-20T12:00' },
+    });
+    const fileInput = screen.getByLabelText('Soporte en PDF (opcional)') as HTMLInputElement;
+    const file = new File(['pdf-content'], 'support.pdf', { type: 'application/pdf' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    fireEvent.click(screen.getByText('Guardar licencia'));
+
+    await waitFor(() => {
+      expect(mocks.createEmployeeLeave).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mocks.createEmployeeLeave).toHaveBeenCalledWith({
+      employeeId: 'e1',
+      semesterId: 'sem-current',
+      start_datetime: new Date('2026-02-20T10:00').toISOString(),
+      end_datetime: new Date('2026-02-20T12:00').toISOString(),
+      file,
+    });
+  });
+
+  it('blocks leave submit when selected attachment is not pdf', async () => {
+    await openLeavesModal();
+
+    const fileInput = screen.getByLabelText('Soporte en PDF (opcional)') as HTMLInputElement;
+    const file = new File(['text'], 'support.txt', { type: 'text/plain' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    fireEvent.click(screen.getByText('Guardar licencia'));
+
+    expect(await screen.findByText('Solo se permiten archivos PDF')).toBeInTheDocument();
+    expect(mocks.createEmployeeLeave).not.toHaveBeenCalled();
+  });
+
   it('prefills form when editing a leave row', async () => {
     mocks.listEmployeeLeaves.mockResolvedValue({
       items: [
@@ -623,6 +676,7 @@ describe('StaffEmployeesPage features', () => {
           semesterId: 'sem-old',
           start_datetime: '2026-02-20T10:00:00.000Z',
           end_datetime: '2026-02-20T12:00:00.000Z',
+          file: 'support.pdf',
         },
       ],
       page: 1,
@@ -642,6 +696,7 @@ describe('StaffEmployeesPage features', () => {
     expect(new Date(startInput.value).toISOString()).toBe('2026-02-20T10:00:00.000Z');
     expect(new Date(endInput.value).toISOString()).toBe('2026-02-20T12:00:00.000Z');
     expect(screen.getByText('Actualizar licencia')).toBeInTheDocument();
+    expect(screen.getByText('Archivo actual: support.pdf')).toBeInTheDocument();
   });
 
   it('updates leave when form is in edit mode', async () => {
@@ -653,6 +708,7 @@ describe('StaffEmployeesPage features', () => {
           semesterId: 'sem-old',
           start_datetime: '2026-02-20T10:00:00.000Z',
           end_datetime: '2026-02-20T12:00:00.000Z',
+          file: 'support.pdf',
         },
       ],
       page: 1,
@@ -688,6 +744,69 @@ describe('StaffEmployeesPage features', () => {
       new Date('2026-02-20T13:00').toISOString(),
       'leave-42',
     );
+  });
+
+  it('replaces leave attachment when editing an existing leave', async () => {
+    mocks.listEmployeeLeaves.mockResolvedValue({
+      items: [
+        {
+          id: 'leave-42',
+          employeeId: 'e1',
+          semesterId: 'sem-old',
+          start_datetime: '2026-02-20T10:00:00.000Z',
+          end_datetime: '2026-02-20T12:00:00.000Z',
+          file: 'support.pdf',
+        },
+      ],
+      page: 1,
+      perPage: 10,
+      totalItems: 1,
+      totalPages: 1,
+    });
+
+    await openLeavesModal();
+    fireEvent.click(screen.getByLabelText('Editar licencia leave-42'));
+    const fileInput = screen.getByLabelText('Reemplazar soporte en PDF (opcional)') as HTMLInputElement;
+    const replacement = new File(['pdf-content'], 'replacement.pdf', { type: 'application/pdf' });
+    fireEvent.change(fileInput, { target: { files: [replacement] } });
+    fireEvent.click(screen.getByText('Actualizar licencia'));
+
+    await waitFor(() => {
+      expect(mocks.updateEmployeeLeave).toHaveBeenCalledTimes(1);
+    });
+
+    const updatePayload = mocks.updateEmployeeLeave.mock.calls[0][1];
+    expect(updatePayload.file).toBe(replacement);
+  });
+
+  it('opens preview modal and downloads a leave attachment', async () => {
+    mocks.listEmployeeLeaves.mockResolvedValue({
+      items: [
+        {
+          id: 'leave-99',
+          employeeId: 'e1',
+          semesterId: 'sem-old',
+          start_datetime: '2026-02-20T10:00:00.000Z',
+          end_datetime: '2026-02-20T12:00:00.000Z',
+          file: 'support.pdf',
+        },
+      ],
+      page: 1,
+      perPage: 10,
+      totalItems: 1,
+      totalPages: 1,
+    });
+
+    await openLeavesModal();
+    fireEvent.click(screen.getByRole('button', { name: /ver archivo de la licencia leave-99/i }));
+
+    expect(await screen.findByTitle('Vista previa de support.pdf')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar' }));
+
+    await waitFor(() => {
+      expect(mocks.downloadBlobFile).toHaveBeenCalledWith('support.pdf', expect.any(Blob));
+    });
+    expect(mocks.getLeaveFileUrl).toHaveBeenCalledWith('leave-99');
   });
 
   it('supports leaves pagination next and previous', async () => {

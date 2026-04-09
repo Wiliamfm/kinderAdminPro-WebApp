@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createEmployeeLeave,
+  getLeaveFileUrl,
   hasLeaveOverlap,
   listLeaveAnalyticsRecords,
   listEmployeeLeaves,
@@ -10,9 +11,11 @@ import {
 const hoisted = vi.hoisted(() => {
   const getList = vi.fn();
   const getFullList = vi.fn();
+  const getOne = vi.fn();
   const create = vi.fn();
   const update = vi.fn();
   const filter = vi.fn();
+  const getURL = vi.fn();
   const normalizePocketBaseError = vi.fn();
   const getAuthenticatedPb = vi.fn();
 
@@ -20,18 +23,24 @@ const hoisted = vi.hoisted(() => {
     collection: vi.fn(() => ({
       getList,
       getFullList,
+      getOne,
       create,
       update,
     })),
     filter,
+    files: {
+      getURL,
+    },
   };
 
   return {
     getList,
     getFullList,
+    getOne,
     create,
     update,
     filter,
+    getURL,
     normalizePocketBaseError,
     getAuthenticatedPb,
     pb,
@@ -154,6 +163,47 @@ describe('leaves pocketbase client', () => {
     expect(result.id).toBe('l2');
   });
 
+  it('uploads leave files with FormData when create payload includes a file', async () => {
+    hoisted.filter.mockReturnValue('semester-filter');
+    hoisted.getList.mockResolvedValueOnce({
+      items: [{
+        id: 'sem1',
+        start_date: '2026-02-01T00:00:00-05:00',
+        end_date: '2026-02-28T00:00:00-05:00',
+      }],
+      page: 1,
+      perPage: 1,
+      totalItems: 1,
+      totalPages: 1,
+    });
+    hoisted.create.mockResolvedValue({
+      id: 'l2',
+      employee_id: 'e1',
+      semester_id: 'sem1',
+      start_datetime: '2026-02-02T10:00:00.000Z',
+      end_datetime: '2026-02-02T12:00:00.000Z',
+      file: 'leave.pdf',
+    });
+
+    const file = new File(['pdf'], 'leave.pdf', { type: 'application/pdf' });
+
+    await createEmployeeLeave({
+      employeeId: 'e1',
+      semesterId: 'sem1',
+      start_datetime: '2026-02-02T10:00:00.000Z',
+      end_datetime: '2026-02-02T12:00:00.000Z',
+      file,
+    });
+
+    const formData = hoisted.create.mock.calls[0]?.[0];
+    expect(formData).toBeInstanceOf(FormData);
+    expect(formData.get('employee_id')).toBe('e1');
+    expect(formData.get('semester_id')).toBe('sem1');
+    expect(formData.get('start_datetime')).toBe('2026-02-02T10:00:00.000Z');
+    expect(formData.get('end_datetime')).toBe('2026-02-02T12:00:00.000Z');
+    expect(formData.get('file')).toBe(file);
+  });
+
   it('rejects leave creation when the start datetime is before the semester start', async () => {
     hoisted.filter.mockReturnValue('semester-filter');
     hoisted.getList.mockResolvedValueOnce({
@@ -240,6 +290,43 @@ describe('leaves pocketbase client', () => {
     expect(result.id).toBe('l2');
   });
 
+  it('uploads replacement leave files with FormData on update', async () => {
+    hoisted.filter.mockReturnValue('semester-filter');
+    hoisted.getList.mockResolvedValueOnce({
+      items: [{
+        id: 'sem1',
+        start_date: '2026-02-01T00:00:00-05:00',
+        end_date: '2026-02-28T00:00:00-05:00',
+      }],
+      page: 1,
+      perPage: 1,
+      totalItems: 1,
+      totalPages: 1,
+    });
+    hoisted.update.mockResolvedValue({
+      id: 'l2',
+      employee_id: 'e1',
+      semester_id: 'sem1',
+      start_datetime: '2026-02-02T10:00:00.000Z',
+      end_datetime: '2026-02-02T14:00:00.000Z',
+      file: 'replacement.pdf',
+    });
+
+    const file = new File(['pdf'], 'replacement.pdf', { type: 'application/pdf' });
+
+    await updateEmployeeLeave('l2', {
+      employeeId: 'e1',
+      semesterId: 'sem1',
+      start_datetime: '2026-02-02T10:00:00.000Z',
+      end_datetime: '2026-02-02T14:00:00.000Z',
+      file,
+    });
+
+    const formData = hoisted.update.mock.calls[0]?.[1];
+    expect(formData).toBeInstanceOf(FormData);
+    expect(formData.get('file')).toBe(file);
+  });
+
   it('rejects leave updates when the end datetime is after the semester end day', async () => {
     hoisted.filter.mockReturnValue('semester-filter');
     hoisted.getList.mockResolvedValueOnce({
@@ -313,6 +400,23 @@ describe('leaves pocketbase client', () => {
         endDateTime: '2026-02-01T12:00:00.000Z',
       },
     ]);
+  });
+
+  it('returns a PocketBase file URL for leave attachments', async () => {
+    hoisted.getOne.mockResolvedValue({
+      id: 'l1',
+      file: 'leave.pdf',
+    });
+    hoisted.getURL.mockReturnValue('https://files.test/api/files/leaves/l1/leave.pdf');
+
+    const result = await getLeaveFileUrl('l1');
+
+    expect(hoisted.getOne).toHaveBeenCalledWith('l1');
+    expect(hoisted.getURL).toHaveBeenCalledWith({
+      id: 'l1',
+      file: 'leave.pdf',
+    }, 'leave.pdf');
+    expect(result).toBe('https://files.test/api/files/leaves/l1/leave.pdf');
   });
 
   it('returns true when overlap exists', async () => {

@@ -26,6 +26,7 @@ import {
 import { listEmployeeJobs } from '../../lib/pocketbase/employee-jobs';
 import {
   createEmployeeLeave,
+  getLeaveFileUrl,
   hasLeaveOverlap,
   listEmployeeLeaves,
   updateEmployeeLeave,
@@ -33,6 +34,7 @@ import {
   type LeaveRecord,
   type LeaveSortField,
 } from '../../lib/pocketbase/leaves';
+import { validatePdfFile } from '../../lib/forms/pdf-file-validation';
 import {
   createInvoice,
   listEmployeeInvoices,
@@ -41,6 +43,7 @@ import {
   type InvoiceSortField,
 } from '../../lib/pocketbase/invoices';
 import { createInvoiceFile } from '../../lib/pocketbase/invoice-files';
+import { downloadBlobFile } from '../../lib/reports/download';
 import { getCurrentSemester, listSemesterOptions } from '../../lib/pocketbase/semesters';
 import { createEmployeeUser } from '../../lib/pocketbase/users';
 
@@ -81,6 +84,7 @@ type InvoiceField = (typeof INVOICE_FIELDS)[number];
 const PHONE_REGEX = /^[+\d\s()-]{7,20}$/;
 const DOCUMENT_ID_REGEX = /^[0-9]{4,20}$/;
 const MAX_PDF_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+const LEAVE_FILE_MAX_SIZE_BYTES = 7 * 1024 * 1024;
 
 function formatSalary(value: number | string): string {
   if (typeof value === 'number') {
@@ -265,6 +269,28 @@ function isFileWithinLimit(file: File, maxSizeBytes: number): boolean {
   return file.size <= maxSizeBytes;
 }
 
+function validateLeaveFile(file: File | null): string | undefined {
+  return validatePdfFile(file, {
+    maxSizeBytes: LEAVE_FILE_MAX_SIZE_BYTES,
+    maxSizeMessage: 'El archivo debe ser menor a 7MB',
+  });
+}
+
+function formatLeaveFileName(value: unknown): string {
+  if (typeof value !== 'string') return 'soporte-ausencia.pdf';
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : 'soporte-ausencia.pdf';
+}
+
+async function fetchFileBlob(fileUrl: string): Promise<Blob> {
+  const response = await fetch(fileUrl);
+  if (!response.ok) {
+    throw new Error('No se pudo descargar el archivo.');
+  }
+
+  return response.blob();
+}
+
 export default function StaffEmployeesPage() {
   const navigate = useNavigate();
   const canManageAdminActions = () => canAccessModule('staff');
@@ -311,12 +337,21 @@ export default function StaffEmployeesPage() {
   const [leaveTarget, setLeaveTarget] = createSignal<EmployeeRecord | null>(null);
   const [leaveForm, setLeaveForm] = createSignal<LeaveCreateInput>(emptyLeaveForm);
   const [leaveTouched, setLeaveTouched] = createSignal(createInitialTouchedMap(LEAVE_FIELDS));
+  const [leaveFile, setLeaveFile] = createSignal<File | null>(null);
+  const [leaveFileTouched, setLeaveFileTouched] = createSignal(false);
   const [leaveAsyncError, setLeaveAsyncError] = createSignal<string | null>(null);
   const [leavePage, setLeavePage] = createSignal(1);
   const [leaveBusy, setLeaveBusy] = createSignal(false);
   const [leaveError, setLeaveError] = createSignal<string | null>(null);
   const [leaveSort, setLeaveSort] = createSignal<SortState<LeaveSortField>>(DEFAULT_LEAVE_SORT);
   const [editingLeaveId, setEditingLeaveId] = createSignal<string | null>(null);
+  const [editingLeaveRecord, setEditingLeaveRecord] = createSignal<LeaveRecord | null>(null);
+  const [leavePreviewRecord, setLeavePreviewRecord] = createSignal<LeaveRecord | null>(null);
+  const [leavePreviewFileUrl, setLeavePreviewFileUrl] = createSignal('');
+  const [leavePreviewLoading, setLeavePreviewLoading] = createSignal(false);
+  const [leavePreviewError, setLeavePreviewError] = createSignal('');
+  const [leavePreviewDownloadBusy, setLeavePreviewDownloadBusy] = createSignal(false);
+  const [leavePreviewDownloadError, setLeavePreviewDownloadError] = createSignal('');
   const [invoiceTarget, setInvoiceTarget] = createSignal<EmployeeRecord | null>(null);
   const [invoicePage, setInvoicePage] = createSignal(1);
   const [invoiceBusy, setInvoiceBusy] = createSignal(false);
@@ -328,7 +363,9 @@ export default function StaffEmployeesPage() {
   );
   const [editingInvoice, setEditingInvoice] = createSignal<InvoiceRecord | null>(null);
   let createCvInputRef: HTMLInputElement | undefined;
+  let leaveFileInputRef: HTMLInputElement | undefined;
   let invoiceFileInputRef: HTMLInputElement | undefined;
+  let leavePreviewRequestId = 0;
 
   const [leaves, { refetch: refetchLeaves }] = createResource(
     () => {
@@ -524,6 +561,70 @@ export default function StaffEmployeesPage() {
     }
   };
 
+  const resetLeaveFileState = () => {
+    setLeaveFile(null);
+    setLeaveFileTouched(false);
+    if (leaveFileInputRef) leaveFileInputRef.value = '';
+  };
+
+  const closeLeavePreviewModal = () => {
+    leavePreviewRequestId += 1;
+    setLeavePreviewRecord(null);
+    setLeavePreviewFileUrl('');
+    setLeavePreviewLoading(false);
+    setLeavePreviewError('');
+    setLeavePreviewDownloadBusy(false);
+    setLeavePreviewDownloadError('');
+  };
+
+  const openLeavePreviewModal = async (leave: LeaveRecord) => {
+    if (leave.file.trim().length === 0) return;
+
+    const requestId = ++leavePreviewRequestId;
+    setLeavePreviewRecord(leave);
+    setLeavePreviewFileUrl('');
+    setLeavePreviewLoading(true);
+    setLeavePreviewError('');
+    setLeavePreviewDownloadError('');
+
+    try {
+      const fileUrl = await getLeaveFileUrl(leave.id);
+      if (requestId !== leavePreviewRequestId) return;
+      setLeavePreviewFileUrl(fileUrl);
+    } catch (error) {
+      if (requestId !== leavePreviewRequestId) return;
+      setLeavePreviewError(getErrorMessage(error));
+    } finally {
+      if (requestId === leavePreviewRequestId) {
+        setLeavePreviewLoading(false);
+      }
+    }
+  };
+
+  const downloadLeaveFile = async (leave: LeaveRecord, fileUrl?: string) => {
+    const resolvedFileUrl = fileUrl && fileUrl.length > 0
+      ? fileUrl
+      : await getLeaveFileUrl(leave.id);
+    const blob = await fetchFileBlob(resolvedFileUrl);
+    downloadBlobFile(formatLeaveFileName(leave.file), blob);
+  };
+
+  const handleLeavePreviewDownload = async () => {
+    const leave = leavePreviewRecord();
+    if (!leave || leavePreviewDownloadBusy()) return;
+
+    setLeavePreviewDownloadBusy(true);
+    setLeavePreviewDownloadError('');
+
+    try {
+      await downloadLeaveFile(leave, leavePreviewFileUrl() || undefined);
+    } catch (error) {
+      setLeavePreviewDownloadError(getErrorMessage(error));
+    } finally {
+      setLeavePreviewDownloadBusy(false);
+    }
+  };
+
   const openLeavesModal = (employee: EmployeeRecord) => {
     setLeaveTarget(employee);
     setLeavePage(1);
@@ -531,7 +632,10 @@ export default function StaffEmployeesPage() {
     setLeaveError(null);
     setLeaveAsyncError(null);
     setEditingLeaveId(null);
+    setEditingLeaveRecord(null);
     setLeaveTouched(createInitialTouchedMap(LEAVE_FIELDS));
+    resetLeaveFileState();
+    closeLeavePreviewModal();
     setLeaveForm({
       employeeId: employee.id,
       semesterId: '',
@@ -559,7 +663,10 @@ export default function StaffEmployeesPage() {
     setLeaveError(null);
     setLeaveAsyncError(null);
     setEditingLeaveId(null);
+    setEditingLeaveRecord(null);
     setLeaveTouched(createInitialTouchedMap(LEAVE_FIELDS));
+    resetLeaveFileState();
+    closeLeavePreviewModal();
     setLeaveForm(emptyLeaveForm);
   };
 
@@ -586,9 +693,11 @@ export default function StaffEmployeesPage() {
 
   const startEditLeave = (leave: LeaveRecord) => {
     setEditingLeaveId(leave.id);
+    setEditingLeaveRecord(leave);
     setLeaveError(null);
     setLeaveAsyncError(null);
     setLeaveTouched(createInitialTouchedMap(LEAVE_FIELDS));
+    resetLeaveFileState();
     setLeaveForm((current) => ({
       ...current,
       semesterId: leave.semesterId,
@@ -607,6 +716,10 @@ export default function StaffEmployeesPage() {
     setLeaveAsyncError(null);
   };
   const leaveFieldErrors = createMemo(() => validateLeaveForm(leaveForm()));
+  const leaveFileError = createMemo(() => {
+    if (!leaveFileTouched()) return undefined;
+    return validateLeaveFile(leaveFile());
+  });
   const leaveSemesterOptions = () => leaveSemesters() ?? [];
   const leaveSemesterAvailabilityError = createMemo(() => {
     if (!leaveTarget()) return undefined;
@@ -660,6 +773,7 @@ export default function StaffEmployeesPage() {
     if (!target) return;
 
     setLeaveTouched((current) => touchAllFields(current));
+    setLeaveFileTouched(true);
     if (leaveSemesters.loading) {
       setLeaveError('Cargando trimestres. Intenta nuevamente.');
       return;
@@ -670,6 +784,8 @@ export default function StaffEmployeesPage() {
       return;
     }
     if (hasAnyError(leaveFieldErrors())) return;
+    const fileValidationError = validateLeaveFile(leaveFile());
+    if (fileValidationError) return;
     const start = parseLocalDateTime(leaveForm().start_datetime.trim());
     const end = parseLocalDateTime(leaveForm().end_datetime.trim());
     if (!start || !end) return;
@@ -684,6 +800,7 @@ export default function StaffEmployeesPage() {
         semesterId: leaveForm().semesterId.trim(),
         start_datetime: start.toISOString(),
         end_datetime: end.toISOString(),
+        file: leaveFile() ?? undefined,
       };
       const currentEditingLeaveId = editingLeaveId();
       const overlap = await hasLeaveOverlap(
@@ -705,6 +822,7 @@ export default function StaffEmployeesPage() {
       }
 
       setEditingLeaveId(null);
+      setEditingLeaveRecord(null);
       setLeaveForm((current) => ({
         ...current,
         semesterId: currentLeaveSemester()?.id ?? '',
@@ -713,6 +831,7 @@ export default function StaffEmployeesPage() {
       }));
       setLeaveTouched(createInitialTouchedMap(LEAVE_FIELDS));
       setLeaveAsyncError(null);
+      resetLeaveFileState();
 
       setLeavePage(1);
       await refetchLeaves();
@@ -1289,7 +1408,7 @@ export default function StaffEmployeesPage() {
             No tienes permisos para gestionar licencias.
           </div>
         }>
-            <div class="space-y-4">
+          <div class="space-y-4">
             <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
               <label class="block">
                 <span class="text-sm text-gray-700">Trimestre</span>
@@ -1343,6 +1462,51 @@ export default function StaffEmployeesPage() {
               </label>
             </div>
 
+            <label class="block">
+              <span class="text-sm text-gray-700">
+                {editingLeaveId() ? 'Reemplazar soporte en PDF (opcional)' : 'Soporte en PDF (opcional)'}
+              </span>
+              <input
+                ref={leaveFileInputRef}
+                class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                classList={{ 'field-input-invalid': !!leaveFileError() }}
+                type="file"
+                accept="application/pdf,.pdf"
+                disabled={leaveBusy()}
+                aria-invalid={!!leaveFileError()}
+                aria-describedby={leaveFileError() ? 'leave-file-error' : undefined}
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0] ?? null;
+                  setLeaveFile(file);
+                  setLeaveFileTouched(true);
+                  setLeaveError(null);
+                }}
+              />
+              <InlineFieldAlert id="leave-file-error" message={leaveFileError()} />
+            </label>
+
+            <Show when={leaveFile()}>
+              <p class="text-xs text-gray-600">
+                Archivo seleccionado: {leaveFile()?.name}
+              </p>
+            </Show>
+
+            <Show when={editingLeaveRecord()?.file?.trim().length}>
+              <div class="flex flex-col gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 sm:flex-row sm:items-center sm:justify-between">
+                <p>
+                  Archivo actual: {formatLeaveFileName(editingLeaveRecord()?.file)}
+                </p>
+                <button
+                  type="button"
+                  class="rounded-md border border-blue-300 bg-white px-3 py-1 text-xs text-blue-700 transition-colors hover:bg-blue-100"
+                  onClick={() => void openLeavePreviewModal(editingLeaveRecord()!)}
+                  disabled={leaveBusy()}
+                >
+                  Ver archivo actual
+                </button>
+              </div>
+            </Show>
+
             <p class="text-xs text-gray-500">
               Las fechas se capturan en tu hora local y se guardan en UTC.
             </p>
@@ -1371,20 +1535,21 @@ export default function StaffEmployeesPage() {
                       sort={leaveSort()}
                       onSort={handleLeaveSort}
                     />
+                    <th class="px-4 py-3 font-semibold">Archivo</th>
                     <th class="px-4 py-3 font-semibold">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   <Show when={!leaves.loading} fallback={
                     <tr>
-                      <td class="px-4 py-4 text-gray-600" colSpan={3}>
+                      <td class="px-4 py-4 text-gray-600" colSpan={4}>
                         Cargando licencias...
                       </td>
                     </tr>
                   }>
                     <Show when={!leaves.error} fallback={
                       <tr>
-                        <td class="px-4 py-4 text-red-700" colSpan={3}>
+                        <td class="px-4 py-4 text-red-700" colSpan={4}>
                           {getErrorMessage(leaves.error)}
                         </td>
                       </tr>
@@ -1393,7 +1558,7 @@ export default function StaffEmployeesPage() {
                         when={leavesItems().length > 0}
                         fallback={
                           <tr>
-                            <td class="px-4 py-4 text-gray-600" colSpan={3}>
+                            <td class="px-4 py-4 text-gray-600" colSpan={4}>
                               Este empleado no tiene licencias registradas.
                             </td>
                           </tr>
@@ -1404,6 +1569,23 @@ export default function StaffEmployeesPage() {
                             <tr class="border-t border-yellow-100 align-top">
                               <td class="px-4 py-3">{formatDateTime(leave.start_datetime)}</td>
                               <td class="px-4 py-3">{formatDateTime(leave.end_datetime)}</td>
+                              <td class="px-4 py-3">
+                                <Show
+                                  when={leave.file.trim().length > 0}
+                                  fallback={<span class="text-gray-400">—</span>}
+                                >
+                                  <button
+                                    type="button"
+                                    class="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-yellow-300 bg-yellow-100 px-3 text-xs text-gray-700 transition-colors hover:bg-yellow-200"
+                                    aria-label={`Ver archivo de la licencia ${leave.id}`}
+                                    onClick={() => void openLeavePreviewModal(leave)}
+                                    disabled={leaveBusy()}
+                                  >
+                                    <i class="bi bi-paperclip" aria-hidden="true"></i>
+                                    Ver archivo
+                                  </button>
+                                </Show>
+                              </td>
                               <td class="px-4 py-3">
                                 <button
                                   type="button"
@@ -1433,6 +1615,76 @@ export default function StaffEmployeesPage() {
             />
           </div>
         </Show>
+      </Modal>
+
+      <Modal
+        open={leavePreviewRecord() !== null}
+        title={formatLeaveFileName(leavePreviewRecord()?.file)}
+        description="Vista previa del soporte en PDF."
+        confirmLabel="Descargar"
+        size="xl"
+        onConfirm={() => {}}
+        onClose={closeLeavePreviewModal}
+        footer={(
+          <div class="mt-6 flex shrink-0 justify-end gap-2">
+            <button
+              type="button"
+              class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100"
+              onClick={closeLeavePreviewModal}
+            >
+              Cerrar
+            </button>
+            <button
+              type="button"
+              class="rounded-lg bg-yellow-600 px-4 py-2 text-sm text-white transition-colors hover:bg-yellow-700 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={leavePreviewLoading() || leavePreviewFileUrl().length === 0 || leavePreviewDownloadBusy()}
+              onClick={() => void handleLeavePreviewDownload()}
+            >
+              {leavePreviewDownloadBusy() ? 'Descargando...' : 'Descargar'}
+            </button>
+          </div>
+        )}
+      >
+        <div class="space-y-4">
+          <Show when={leavePreviewDownloadError().length > 0}>
+            <div class="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {leavePreviewDownloadError()}
+            </div>
+          </Show>
+
+          <Show
+            when={!leavePreviewLoading()}
+            fallback={(
+              <div class="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-6 text-sm text-gray-700">
+                Cargando vista previa...
+              </div>
+            )}
+          >
+            <Show
+              when={leavePreviewError().length === 0}
+              fallback={(
+                <div class="rounded-lg border border-red-300 bg-red-50 px-4 py-6 text-sm text-red-700">
+                  {leavePreviewError()}
+                </div>
+              )}
+            >
+              <Show
+                when={leavePreviewFileUrl().length > 0}
+                fallback={(
+                  <div class="rounded-lg border border-red-300 bg-red-50 px-4 py-6 text-sm text-red-700">
+                    No se encontró el archivo de la licencia.
+                  </div>
+                )}
+              >
+                <iframe
+                  class="h-[65vh] w-full rounded-lg border border-yellow-200 bg-white"
+                  src={leavePreviewFileUrl()}
+                  title={`Vista previa de ${formatLeaveFileName(leavePreviewRecord()?.file)}`}
+                />
+              </Show>
+            </Show>
+          </Show>
+        </div>
       </Modal>
 
       <Modal

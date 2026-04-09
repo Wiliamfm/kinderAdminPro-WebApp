@@ -25,6 +25,7 @@ import type { PocketBaseRequestError } from '../../../lib/pocketbase/errors';
 import { getEmployeeByUserId } from '../../../lib/pocketbase/employees';
 import {
   createEmployeeLeave,
+  getLeaveFileUrl,
   hasLeaveOverlap,
   listEmployeeLeaves,
   updateEmployeeLeave,
@@ -32,6 +33,8 @@ import {
   type LeaveRecord,
   type LeaveSortField,
 } from '../../../lib/pocketbase/leaves';
+import { validatePdfFile } from '../../../lib/forms/pdf-file-validation';
+import { downloadBlobFile } from '../../../lib/reports/download';
 import {
   getCurrentSemester,
   getSemesterById,
@@ -47,6 +50,7 @@ const emptyLeaveForm: LeaveCreateInput = {
   start_datetime: '',
   end_datetime: '',
 };
+const LEAVE_FILE_MAX_SIZE_BYTES = 7 * 1024 * 1024;
 
 function parseLocalDateTime(value: string): Date | null {
   const parsed = new Date(value);
@@ -117,6 +121,13 @@ function buildSemesterBoundaryMessage(semester: LeaveSemesterRange): string {
   return `La fecha debe estar dentro del trimestre (${formatSemesterDate(semester.start_date)} - ${formatSemesterDate(semester.end_date)}).`;
 }
 
+function validateLeaveFile(file: File | null): string | undefined {
+  return validatePdfFile(file, {
+    maxSizeBytes: LEAVE_FILE_MAX_SIZE_BYTES,
+    maxSizeMessage: 'El archivo debe ser menor a 7MB',
+  });
+}
+
 function validateLeaveForm(
   current: LeaveCreateInput,
   semester: LeaveSemesterRange | null,
@@ -185,6 +196,21 @@ function getErrorMessage(error: unknown): string {
   return 'No se pudo completar la operación.';
 }
 
+function formatLeaveFileName(value: unknown): string {
+  if (typeof value !== 'string') return 'soporte-ausencia.pdf';
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : 'soporte-ausencia.pdf';
+}
+
+async function fetchFileBlob(fileUrl: string): Promise<Blob> {
+  const response = await fetch(fileUrl);
+  if (!response.ok) {
+    throw new Error('No se pudo descargar el archivo.');
+  }
+
+  return response.blob();
+}
+
 type LeaveSortKey = LeaveSortField;
 const DEFAULT_LEAVE_SORT: SortState<LeaveSortKey> = { key: 'start_datetime', direction: 'desc' };
 
@@ -211,8 +237,18 @@ export default function ProfessorLeavesPage() {
   const [leaveError, setLeaveError] = createSignal<string | null>(null);
   const [leaveAsyncError, setLeaveAsyncError] = createSignal<string | null>(null);
   const [leaveSemesterLoadError, setLeaveSemesterLoadError] = createSignal<string | null>(null);
+  const [leaveFile, setLeaveFile] = createSignal<File | null>(null);
+  const [leaveFileTouched, setLeaveFileTouched] = createSignal(false);
   const [editingLeaveId, setEditingLeaveId] = createSignal<string | null>(null);
   const [createModalOpen, setCreateModalOpen] = createSignal(false);
+  const [previewLeave, setPreviewLeave] = createSignal<LeaveRecord | null>(null);
+  const [previewFileUrl, setPreviewFileUrl] = createSignal('');
+  const [previewLoading, setPreviewLoading] = createSignal(false);
+  const [previewError, setPreviewError] = createSignal('');
+  const [previewDownloadBusy, setPreviewDownloadBusy] = createSignal(false);
+  const [previewDownloadError, setPreviewDownloadError] = createSignal('');
+  let leaveFileInputRef: HTMLInputElement | undefined;
+  let previewRequestId = 0;
 
   const employeeId = () => employee()?.id ?? '';
 
@@ -320,6 +356,17 @@ export default function ProfessorLeavesPage() {
     return clientError;
   };
 
+  const leaveFileError = createMemo(() => {
+    if (!leaveFileTouched()) return undefined;
+    return validateLeaveFile(leaveFile());
+  });
+
+  const resetLeaveFileState = () => {
+    setLeaveFile(null);
+    setLeaveFileTouched(false);
+    if (leaveFileInputRef) leaveFileInputRef.value = '';
+  };
+
   createEffect(() => {
     if (!createModalOpen() || editingLeaveId()) return;
 
@@ -352,6 +399,7 @@ export default function ProfessorLeavesPage() {
     setLeaveError(null);
     setLeaveAsyncError(null);
     setEditingLeaveId(null);
+    resetLeaveFileState();
     setCreateModalOpen(true);
   };
 
@@ -367,6 +415,7 @@ export default function ProfessorLeavesPage() {
     setLeaveError(null);
     setLeaveAsyncError(null);
     setEditingLeaveId(leave.id);
+    resetLeaveFileState();
     setCreateModalOpen(true);
   };
 
@@ -375,6 +424,7 @@ export default function ProfessorLeavesPage() {
     setCreateModalOpen(false);
     setEditingLeaveId(null);
     setLeaveSemesterLoadError(null);
+    resetLeaveFileState();
   };
 
   const updateLeaveField = (field: keyof LeaveCreateInput, value: string) => {
@@ -386,9 +436,68 @@ export default function ProfessorLeavesPage() {
     setLeaveAsyncError(null);
   };
 
+  const closePreviewModal = () => {
+    previewRequestId += 1;
+    setPreviewLeave(null);
+    setPreviewFileUrl('');
+    setPreviewLoading(false);
+    setPreviewError('');
+    setPreviewDownloadBusy(false);
+    setPreviewDownloadError('');
+  };
+
+  const openPreviewModal = async (leave: LeaveRecord) => {
+    if (leave.file.trim().length === 0) return;
+
+    const requestId = ++previewRequestId;
+    setPreviewLeave(leave);
+    setPreviewFileUrl('');
+    setPreviewLoading(true);
+    setPreviewError('');
+    setPreviewDownloadError('');
+
+    try {
+      const fileUrl = await getLeaveFileUrl(leave.id);
+      if (requestId !== previewRequestId) return;
+      setPreviewFileUrl(fileUrl);
+    } catch (error) {
+      if (requestId !== previewRequestId) return;
+      setPreviewError(getErrorMessage(error));
+    } finally {
+      if (requestId === previewRequestId) {
+        setPreviewLoading(false);
+      }
+    }
+  };
+
+  const downloadLeaveFile = async (leave: LeaveRecord, fileUrl?: string) => {
+    const resolvedFileUrl = fileUrl && fileUrl.length > 0
+      ? fileUrl
+      : await getLeaveFileUrl(leave.id);
+    const blob = await fetchFileBlob(resolvedFileUrl);
+    downloadBlobFile(formatLeaveFileName(leave.file), blob);
+  };
+
+  const handlePreviewDownload = async () => {
+    const leave = previewLeave();
+    if (!leave || previewDownloadBusy()) return;
+
+    setPreviewDownloadBusy(true);
+    setPreviewDownloadError('');
+
+    try {
+      await downloadLeaveFile(leave, previewFileUrl() || undefined);
+    } catch (error) {
+      setPreviewDownloadError(getErrorMessage(error));
+    } finally {
+      setPreviewDownloadBusy(false);
+    }
+  };
+
   const submitLeave = async () => {
     const touched = touchAllFields(leaveTouched());
     setLeaveTouched(touched);
+    setLeaveFileTouched(true);
 
     if (!editingLeaveId() && currentSemester.loading) {
       setLeaveError('Cargando trimestre actual. Intenta nuevamente.');
@@ -406,6 +515,9 @@ export default function ProfessorLeavesPage() {
       return;
     }
     if (hasAnyError(leaveFieldErrors())) return;
+
+    const fileValidationError = validateLeaveFile(leaveFile());
+    if (fileValidationError) return;
 
     const start = parseLocalDateTime(leaveForm().start_datetime.trim());
     const end = parseLocalDateTime(leaveForm().end_datetime.trim());
@@ -433,14 +545,13 @@ export default function ProfessorLeavesPage() {
         semesterId: resolvedLeaveSemesterId(),
         start_datetime: start.toISOString(),
         end_datetime: end.toISOString(),
+        file: editingLeaveId() ? undefined : leaveFile() ?? undefined,
       };
-      console.log(payload);
 
       const editId = editingLeaveId();
       if (editId) {
         await updateEmployeeLeave(editId, payload);
       } else {
-        console.log("Creating");
         await createEmployeeLeave(payload);
       }
 
@@ -456,6 +567,7 @@ export default function ProfessorLeavesPage() {
         end_datetime: '',
       });
       setLeaveTouched(createInitialTouchedMap(LEAVE_FIELDS));
+      resetLeaveFileState();
     } catch (error) {
       console.error(error);
       setLeaveError(getErrorMessage(error));
@@ -517,7 +629,7 @@ export default function ProfessorLeavesPage() {
             </div>
 
             <div class="mt-4 overflow-x-auto rounded-lg border border-yellow-200">
-              <table class="min-w-[520px] w-full text-left text-sm">
+              <table class="min-w-[640px] w-full text-left text-sm">
                 <thead class="bg-yellow-100 text-gray-700">
                   <tr>
                     <SortableHeaderCell
@@ -534,6 +646,7 @@ export default function ProfessorLeavesPage() {
                       sort={leaveSort()}
                       onSort={handleLeaveSort}
                     />
+                    <th class="px-4 py-3 font-semibold">Archivo</th>
                     <th class="px-4 py-3 font-semibold">Acciones</th>
                   </tr>
                 </thead>
@@ -542,7 +655,7 @@ export default function ProfessorLeavesPage() {
                     when={!leaves.loading}
                     fallback={
                       <tr>
-                        <td class="px-4 py-4 text-gray-600" colSpan={3}>
+                        <td class="px-4 py-4 text-gray-600" colSpan={4}>
                           Cargando ausencias...
                         </td>
                       </tr>
@@ -552,7 +665,7 @@ export default function ProfessorLeavesPage() {
                       when={!leaves.error}
                       fallback={
                         <tr>
-                          <td class="px-4 py-4 text-red-700" colSpan={3}>
+                          <td class="px-4 py-4 text-red-700" colSpan={4}>
                             {getErrorMessage(leaves.error)}
                           </td>
                         </tr>
@@ -562,7 +675,7 @@ export default function ProfessorLeavesPage() {
                         when={leaveRows().length > 0}
                         fallback={
                           <tr>
-                            <td class="px-4 py-4 text-gray-600" colSpan={3}>
+                            <td class="px-4 py-4 text-gray-600" colSpan={4}>
                               No hay ausencias registradas.
                             </td>
                           </tr>
@@ -573,6 +686,22 @@ export default function ProfessorLeavesPage() {
                             <tr class="border-t border-yellow-100 align-top">
                               <td class="px-4 py-3">{formatDateTime(leave.start_datetime)}</td>
                               <td class="px-4 py-3">{formatDateTime(leave.end_datetime)}</td>
+                              <td class="px-4 py-3">
+                                <Show
+                                  when={leave.file.trim().length > 0}
+                                  fallback={<span class="text-gray-400">—</span>}
+                                >
+                                  <button
+                                    type="button"
+                                    class="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-yellow-300 bg-yellow-100 px-3 text-xs text-gray-700 transition-colors hover:bg-yellow-200"
+                                    aria-label={`Ver archivo de la ausencia ${leave.id}`}
+                                    onClick={() => void openPreviewModal(leave)}
+                                  >
+                                    <i class="bi bi-paperclip" aria-hidden="true"></i>
+                                    Ver archivo
+                                  </button>
+                                </Show>
+                              </td>
                               <td class="px-4 py-3">
                                 <button
                                   type="button"
@@ -683,6 +812,105 @@ export default function ProfessorLeavesPage() {
             />
             <InlineFieldAlert id="leave-end-error" message={leaveFieldError('end_datetime')} />
           </label>
+
+          <Show when={!editingLeaveId()}>
+            <label class="block">
+              <span class="text-sm text-gray-700">Soporte en PDF (opcional)</span>
+              <input
+                ref={leaveFileInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                classList={{ 'field-input-invalid': !!leaveFileError() }}
+                disabled={leaveBusy()}
+                aria-invalid={!!leaveFileError()}
+                aria-describedby={leaveFileError() ? 'leave-file-error' : undefined}
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0] ?? null;
+                  setLeaveFile(file);
+                  setLeaveFileTouched(true);
+                  setLeaveError(null);
+                }}
+              />
+              <InlineFieldAlert id="leave-file-error" message={leaveFileError()} />
+            </label>
+          </Show>
+
+          <Show when={!editingLeaveId() && leaveFile()}>
+            <p class="text-xs text-gray-600">
+              Archivo seleccionado: {leaveFile()?.name}
+            </p>
+          </Show>
+        </div>
+      </Modal>
+
+      <Modal
+        open={previewLeave() !== null}
+        title={formatLeaveFileName(previewLeave()?.file)}
+        description="Vista previa del soporte en PDF."
+        confirmLabel="Descargar"
+        size="xl"
+        onConfirm={() => {}}
+        onClose={closePreviewModal}
+        footer={(
+          <div class="mt-6 flex shrink-0 justify-end gap-2">
+            <button
+              type="button"
+              class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100"
+              onClick={closePreviewModal}
+            >
+              Cerrar
+            </button>
+            <button
+              type="button"
+              class="rounded-lg bg-yellow-600 px-4 py-2 text-sm text-white transition-colors hover:bg-yellow-700 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={previewLoading() || previewFileUrl().length === 0 || previewDownloadBusy()}
+              onClick={() => void handlePreviewDownload()}
+            >
+              {previewDownloadBusy() ? 'Descargando...' : 'Descargar'}
+            </button>
+          </div>
+        )}
+      >
+        <div class="space-y-4">
+          <Show when={previewDownloadError().length > 0}>
+            <div class="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {previewDownloadError()}
+            </div>
+          </Show>
+
+          <Show
+            when={!previewLoading()}
+            fallback={(
+              <div class="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-6 text-sm text-gray-700">
+                Cargando vista previa...
+              </div>
+            )}
+          >
+            <Show
+              when={previewError().length === 0}
+              fallback={(
+                <div class="rounded-lg border border-red-300 bg-red-50 px-4 py-6 text-sm text-red-700">
+                  {previewError()}
+                </div>
+              )}
+            >
+              <Show
+                when={previewFileUrl().length > 0}
+                fallback={(
+                  <div class="rounded-lg border border-red-300 bg-red-50 px-4 py-6 text-sm text-red-700">
+                    No se encontró el archivo de la ausencia.
+                  </div>
+                )}
+              >
+                <iframe
+                  class="h-[65vh] w-full rounded-lg border border-yellow-200 bg-white"
+                  src={previewFileUrl()}
+                  title={`Vista previa de ${formatLeaveFileName(previewLeave()?.file)}`}
+                />
+              </Show>
+            </Show>
+          </Show>
         </div>
       </Modal>
     </section>

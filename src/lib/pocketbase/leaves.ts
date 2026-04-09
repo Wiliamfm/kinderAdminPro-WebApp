@@ -9,6 +9,7 @@ type PbLeaveRecord = {
   semester_id?: string | string[];
   start_datetime: string;
   end_datetime: string;
+  file?: string | string[];
 };
 
 type PbLeavePayload = {
@@ -16,6 +17,7 @@ type PbLeavePayload = {
   semester_id: string;
   start_datetime: string;
   end_datetime: string;
+  file?: Blob;
 };
 
 type PbSemesterRecord = {
@@ -42,6 +44,7 @@ export type LeaveRecord = {
   semesterId: string;
   start_datetime: string;
   end_datetime: string;
+  file: string;
 };
 
 export type LeaveCreateInput = {
@@ -49,6 +52,7 @@ export type LeaveCreateInput = {
   semesterId: string;
   start_datetime: string;
   end_datetime: string;
+  file?: File | null;
 };
 
 export type LeaveSortField = 'start_datetime' | 'end_datetime';
@@ -73,10 +77,20 @@ function mapLeaveRecord(
     semesterId: toRelationIdValue(record.get?.('semester_id') ?? record.semester_id),
     start_datetime: toStringValue(record.get?.('start_datetime') ?? record.start_datetime),
     end_datetime: toStringValue(record.get?.('end_datetime') ?? record.end_datetime),
+    file: toFileNameValue(record.get?.('file') ?? record.file),
   };
 }
 
 function toRelationIdValue(value: unknown): string {
+  if (typeof value === 'string') return value.trim();
+  if (Array.isArray(value)) {
+    const firstValue = value[0];
+    return typeof firstValue === 'string' ? firstValue.trim() : '';
+  }
+  return '';
+}
+
+function toFileNameValue(value: unknown): string {
   if (typeof value === 'string') return value.trim();
   if (Array.isArray(value)) {
     const firstValue = value[0];
@@ -122,13 +136,34 @@ function mapLeaveAnalyticsRecord(
   };
 }
 
-function mapLeavePayload(payload: LeaveCreateInput): PbLeavePayload {
-  return {
+function buildLeaveFormDataPayload(payload: PbLeavePayload): FormData {
+  const formData = new FormData();
+
+  formData.set('employee_id', payload.employee_id);
+  formData.set('semester_id', payload.semester_id);
+  formData.set('start_datetime', payload.start_datetime);
+  formData.set('end_datetime', payload.end_datetime);
+  if (payload.file) {
+    formData.set('file', payload.file);
+  }
+
+  return formData;
+}
+
+function mapLeavePayload(payload: LeaveCreateInput): PbLeavePayload | FormData {
+  const mappedPayload: PbLeavePayload = {
     employee_id: payload.employeeId.trim(),
     semester_id: payload.semesterId.trim(),
     start_datetime: payload.start_datetime,
     end_datetime: payload.end_datetime,
   };
+
+  if (payload.file) {
+    mappedPayload.file = payload.file;
+    return buildLeaveFormDataPayload(mappedPayload);
+  }
+
+  return mappedPayload;
 }
 
 function buildSortExpression(
@@ -305,6 +340,23 @@ export async function updateEmployeeLeave(
     await assertLeaveWithinSemester(pb, payload);
     const record = await pb.collection('leaves').update(id, mapLeavePayload(payload));
     return mapLeaveRecord(record);
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
+export async function getLeaveFileUrl(leaveId: string): Promise<string> {
+  "use server";
+  const pb = await getAuthenticatedPb();
+  try {
+    const record = await pb.collection('leaves').getOne(leaveId);
+    const fileName = toFileNameValue(record.get?.('file') ?? record.file);
+
+    if (fileName.length === 0) {
+      throw new Error('No se encontró el archivo de la ausencia.');
+    }
+
+    return pb.files.getURL(record, fileName);
   } catch (error) {
     throw normalizePocketBaseError(error);
   }

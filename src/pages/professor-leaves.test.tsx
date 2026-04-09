@@ -47,9 +47,11 @@ const mocks = vi.hoisted(() => ({
   listEmployeeLeaves: vi.fn(),
   createEmployeeLeave: vi.fn(),
   updateEmployeeLeave: vi.fn(),
+  getLeaveFileUrl: vi.fn(),
   hasLeaveOverlap: vi.fn(),
   getCurrentSemester: vi.fn(),
   getSemesterById: vi.fn(),
+  downloadBlobFile: vi.fn(),
 }));
 
 vi.mock('@solidjs/router', () => ({
@@ -69,12 +71,17 @@ vi.mock('../lib/pocketbase/leaves', () => ({
   listEmployeeLeaves: mocks.listEmployeeLeaves,
   createEmployeeLeave: mocks.createEmployeeLeave,
   updateEmployeeLeave: mocks.updateEmployeeLeave,
+  getLeaveFileUrl: mocks.getLeaveFileUrl,
   hasLeaveOverlap: mocks.hasLeaveOverlap,
 }));
 
 vi.mock('../lib/pocketbase/semesters', () => ({
   getCurrentSemester: mocks.getCurrentSemester,
   getSemesterById: mocks.getSemesterById,
+}));
+
+vi.mock('../lib/reports/download', () => ({
+  downloadBlobFile: mocks.downloadBlobFile,
 }));
 
 function renderPage() {
@@ -89,6 +96,10 @@ async function openCreateModal() {
 describe('ProfessorLeavesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      blob: async () => new Blob(['pdf-content'], { type: 'application/pdf' }),
+    }));
     mocks.canAccessModule.mockReturnValue(true);
     mocks.getAuthUserId.mockReturnValue('u1');
     mocks.getEmployeeByUserId.mockResolvedValue(employeeFixture);
@@ -105,6 +116,7 @@ describe('ProfessorLeavesPage', () => {
       semesterId: 'sem-current',
       start_datetime: '2026-03-10T10:00:00.000Z',
       end_datetime: '2026-03-10T12:00:00.000Z',
+      file: '',
     });
     mocks.updateEmployeeLeave.mockResolvedValue({
       id: 'leave-1',
@@ -112,7 +124,9 @@ describe('ProfessorLeavesPage', () => {
       semesterId: 'sem-old',
       start_datetime: '2025-09-10T10:00:00.000Z',
       end_datetime: '2025-09-10T12:00:00.000Z',
+      file: 'support.pdf',
     });
+    mocks.getLeaveFileUrl.mockResolvedValue('https://files.test/support.pdf');
     mocks.hasLeaveOverlap.mockResolvedValue(false);
     mocks.getCurrentSemester.mockResolvedValue(currentSemesterFixture);
     mocks.getSemesterById.mockResolvedValue(storedSemesterFixture);
@@ -147,6 +161,7 @@ describe('ProfessorLeavesPage', () => {
           semesterId: 'sem-old',
           start_datetime: '2025-09-10T10:00:00.000Z',
           end_datetime: '2025-09-10T12:00:00.000Z',
+          file: '',
         },
       ],
       page: 1,
@@ -238,6 +253,47 @@ describe('ProfessorLeavesPage', () => {
     });
   });
 
+  it('creates a leave with an optional pdf attachment', async () => {
+    await openCreateModal();
+    await screen.findByText('2026-1');
+
+    fireEvent.input(screen.getByLabelText('Fecha y hora de inicio'), {
+      target: { value: '2026-03-10T10:00' },
+    });
+    fireEvent.input(screen.getByLabelText('Fecha y hora de fin'), {
+      target: { value: '2026-03-10T12:00' },
+    });
+    const fileInput = screen.getByLabelText('Soporte en PDF (opcional)') as HTMLInputElement;
+    const file = new File(['pdf-content'], 'support.pdf', { type: 'application/pdf' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar ausencia' }));
+
+    await waitFor(() => {
+      expect(mocks.createEmployeeLeave).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mocks.createEmployeeLeave).toHaveBeenCalledWith({
+      employeeId: 'e1',
+      semesterId: 'sem-current',
+      start_datetime: new Date('2026-03-10T10:00').toISOString(),
+      end_datetime: new Date('2026-03-10T12:00').toISOString(),
+      file,
+    });
+  });
+
+  it('blocks leave creation when the selected file is not pdf', async () => {
+    await openCreateModal();
+    await screen.findByText('2026-1');
+
+    const fileInput = screen.getByLabelText('Soporte en PDF (opcional)') as HTMLInputElement;
+    const file = new File(['text'], 'support.txt', { type: 'text/plain' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar ausencia' }));
+
+    expect(await screen.findByText('Solo se permiten archivos PDF')).toBeInTheDocument();
+    expect(mocks.createEmployeeLeave).not.toHaveBeenCalled();
+  });
+
   it('fetches the stored semester for edit mode and keeps it read-only', async () => {
     mocks.listEmployeeLeaves.mockResolvedValue({
       items: [
@@ -247,6 +303,7 @@ describe('ProfessorLeavesPage', () => {
           semesterId: 'sem-old',
           start_datetime: '2025-09-10T10:00:00.000Z',
           end_datetime: '2025-09-10T12:00:00.000Z',
+          file: 'support.pdf',
         },
       ],
       page: 1,
@@ -261,6 +318,7 @@ describe('ProfessorLeavesPage', () => {
     expect(await screen.findByText('2025-2')).toBeInTheDocument();
     expect(mocks.getSemesterById).toHaveBeenCalledWith('sem-old');
     expect(screen.queryByRole('combobox', { name: /trimestre/i })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Soporte en PDF (opcional)')).not.toBeInTheDocument();
 
     const startInput = screen.getByLabelText('Fecha y hora de inicio') as HTMLInputElement;
     const endInput = screen.getByLabelText('Fecha y hora de fin') as HTMLInputElement;
@@ -281,6 +339,36 @@ describe('ProfessorLeavesPage', () => {
       start_datetime: new Date(startInput.value).toISOString(),
       end_datetime: new Date('2025-09-10T13:00').toISOString(),
     });
+  });
+
+  it('opens preview modal and downloads the leave attachment', async () => {
+    mocks.listEmployeeLeaves.mockResolvedValue({
+      items: [
+        {
+          id: 'leave-99',
+          employeeId: 'e1',
+          semesterId: 'sem-old',
+          start_datetime: '2025-09-10T10:00:00.000Z',
+          end_datetime: '2025-09-10T12:00:00.000Z',
+          file: 'support.pdf',
+        },
+      ],
+      page: 1,
+      perPage: 10,
+      totalItems: 1,
+      totalPages: 1,
+    });
+
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: /ver archivo de la ausencia leave-99/i }));
+
+    expect(await screen.findByTitle('Vista previa de support.pdf')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar' }));
+
+    await waitFor(() => {
+      expect(mocks.downloadBlobFile).toHaveBeenCalledWith('support.pdf', expect.any(Blob));
+    });
+    expect(mocks.getLeaveFileUrl).toHaveBeenCalledWith('leave-99');
   });
 
   it('shows the semester load error when the current semester request fails', async () => {

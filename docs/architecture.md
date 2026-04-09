@@ -1,6 +1,6 @@
 # Architecture Reference
 
-Last updated: 2026-04-08
+Last updated: 2026-04-09
 
 ## Purpose
 Provide a stable technical reference for module responsibilities, data flow, and key design constraints.
@@ -111,12 +111,14 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - relation `employee_id` -> `employees` (n:1, required),
   - relation `semester_id` -> `semesters` (n:1, required after legacy backfill),
   - `start_datetime` (`date`, required),
-  - `end_datetime` (`date`, required).
+  - `end_datetime` (`date`, required),
+  - optional `file` (`file`, single PDF, max 7 MB).
 - UI location: `src/pages/staff-employees.tsx` modal under employee actions.
 - Table behavior:
   - sorted by `start_datetime` descending,
   - paginated (`10` rows/page),
-  - row action to edit and prefill form.
+  - row action to edit and prefill form,
+  - attached files render a dedicated preview/download action in list rows.
 - Form behavior:
   - loads selectable semester options from `semesters`,
   - requires a semester selection,
@@ -125,10 +127,13 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - accepts `datetime-local` inputs,
   - converts local input to offset-aware ISO datetime before API calls (persisted as UTC `Z`),
   - validates `end > start`,
+  - validates optional attachments as PDF-only with a 7 MB max client-side,
   - blocks overlap using API check,
   - blocks submission when no semesters exist.
 - Edit mode:
   - tracked with reactive state (`editingLeaveId`),
+  - professor flow hides the file input on edit and preserves any existing attachment,
+  - staff flow allows optional file replacement on edit,
   - submit performs create or update depending on edit state.
 
 ## Invoices Data Model

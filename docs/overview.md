@@ -1,6 +1,6 @@
 # Project Overview
 
-Last updated: 2026-04-06
+Last updated: 2026-04-09
 
 ## Purpose
 This application is a SolidJS frontend for staff and operational management workflows backed by PocketBase.
@@ -43,6 +43,9 @@ Primary functional areas exposed through routes:
   - require relation `semester_id` to `semesters`,
   - default new leaves to the current semester when available,
   - validate date order and overlap,
+  - allow optional PDF support files up to 7 MB,
+  - allow staff users to replace support files on edit,
+  - show preview/download actions for attached files in leave history,
   - block saving when no semesters exist,
   - paginate leave history.
 - Manage enrollment students data in PocketBase `students` collection:
