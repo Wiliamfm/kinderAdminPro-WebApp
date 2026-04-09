@@ -40,6 +40,11 @@ vi.mock('../lib/pocketbase/fathers', () => ({
 
 vi.mock('../lib/pocketbase/students-fathers', () => ({
   STUDENT_FATHER_RELATIONSHIPS: ['father', 'mother', 'other'],
+  formatRelationshipLabel: (relationship: string) => ({
+    father: 'Padre',
+    mother: 'Madre',
+    other: 'Otro',
+  }[relationship] ?? relationship),
   createLinksForStudent: mocks.createLinksForStudent,
   countLinksByStudentId: mocks.countLinksByStudentId,
 }));
@@ -130,7 +135,7 @@ describe('EnrollmentStudentsPage', () => {
 
     expect(await screen.findByText('Ana')).toBeInTheDocument();
     expect(screen.getByText('Primero A')).toBeInTheDocument();
-    expect(screen.getByText('Tutores asociados')).toBeInTheDocument();
+    expect(screen.getByText('Padres')).toBeInTheDocument();
     expect(screen.getByText('Carlos Perez')).toBeInTheDocument();
     expect(screen.getByLabelText('Editar estudiante Ana')).toBeInTheDocument();
     expect(screen.getByLabelText('Eliminar estudiante Ana')).toBeInTheDocument();

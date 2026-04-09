@@ -25,6 +25,7 @@ import {
 import {
   countLinksByFatherId,
   createLinksForFather,
+  formatRelationshipLabel,
   STUDENT_FATHER_RELATIONSHIPS,
   type FatherStudentLinkInput,
   type StudentFatherRelationship,
@@ -718,7 +719,7 @@ export default function EnrollmentTutorsPage() {
                       >
                         <For each={STUDENT_FATHER_RELATIONSHIPS}>
                           {(relationship) => (
-                            <option value={relationship}>{relationship}</option>
+                            <option value={relationship}>{formatRelationshipLabel(relationship)}</option>
                           )}
                         </For>
                       </select>

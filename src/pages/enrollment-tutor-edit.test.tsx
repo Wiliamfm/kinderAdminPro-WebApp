@@ -33,6 +33,11 @@ vi.mock('../lib/pocketbase/students', () => ({
 
 vi.mock('../lib/pocketbase/students-fathers', () => ({
   STUDENT_FATHER_RELATIONSHIPS: ['father', 'mother', 'other'],
+  formatRelationshipLabel: (relationship: string) => ({
+    father: 'Padre',
+    mother: 'Madre',
+    other: 'Otro',
+  }[relationship] ?? relationship),
   listLinksByFatherId: mocks.listLinksByFatherId,
   replaceLinksForFather: mocks.replaceLinksForFather,
 }));

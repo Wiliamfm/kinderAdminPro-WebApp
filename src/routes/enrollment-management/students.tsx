@@ -29,6 +29,7 @@ import {
 import {
   countLinksByStudentId,
   createLinksForStudent,
+  formatRelationshipLabel,
   STUDENT_FATHER_RELATIONSHIPS,
   type StudentFatherLinkInput,
   type StudentFatherRelationship,
@@ -587,7 +588,7 @@ export default function EnrollmentStudentsPage() {
                   sort={studentSort()}
                   onSort={handleStudentSort}
                 />
-                <th class="px-4 py-3 font-semibold">Tutores asociados</th>
+                <th class="px-4 py-3 font-semibold">Padres</th>
                 <th class="px-4 py-3 font-semibold">Acciones</th>
               </tr>
             </thead>
@@ -915,7 +916,7 @@ export default function EnrollmentStudentsPage() {
                       >
                         <For each={STUDENT_FATHER_RELATIONSHIPS}>
                           {(relationship) => (
-                            <option value={relationship}>{relationship}</option>
+                            <option value={relationship}>{formatRelationshipLabel(relationship)}</option>
                           )}
                         </For>
                       </select>

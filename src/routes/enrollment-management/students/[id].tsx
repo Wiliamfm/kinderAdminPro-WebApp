@@ -18,6 +18,7 @@ import {
   type StudentUpdateInput,
 } from '../../../lib/pocketbase/students';
 import {
+  formatRelationshipLabel,
   listLinksByStudentId,
   replaceLinksForStudent,
   STUDENT_FATHER_RELATIONSHIPS,
@@ -660,7 +661,7 @@ export default function EnrollmentStudentEditPage() {
                         >
                           <For each={STUDENT_FATHER_RELATIONSHIPS}>
                             {(relationship) => (
-                              <option value={relationship}>{relationship}</option>
+                              <option value={relationship}>{formatRelationshipLabel(relationship)}</option>
                             )}
                           </For>
                         </select>

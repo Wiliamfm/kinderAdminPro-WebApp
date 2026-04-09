@@ -4,6 +4,12 @@ import { normalizePocketBaseError } from './errors';
 
 export const STUDENT_FATHER_RELATIONSHIPS = ['father', 'mother', 'other'] as const;
 
+const STUDENT_FATHER_RELATIONSHIP_LABELS: Record<StudentFatherRelationship, string> = {
+  father: 'Padre',
+  mother: 'Madre',
+  other: 'Otro',
+};
+
 export type StudentFatherRelationship = (typeof STUDENT_FATHER_RELATIONSHIPS)[number];
 
 export type StudentFatherLinkRecord = {
@@ -26,6 +32,10 @@ export type FatherStudentLinkInput = {
   studentId: string;
   relationship: StudentFatherRelationship;
 };
+
+export function formatRelationshipLabel(relationship: StudentFatherRelationship): string {
+  return STUDENT_FATHER_RELATIONSHIP_LABELS[relationship];
+}
 
 const STUDENTS_FATHERS_SORT = 'created_at,id';
 
