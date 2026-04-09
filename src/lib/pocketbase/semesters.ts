@@ -124,7 +124,6 @@ export async function listSemestersPage(
 export async function listSemesterOptions(): Promise<SemesterRecord[]> {
   "use server";
   const pb = await getAuthenticatedPb();
-  console.log(pb.authStore.record);
   try {
     const records = await pb.collection('semesters').getFullList({
       sort: '-start_date',
