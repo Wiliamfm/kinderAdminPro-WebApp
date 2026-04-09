@@ -68,7 +68,7 @@ export default function Login() {
           </label>
 
           <label class="block">
-            <span class="text-sm text-gray-700">Password</span>
+            <span class="text-sm text-gray-700">Contraseña</span>
             <input
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
               type="password"
@@ -88,7 +88,7 @@ export default function Login() {
             class="w-full rounded-lg bg-yellow-400 text-gray-900 px-4 py-2 disabled:opacity-60 hover:bg-yellow-500"
             disabled={loading()}
           >
-            {loading() ? 'Signing in...' : 'Sign in'}
+            {loading() ? 'Ingresando...' : 'Ingresar'}
           </button>
         </form>
       </div>
