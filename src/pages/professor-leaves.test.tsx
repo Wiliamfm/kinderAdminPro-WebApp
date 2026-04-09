@@ -46,6 +46,7 @@ const mocks = vi.hoisted(() => ({
   getEmployeeByUserId: vi.fn(),
   listEmployeeLeaves: vi.fn(),
   createEmployeeLeave: vi.fn(),
+  createEmployeeLeaveWithUpload: vi.fn(),
   updateEmployeeLeave: vi.fn(),
   getLeaveFileUrl: vi.fn(),
   hasLeaveOverlap: vi.fn(),
@@ -70,6 +71,7 @@ vi.mock('../lib/pocketbase/employees', () => ({
 vi.mock('../lib/pocketbase/leaves', () => ({
   listEmployeeLeaves: mocks.listEmployeeLeaves,
   createEmployeeLeave: mocks.createEmployeeLeave,
+  createEmployeeLeaveWithUpload: mocks.createEmployeeLeaveWithUpload,
   updateEmployeeLeave: mocks.updateEmployeeLeave,
   getLeaveFileUrl: mocks.getLeaveFileUrl,
   hasLeaveOverlap: mocks.hasLeaveOverlap,
@@ -117,6 +119,14 @@ describe('ProfessorLeavesPage', () => {
       start_datetime: '2026-03-10T10:00:00.000Z',
       end_datetime: '2026-03-10T12:00:00.000Z',
       file: '',
+    });
+    mocks.createEmployeeLeaveWithUpload.mockResolvedValue({
+      id: 'leave-1',
+      employeeId: 'e1',
+      semesterId: 'sem-current',
+      start_datetime: '2026-03-10T10:00:00.000Z',
+      end_datetime: '2026-03-10T12:00:00.000Z',
+      file: 'support.pdf',
     });
     mocks.updateEmployeeLeave.mockResolvedValue({
       id: 'leave-1',
@@ -269,16 +279,14 @@ describe('ProfessorLeavesPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Registrar ausencia' }));
 
     await waitFor(() => {
-      expect(mocks.createEmployeeLeave).toHaveBeenCalledTimes(1);
+      expect(mocks.createEmployeeLeaveWithUpload).toHaveBeenCalledTimes(1);
     });
 
-    expect(mocks.createEmployeeLeave).toHaveBeenCalledWith({
-      employeeId: 'e1',
-      semesterId: 'sem-current',
-      start_datetime: new Date('2026-03-10T10:00').toISOString(),
-      end_datetime: new Date('2026-03-10T12:00').toISOString(),
-      file,
-    });
+    const formData = mocks.createEmployeeLeaveWithUpload.mock.calls[0]?.[0] as FormData;
+    expect(formData).toBeInstanceOf(FormData);
+    expect(formData.get('employee_id')).toBe('e1');
+    expect(formData.get('semester_id')).toBe('sem-current');
+    expect(formData.get('file')).toBe(file);
   });
 
   it('blocks leave creation when the selected file is not pdf', async () => {

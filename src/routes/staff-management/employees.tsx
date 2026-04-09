@@ -26,10 +26,12 @@ import {
 import { listEmployeeJobs } from '../../lib/pocketbase/employee-jobs';
 import {
   createEmployeeLeave,
+  createEmployeeLeaveWithUpload,
   getLeaveFileUrl,
   hasLeaveOverlap,
   listEmployeeLeaves,
   updateEmployeeLeave,
+  updateEmployeeLeaveWithUpload,
   type LeaveCreateInput,
   type LeaveRecord,
   type LeaveSortField,
@@ -816,9 +818,29 @@ export default function StaffEmployeesPage() {
       }
 
       if (currentEditingLeaveId) {
-        await updateEmployeeLeave(currentEditingLeaveId, payload);
+        if (payload.file) {
+          const formData = new FormData();
+          formData.set('employee_id', payload.employeeId);
+          formData.set('semester_id', payload.semesterId);
+          formData.set('start_datetime', payload.start_datetime);
+          formData.set('end_datetime', payload.end_datetime);
+          formData.set('file', payload.file);
+          await updateEmployeeLeaveWithUpload(currentEditingLeaveId, formData);
+        } else {
+          await updateEmployeeLeave(currentEditingLeaveId, payload);
+        }
       } else {
-        await createEmployeeLeave(payload);
+        if (payload.file) {
+          const formData = new FormData();
+          formData.set('employee_id', payload.employeeId);
+          formData.set('semester_id', payload.semesterId);
+          formData.set('start_datetime', payload.start_datetime);
+          formData.set('end_datetime', payload.end_datetime);
+          formData.set('file', payload.file);
+          await createEmployeeLeaveWithUpload(formData);
+        } else {
+          await createEmployeeLeave(payload);
+        }
       }
 
       setEditingLeaveId(null);

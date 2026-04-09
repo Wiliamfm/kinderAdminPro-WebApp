@@ -55,6 +55,14 @@ export type LeaveCreateInput = {
   file?: File | null;
 };
 
+type LeaveUploadInput = {
+  employeeId: string;
+  semesterId: string;
+  start_datetime: string;
+  end_datetime: string;
+  file?: Blob;
+};
+
 export type LeaveSortField = 'start_datetime' | 'end_datetime';
 export type LeaveSortDirection = 'asc' | 'desc';
 export type LeaveListOptions = {
@@ -164,6 +172,46 @@ function mapLeavePayload(payload: LeaveCreateInput): PbLeavePayload | FormData {
   }
 
   return mappedPayload;
+}
+
+function toStringFormValue(formData: FormData, key: string): string {
+  const value = formData.get(key);
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function toFileFormValue(formData: FormData, key: string): Blob | undefined {
+  const value = formData.get(key);
+  return value instanceof Blob ? value : undefined;
+}
+
+function parseLeaveUploadFormData(formData: FormData): LeaveUploadInput {
+  return {
+    employeeId: toStringFormValue(formData, 'employee_id'),
+    semesterId: toStringFormValue(formData, 'semester_id'),
+    start_datetime: toStringFormValue(formData, 'start_datetime'),
+    end_datetime: toStringFormValue(formData, 'end_datetime'),
+    file: toFileFormValue(formData, 'file'),
+  };
+}
+
+function toLeaveCreateInput(payload: LeaveUploadInput): LeaveCreateInput {
+  return {
+    employeeId: payload.employeeId,
+    semesterId: payload.semesterId,
+    start_datetime: payload.start_datetime,
+    end_datetime: payload.end_datetime,
+    file: payload.file instanceof File ? payload.file : undefined,
+  };
+}
+
+function buildLeaveUploadFormData(payload: LeaveUploadInput): FormData {
+  return buildLeaveFormDataPayload({
+    employee_id: payload.employeeId,
+    semester_id: payload.semesterId,
+    start_datetime: payload.start_datetime,
+    end_datetime: payload.end_datetime,
+    file: payload.file,
+  });
 }
 
 function buildSortExpression(
@@ -330,6 +378,19 @@ export async function createEmployeeLeave(payload: LeaveCreateInput): Promise<Le
   }
 }
 
+export async function createEmployeeLeaveWithUpload(formData: FormData): Promise<LeaveRecord> {
+  "use server";
+  try {
+    const pb = await getAuthenticatedPb();
+    const payload = parseLeaveUploadFormData(formData);
+    await assertLeaveWithinSemester(pb, toLeaveCreateInput(payload));
+    const record = await pb.collection('leaves').create(buildLeaveUploadFormData(payload));
+    return mapLeaveRecord(record);
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
 export async function updateEmployeeLeave(
   id: string,
   payload: LeaveCreateInput,
@@ -339,6 +400,22 @@ export async function updateEmployeeLeave(
     const pb = await getAuthenticatedPb();
     await assertLeaveWithinSemester(pb, payload);
     const record = await pb.collection('leaves').update(id, mapLeavePayload(payload));
+    return mapLeaveRecord(record);
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
+export async function updateEmployeeLeaveWithUpload(
+  id: string,
+  formData: FormData,
+): Promise<LeaveRecord> {
+  "use server";
+  try {
+    const pb = await getAuthenticatedPb();
+    const payload = parseLeaveUploadFormData(formData);
+    await assertLeaveWithinSemester(pb, toLeaveCreateInput(payload));
+    const record = await pb.collection('leaves').update(id, buildLeaveUploadFormData(payload));
     return mapLeaveRecord(record);
   } catch (error) {
     throw normalizePocketBaseError(error);

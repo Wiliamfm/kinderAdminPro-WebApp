@@ -25,6 +25,7 @@ import type { PocketBaseRequestError } from '../../../lib/pocketbase/errors';
 import { getEmployeeByUserId } from '../../../lib/pocketbase/employees';
 import {
   createEmployeeLeave,
+  createEmployeeLeaveWithUpload,
   getLeaveFileUrl,
   hasLeaveOverlap,
   listEmployeeLeaves,
@@ -552,7 +553,17 @@ export default function ProfessorLeavesPage() {
       if (editId) {
         await updateEmployeeLeave(editId, payload);
       } else {
-        await createEmployeeLeave(payload);
+        if (payload.file) {
+          const formData = new FormData();
+          formData.set('employee_id', payload.employeeId);
+          formData.set('semester_id', payload.semesterId);
+          formData.set('start_datetime', payload.start_datetime);
+          formData.set('end_datetime', payload.end_datetime);
+          formData.set('file', payload.file);
+          await createEmployeeLeaveWithUpload(formData);
+        } else {
+          await createEmployeeLeave(payload);
+        }
       }
 
       await refetchLeaves();
@@ -850,7 +861,7 @@ export default function ProfessorLeavesPage() {
         description="Vista previa del soporte en PDF."
         confirmLabel="Descargar"
         size="xl"
-        onConfirm={() => {}}
+        onConfirm={() => { }}
         onClose={closePreviewModal}
         footer={(
           <div class="mt-6 flex shrink-0 justify-end gap-2">
