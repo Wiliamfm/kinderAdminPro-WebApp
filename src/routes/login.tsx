@@ -52,7 +52,7 @@ export default function Login() {
     <section class="min-h-screen bg-yellow-50 text-gray-800 p-8 flex items-center justify-center">
       <div class="w-full max-w-md rounded-xl bg-white border border-yellow-300 p-6">
         <h1 class="text-2xl font-semibold">KinderAdminPro</h1>
-        <p class="mt-2 text-gray-600">Sign in with your PocketBase user account.</p>
+        <p class="mt-2 text-gray-600">Ingresa tus credenciales.</p>
 
         <form class="mt-6 space-y-4" onSubmit={onSubmit}>
           <label class="block">
