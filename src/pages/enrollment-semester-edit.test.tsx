@@ -61,7 +61,7 @@ describe('EnrollmentSemesterEditPage', () => {
 
     expect(startDateInput.value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(endDateInput.value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(screen.getByLabelText('Marcar como semestre actual')).toBeChecked();
+    expect(screen.getByLabelText('Marcar como trimestre actual')).toBeChecked();
   });
 
   it('updates semester and navigates back', async () => {
@@ -71,7 +71,7 @@ describe('EnrollmentSemesterEditPage', () => {
     fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: '2026-B' } });
     fireEvent.input(screen.getByLabelText('Fecha de inicio'), { target: { value: '1900-01-01' } });
     fireEvent.input(screen.getByLabelText('Fecha de fin'), { target: { value: '2999-12-31' } });
-    fireEvent.click(screen.getByLabelText('Marcar como semestre actual'));
+    fireEvent.click(screen.getByLabelText('Marcar como trimestre actual'));
 
     fireEvent.click(screen.getByText('Guardar cambios'));
 
@@ -114,7 +114,7 @@ describe('EnrollmentSemesterEditPage', () => {
     fireEvent.click(screen.getByText('Guardar cambios'));
 
     expect(
-      await screen.findByText('Para marcar como semestre actual, la fecha de hoy debe estar entre inicio y fin.'),
+      await screen.findByText('Para marcar como trimestre actual, la fecha de hoy debe estar entre inicio y fin.'),
     ).toBeInTheDocument();
     expect(mocks.updateSemester).not.toHaveBeenCalled();
   });

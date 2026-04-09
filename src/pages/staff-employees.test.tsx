@@ -511,7 +511,7 @@ describe('StaffEmployeesPage features', () => {
   it('opens leaves modal with form and table', async () => {
     await openLeavesModal();
 
-    expect(screen.getByText('Semestre')).toBeInTheDocument();
+    expect(screen.getByText('Trimestre')).toBeInTheDocument();
     expect(screen.getByText('Inicio de licencia')).toBeInTheDocument();
     expect(screen.getByText('Fin de licencia')).toBeInTheDocument();
     expect(screen.getByText('Este empleado no tiene licencias registradas.')).toBeInTheDocument();
@@ -521,7 +521,7 @@ describe('StaffEmployeesPage features', () => {
     await openLeavesModal();
 
     await waitFor(() => {
-      expect((screen.getByLabelText('Semestre') as HTMLSelectElement).value).toBe('sem-current');
+      expect((screen.getByLabelText('Trimestre') as HTMLSelectElement).value).toBe('sem-current');
     });
   });
 
@@ -553,7 +553,7 @@ describe('StaffEmployeesPage features', () => {
     });
     fireEvent.click(screen.getByText('Guardar licencia'));
 
-    expect(await screen.findByText('Semestre es obligatorio.')).toBeInTheDocument();
+    expect(await screen.findByText('Trimestre es obligatorio.')).toBeInTheDocument();
     expect(mocks.createEmployeeLeave).not.toHaveBeenCalled();
   });
 
@@ -564,7 +564,7 @@ describe('StaffEmployeesPage features', () => {
     await openLeavesModal();
 
     expect(
-      await screen.findByText('No hay semestres registrados. Debes crear uno antes de guardar una licencia.'),
+      await screen.findByText('No hay trimestres registrados. Debes crear uno antes de guardar una licencia.'),
     ).toBeInTheDocument();
   });
 
@@ -634,7 +634,7 @@ describe('StaffEmployeesPage features', () => {
     await openLeavesModal();
     fireEvent.click(screen.getByLabelText('Editar licencia leave-42'));
 
-    const semesterInput = screen.getByLabelText('Semestre') as HTMLSelectElement;
+    const semesterInput = screen.getByLabelText('Trimestre') as HTMLSelectElement;
     const startInput = screen.getByLabelText('Inicio de licencia') as HTMLInputElement;
     const endInput = screen.getByLabelText('Fin de licencia') as HTMLInputElement;
 
@@ -742,7 +742,7 @@ describe('StaffEmployeesPage features', () => {
   it('opens invoices modal with upload and history table', async () => {
     await openInvoiceModal();
 
-    expect(screen.getByText('Semestre de factura')).toBeInTheDocument();
+    expect(screen.getByText('Trimestre de factura')).toBeInTheDocument();
     expect(screen.getByDisplayValue('2026-A')).toBeInTheDocument();
     expect(screen.getByText('Archivo de factura (PDF)')).toBeInTheDocument();
     expect(screen.getByText('Este empleado no tiene facturas registradas.')).toBeInTheDocument();
@@ -754,7 +754,7 @@ describe('StaffEmployeesPage features', () => {
 
     fireEvent.click(screen.getByText('Subir factura'));
 
-    const errors = await screen.findAllByText('No hay un semestre activo. No se puede crear la factura.');
+    const errors = await screen.findAllByText('No hay un trimestre activo. No se puede crear la factura.');
     expect(errors.length).toBeGreaterThan(0);
     expect(mocks.createInvoiceFile).not.toHaveBeenCalled();
     expect(mocks.createInvoice).not.toHaveBeenCalled();
@@ -836,7 +836,7 @@ describe('StaffEmployeesPage features', () => {
     await openInvoiceModal();
 
     expect(screen.getByText('Nombre de archivo')).toBeInTheDocument();
-    expect(screen.getByText('Semestre')).toBeInTheDocument();
+    expect(screen.getByText('Trimestre')).toBeInTheDocument();
     expect(screen.getByText('Acción')).toBeInTheDocument();
     expect(screen.getByText('factura_demo_20260223_1000.pdf')).toBeInTheDocument();
     expect(screen.getByText('2026-A')).toBeInTheDocument();
@@ -934,7 +934,7 @@ describe('StaffEmployeesPage features', () => {
   it('requests invoices sorted by semester when semester header is clicked', async () => {
     await openInvoiceModal();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Semestre' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Trimestre' }));
 
     await waitFor(() => {
       expect(mocks.listEmployeeInvoices).toHaveBeenCalledWith('e1', 1, 10, {

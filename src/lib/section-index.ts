@@ -87,7 +87,7 @@ export const sectionIndexByPage: Record<string, SectionIndexEntry> = {
         requiredModules: ['enrollment'],
       },
       {
-        label: 'Gestion de semestres',
+        label: 'Gestion de trimestres',
         href: '/enrollment-management/semesters',
         requiredModules: ['enrollment'],
       },

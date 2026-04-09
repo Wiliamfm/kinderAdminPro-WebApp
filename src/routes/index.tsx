@@ -103,13 +103,13 @@ function Dashboard() {
                       when={d?.semester}
                       fallback={
                         <div class="rounded-xl bg-yellow-100 border border-yellow-400 p-4">
-                          <p class="text-yellow-800 font-medium">Sin semestre activo</p>
+                          <p class="text-yellow-800 font-medium">Sin trimestre activo</p>
                         </div>
                       }
                     >
                       <div class="rounded-xl bg-yellow-100 border border-yellow-400 p-4">
                         <p class="text-yellow-800">
-                          <span class="font-medium">Semestre actual:</span>{' '}
+                          <span class="font-medium">Trimestre actual:</span>{' '}
                           {d!.semester!.name} ({formatDateRange(d!.semester!.start_date, d!.semester!.end_date)})
                         </p>
                       </div>

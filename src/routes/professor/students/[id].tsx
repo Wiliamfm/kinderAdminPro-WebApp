@@ -252,7 +252,7 @@ export default function ProfessorStudentDetailPage() {
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 class="text-2xl font-semibold">Detalle del estudiante</h1>
-            <p class="mt-2 text-gray-600">Consulta y registra observaciones académicas del semestre actual.</p>
+            <p class="mt-2 text-gray-600">Consulta y registra observaciones académicas del trimestre actual.</p>
           </div>
 
           <button
@@ -305,14 +305,14 @@ export default function ProfessorStudentDetailPage() {
                         <p class="mt-1 text-base font-semibold text-gray-800">{formatText(studentRecord().document_id)}</p>
                       </div>
                       <div>
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Semestre actual</p>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Trimestre actual</p>
                         <p class="mt-1 text-base font-semibold text-gray-800">{formatText(currentSemester()?.name ?? '')}</p>
                       </div>
                     </div>
 
                     <Show when={!currentSemester()}>
                       <div class="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                        No hay un semestre activo configurado. Puedes consultar la información, pero las acciones de agregar y editar están deshabilitadas.
+                        No hay un trimestre activo configurado. Puedes consultar la información, pero las acciones de agregar y editar están deshabilitadas.
                       </div>
                     </Show>
 
@@ -442,7 +442,7 @@ export default function ProfessorStudentDetailPage() {
                           class="flex w-full items-center justify-between bg-yellow-100 px-4 py-3 text-left text-sm font-semibold text-gray-800"
                           onClick={() => setHistoryOpen((current) => !current)}
                         >
-                          <span>Historial de semestres anteriores ({historyEntries().length})</span>
+                          <span>Historial de trimestres anteriores ({historyEntries().length})</span>
                           <span>{historyOpen() ? 'Ocultar' : 'Mostrar'}</span>
                         </button>
 
@@ -454,7 +454,7 @@ export default function ProfessorStudentDetailPage() {
                                   <th class="px-4 py-3 font-semibold">Boletín</th>
                                   <th class="px-4 py-3 font-semibold">Nota</th>
                                   <th class="px-4 py-3 font-semibold">Comentarios</th>
-                                  <th class="px-4 py-3 font-semibold">Semestre</th>
+                                  <th class="px-4 py-3 font-semibold">Trimestre</th>
                                 </tr>
                               </thead>
                               <tbody>

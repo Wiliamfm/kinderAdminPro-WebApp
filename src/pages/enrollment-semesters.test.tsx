@@ -66,14 +66,14 @@ describe('EnrollmentSemestersPage', () => {
     expect(screen.getByText('Actual')).toBeInTheDocument();
     expect(screen.getByText('Sí')).toBeInTheDocument();
     expect(screen.getByText('Acciones')).toBeInTheDocument();
-    expect(screen.getByLabelText('Editar semestre 2026-A')).toBeInTheDocument();
+    expect(screen.getByLabelText('Editar trimestre 2026-A')).toBeInTheDocument();
   });
 
   it('requests semesters sorted when header is clicked', async () => {
     render(() => <EnrollmentSemestersPage />);
     await screen.findByText('2026-A');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Semestre' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Trimestre' }));
 
     await waitFor(() => {
       expect(mocks.listSemestersPage).toHaveBeenLastCalledWith(1, 10, {
@@ -87,15 +87,15 @@ describe('EnrollmentSemestersPage', () => {
     render(() => <EnrollmentSemestersPage />);
     await screen.findByText('2026-A');
 
-    fireEvent.click(screen.getByText('Nuevo semestre'));
-    await screen.findByRole('heading', { name: 'Crear semestre' });
+    fireEvent.click(screen.getByText('Nuevo trimestre'));
+    await screen.findByRole('heading', { name: 'Crear trimestre' });
 
     fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: '2026-B' } });
     fireEvent.input(screen.getByLabelText('Fecha de inicio'), { target: { value: '1900-01-01' } });
     fireEvent.input(screen.getByLabelText('Fecha de fin'), { target: { value: '2999-12-31' } });
-    fireEvent.click(screen.getByLabelText('Marcar como semestre actual'));
+    fireEvent.click(screen.getByLabelText('Marcar como trimestre actual'));
 
-    fireEvent.click(screen.getAllByText('Crear semestre')[1]);
+    fireEvent.click(screen.getAllByText('Crear trimestre')[1]);
 
     await waitFor(() => {
       expect(mocks.createSemester).toHaveBeenCalledWith(expect.objectContaining({
@@ -111,14 +111,14 @@ describe('EnrollmentSemestersPage', () => {
     render(() => <EnrollmentSemestersPage />);
     await screen.findByText('2026-A');
 
-    fireEvent.click(screen.getByText('Nuevo semestre'));
-    await screen.findByRole('heading', { name: 'Crear semestre' });
+    fireEvent.click(screen.getByText('Nuevo trimestre'));
+    await screen.findByRole('heading', { name: 'Crear trimestre' });
 
     fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: '2026-C' } });
     fireEvent.input(screen.getByLabelText('Fecha de inicio'), { target: { value: '2026-07-01' } });
     fireEvent.input(screen.getByLabelText('Fecha de fin'), { target: { value: '2026-07-01' } });
 
-    fireEvent.click(screen.getAllByText('Crear semestre')[1]);
+    fireEvent.click(screen.getAllByText('Crear trimestre')[1]);
 
     expect(
       await screen.findByText('La fecha de fin debe ser al menos 1 día posterior a la fecha de inicio.'),
@@ -130,18 +130,18 @@ describe('EnrollmentSemestersPage', () => {
     render(() => <EnrollmentSemestersPage />);
     await screen.findByText('2026-A');
 
-    fireEvent.click(screen.getByText('Nuevo semestre'));
-    await screen.findByRole('heading', { name: 'Crear semestre' });
+    fireEvent.click(screen.getByText('Nuevo trimestre'));
+    await screen.findByRole('heading', { name: 'Crear trimestre' });
 
     fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: '2000-A' } });
     fireEvent.input(screen.getByLabelText('Fecha de inicio'), { target: { value: '2000-01-01' } });
     fireEvent.input(screen.getByLabelText('Fecha de fin'), { target: { value: '2000-12-31' } });
-    fireEvent.click(screen.getByLabelText('Marcar como semestre actual'));
+    fireEvent.click(screen.getByLabelText('Marcar como trimestre actual'));
 
-    fireEvent.click(screen.getAllByText('Crear semestre')[1]);
+    fireEvent.click(screen.getAllByText('Crear trimestre')[1]);
 
     expect(
-      await screen.findByText('Para marcar como semestre actual, la fecha de hoy debe estar entre inicio y fin.'),
+      await screen.findByText('Para marcar como trimestre actual, la fecha de hoy debe estar entre inicio y fin.'),
     ).toBeInTheDocument();
     expect(mocks.createSemester).not.toHaveBeenCalled();
   });
@@ -150,7 +150,7 @@ describe('EnrollmentSemestersPage', () => {
     render(() => <EnrollmentSemestersPage />);
     await screen.findByText('2026-A');
 
-    fireEvent.click(screen.getByLabelText('Editar semestre 2026-A'));
+    fireEvent.click(screen.getByLabelText('Editar trimestre 2026-A'));
 
     expect(mocks.navigate).toHaveBeenCalledWith('/enrollment-management/semesters/sem1');
   });

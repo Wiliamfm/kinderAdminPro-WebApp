@@ -53,7 +53,7 @@ const eventsFixture = [
   {
     id: 'evt1',
     title: 'Consejo académico',
-    description: 'Revisión del cronograma del semestre',
+    description: 'Revisión del cronograma del trimestre',
     startDateTime: '2026-04-10T14:00:00.000Z',
     endDateTime: '2026-04-10T15:00:00.000Z',
     isAllDay: false,
@@ -121,7 +121,7 @@ describe('ProfessorCalendarPage', () => {
     });
 
     expect(await screen.findByRole('heading', { name: 'Consejo académico' })).toBeInTheDocument();
-    expect(screen.getByText('Revisión del cronograma del semestre')).toBeInTheDocument();
+    expect(screen.getByText('Revisión del cronograma del trimestre')).toBeInTheDocument();
     expect(screen.getByText('Ana Gomez')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cerrar' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument();

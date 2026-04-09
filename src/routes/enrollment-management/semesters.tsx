@@ -95,7 +95,7 @@ function validateForm(form: SemesterForm): FieldErrorMap<SemesterField> {
       today.setHours(0, 0, 0, 0);
 
       if (today.getTime() < start.getTime() || today.getTime() > end.getTime()) {
-        errors.end_date = 'Para marcar como semestre actual, la fecha de hoy debe estar entre inicio y fin.';
+        errors.end_date = 'Para marcar como trimestre actual, la fecha de hoy debe estar entre inicio y fin.';
       }
     }
   }
@@ -227,9 +227,9 @@ export default function EnrollmentSemestersPage() {
       <div class="mx-auto max-w-4xl rounded-xl border border-yellow-300 bg-white p-4 sm:p-6">
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 class="text-2xl font-semibold">Gestión de semestres</h1>
+            <h1 class="text-2xl font-semibold">Gestión de trimestres</h1>
             <p class="mt-2 text-gray-600">
-              Administra semestres académicos, sus fechas de inicio y fin, y el estado actual.
+              Administra trimestres académicos, sus fechas de inicio y fin, y el estado actual.
             </p>
           </div>
 
@@ -246,7 +246,7 @@ export default function EnrollmentSemestersPage() {
               class="rounded-lg bg-yellow-600 px-4 py-2 text-sm text-white transition-colors hover:bg-yellow-700"
               onClick={openCreateModal}
             >
-              Nuevo semestre
+              Nuevo trimestre
             </button>
           </div>
         </div>
@@ -284,7 +284,7 @@ export default function EnrollmentSemestersPage() {
                 fallback={(
                   <tr>
                     <td class="px-4 py-4 text-gray-600" colSpan={3}>
-                      Cargando semestres...
+                      Cargando trimestres...
                     </td>
                   </tr>
                 )}
@@ -304,7 +304,7 @@ export default function EnrollmentSemestersPage() {
                     fallback={(
                       <tr>
                         <td class="px-4 py-4 text-gray-600" colSpan={3}>
-                          No hay semestres registrados.
+                          No hay trimestres registrados.
                         </td>
                       </tr>
                     )}
@@ -318,7 +318,7 @@ export default function EnrollmentSemestersPage() {
                             <button
                               type="button"
                               class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-yellow-300 bg-yellow-100 text-gray-700 transition-colors hover:bg-yellow-200"
-                              aria-label={`Editar semestre ${semester.name}`}
+                              aria-label={`Editar trimestre ${semester.name}`}
                               onClick={() => navigate(`/enrollment-management/semesters/${semester.id}`)}
                             >
                               <i class="bi bi-pencil-square" aria-hidden="true"></i>
@@ -345,9 +345,9 @@ export default function EnrollmentSemestersPage() {
 
       <Modal
         open={createOpen()}
-        title="Crear semestre"
-        description="Completa la información para registrar un semestre."
-        confirmLabel="Crear semestre"
+        title="Crear trimestre"
+        description="Completa la información para registrar un trimestre."
+        confirmLabel="Crear trimestre"
         cancelLabel="Cancelar"
         busy={createBusy()}
         onConfirm={submitCreate}
@@ -407,7 +407,7 @@ export default function EnrollmentSemestersPage() {
               onInput={(event) => setCreateIsCurrent(event.currentTarget.checked)}
               disabled={createBusy()}
             />
-            Marcar como semestre actual
+            Marcar como trimestre actual
           </label>
 
           <Show when={createError()}>

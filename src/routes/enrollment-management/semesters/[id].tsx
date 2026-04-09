@@ -102,7 +102,7 @@ function validateForm(form: SemesterForm): FieldErrorMap<SemesterField> {
       today.setHours(0, 0, 0, 0);
 
       if (today.getTime() < start.getTime() || today.getTime() > end.getTime()) {
-        errors.end_date = 'Para marcar como semestre actual, la fecha de hoy debe estar entre inicio y fin.';
+        errors.end_date = 'Para marcar como trimestre actual, la fecha de hoy debe estar entre inicio y fin.';
       }
     }
   }
@@ -192,11 +192,11 @@ export default function EnrollmentSemesterEditPage() {
   return (
     <section class="min-h-screen bg-yellow-50 p-4 sm:p-6 lg:p-8 text-gray-800">
       <div class="mx-auto max-w-4xl rounded-xl border border-yellow-300 bg-white p-4 sm:p-6">
-        <h1 class="text-2xl font-semibold">Editar semestre</h1>
-        <p class="mt-2 text-gray-600">Actualiza la información del semestre seleccionado.</p>
+        <h1 class="text-2xl font-semibold">Editar trimestre</h1>
+        <p class="mt-2 text-gray-600">Actualiza la información del trimestre seleccionado.</p>
 
         <Show when={semester.loading}>
-          <p class="mt-4 text-sm text-gray-600">Cargando semestre...</p>
+          <p class="mt-4 text-sm text-gray-600">Cargando trimestre...</p>
         </Show>
 
         <Show when={semester.error}>
@@ -260,7 +260,7 @@ export default function EnrollmentSemesterEditPage() {
                 onInput={(event) => setIsCurrent(event.currentTarget.checked)}
                 disabled={saveBusy()}
               />
-              Marcar como semestre actual
+              Marcar como trimestre actual
             </label>
 
             <Show when={formError()}>

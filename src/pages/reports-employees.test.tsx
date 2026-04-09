@@ -214,7 +214,7 @@ describe('ReportsEmployeesPage', () => {
     });
 
     await waitFor(() => {
-      const bySemester = findChartConfigByLabel('Empleados (últimos 5 semestres)') as {
+      const bySemester = findChartConfigByLabel('Empleados (últimos 5 trimestres)') as {
         data: { labels: string[]; datasets: Array<{ data: number[] }> };
       };
       expect(bySemester).toBeDefined();
@@ -252,7 +252,7 @@ describe('ReportsEmployeesPage', () => {
     render(() => <ReportsEmployeesPage />);
     await screen.findByRole('cell', { name: 'Ana Pérez' });
 
-    fireEvent.change(screen.getByLabelText('Semestre (para gráfico por cargo)'), {
+    fireEvent.change(screen.getByLabelText('Trimestre (para gráfico por cargo)'), {
       target: { value: 'sem6' },
     });
 
@@ -265,7 +265,7 @@ describe('ReportsEmployeesPage', () => {
       expect(byJobForSemester.data.datasets[0]?.data).toEqual([1, 0, 1]);
     });
 
-    fireEvent.change(screen.getByLabelText('Cargo (para gráfico por semestre)'), {
+    fireEvent.change(screen.getByLabelText('Cargo (para gráfico por trimestre)'), {
       target: { value: 'j2' },
     });
 
@@ -403,7 +403,7 @@ describe('ReportsEmployeesPage', () => {
     render(() => <ReportsEmployeesPage />);
     await screen.findByRole('cell', { name: 'Ana Pérez' });
 
-    fireEvent.change(screen.getByLabelText('Semestre (para gráfico de licencias)'), {
+    fireEvent.change(screen.getByLabelText('Trimestre (para gráfico de licencias)'), {
       target: { value: 'sem2' },
     });
 
@@ -488,7 +488,7 @@ describe('ReportsEmployeesPage', () => {
 
     fireEvent.change(createModalQueries.getByLabelText('Empleado'), { target: { value: 'e1' } });
     fireEvent.change(createModalQueries.getByLabelText('Cargo'), { target: { value: 'j1' } });
-    fireEvent.change(createModalQueries.getByLabelText('Semestre'), { target: { value: 'sem1' } });
+    fireEvent.change(createModalQueries.getByLabelText('Trimestre'), { target: { value: 'sem1' } });
     fireEvent.input(createModalQueries.getByLabelText('Comentarios'), { target: { value: 'Muy bien.' } });
     fireEvent.click(screen.getByRole('button', { name: 'Crear reporte' }));
 
@@ -596,7 +596,7 @@ describe('ReportsEmployeesPage', () => {
     await screen.findByRole('cell', { name: 'Ana Pérez' });
 
     fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'j1' } });
-    fireEvent.change(screen.getByLabelText('Semestre'), { target: { value: 'sem1' } });
+    fireEvent.change(screen.getByLabelText('Trimestre'), { target: { value: 'sem1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
 
     await waitFor(() => {
@@ -635,7 +635,7 @@ describe('ReportsEmployeesPage', () => {
     await screen.findByRole('cell', { name: 'Ana Pérez' });
 
     fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'j1' } });
-    fireEvent.change(screen.getByLabelText('Semestre'), { target: { value: 'sem1' } });
+    fireEvent.change(screen.getByLabelText('Trimestre'), { target: { value: 'sem1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
 
     await waitFor(() => {
@@ -678,7 +678,7 @@ describe('ReportsEmployeesPage', () => {
     await screen.findByRole('cell', { name: 'Ana Pérez' });
 
     fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'j1' } });
-    fireEvent.change(screen.getByLabelText('Semestre'), { target: { value: 'sem1' } });
+    fireEvent.change(screen.getByLabelText('Trimestre'), { target: { value: 'sem1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
 
     await waitFor(() => {
@@ -747,7 +747,7 @@ describe('ReportsEmployeesPage', () => {
 
     expect(await screen.findByText('Empleado es obligatorio.')).toBeInTheDocument();
     expect(screen.getByText('Cargo es obligatorio.')).toBeInTheDocument();
-    expect(screen.getByText('Semestre es obligatorio.')).toBeInTheDocument();
+    expect(screen.getByText('Trimestre es obligatorio.')).toBeInTheDocument();
     expect(mocks.createEmployeeReport).not.toHaveBeenCalled();
   });
 });

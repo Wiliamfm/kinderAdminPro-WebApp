@@ -200,7 +200,7 @@ describe('ProfessorStudentDetailPage', () => {
 
     render(() => <ProfessorStudentDetailPage />);
 
-    expect(await screen.findByText(/no hay un semestre activo configurado/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no hay un trimestre activo configurado/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Agregar' })).toBeDisabled();
   });
 });

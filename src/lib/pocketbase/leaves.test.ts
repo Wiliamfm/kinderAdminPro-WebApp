@@ -174,7 +174,7 @@ describe('leaves pocketbase client', () => {
       start_datetime: '2026-01-31T23:59:59.999-05:00',
       end_datetime: '2026-02-01T10:00:00.000-05:00',
     })).rejects.toEqual({
-      message: 'Las fechas de la ausencia deben estar dentro del semestre (01/02/2026 - 28/02/2026).',
+      message: 'Las fechas de la ausencia deben estar dentro del trimestre (01/02/2026 - 28/02/2026).',
       status: 400,
       isAbort: false,
     });
@@ -189,7 +189,7 @@ describe('leaves pocketbase client', () => {
       start_datetime: '2026-02-10T10:00:00.000Z',
       end_datetime: '2026-02-10T12:00:00.000Z',
     })).rejects.toEqual({
-      message: 'Semestre es obligatorio.',
+      message: 'Trimestre es obligatorio.',
       status: 400,
       isAbort: false,
     });
@@ -260,7 +260,7 @@ describe('leaves pocketbase client', () => {
       start_datetime: '2026-02-28T10:00:00.000-05:00',
       end_datetime: '2026-03-01T00:00:00.000-05:00',
     })).rejects.toEqual({
-      message: 'Las fechas de la ausencia deben estar dentro del semestre (01/02/2026 - 28/02/2026).',
+      message: 'Las fechas de la ausencia deben estar dentro del trimestre (01/02/2026 - 28/02/2026).',
       status: 400,
       isAbort: false,
     });

@@ -291,7 +291,7 @@ export default function ProfessorInvoicesPage() {
                     />
                     <SortableHeaderCell
                       class="px-4 py-3 font-semibold"
-                      label="Semestre"
+                      label="Trimestre"
                       columnKey="semester_name"
                       sort={invoiceSort()}
                       onSort={handleInvoiceSort}

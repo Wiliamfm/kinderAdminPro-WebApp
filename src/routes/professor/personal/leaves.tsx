@@ -114,7 +114,7 @@ function formatSemesterDate(value: string): string {
 }
 
 function buildSemesterBoundaryMessage(semester: LeaveSemesterRange): string {
-  return `La fecha debe estar dentro del semestre (${formatSemesterDate(semester.start_date)} - ${formatSemesterDate(semester.end_date)}).`;
+  return `La fecha debe estar dentro del trimestre (${formatSemesterDate(semester.start_date)} - ${formatSemesterDate(semester.end_date)}).`;
 }
 
 function validateLeaveForm(
@@ -124,7 +124,7 @@ function validateLeaveForm(
 ): FieldErrorMap<LeaveField> {
   const errors: FieldErrorMap<LeaveField> = {};
   if (semesterId.length === 0) {
-    errors.semesterId = 'Semestre es obligatorio.';
+    errors.semesterId = 'Trimestre es obligatorio.';
   }
 
   const startValue = current.start_datetime.trim();
@@ -274,13 +274,13 @@ export default function ProfessorLeavesPage() {
 
     if (editingLeaveId()) {
       if (!editingLeaveSemester.loading && !editingLeaveSemester()) {
-        return 'No se pudo cargar el semestre asociado a esta ausencia.';
+        return 'No se pudo cargar el trimestre asociado a esta ausencia.';
       }
       return undefined;
     }
 
     if (!currentSemester.loading && !currentSemester()) {
-      return 'No hay un semestre activo configurado. Contacta al administrador.';
+      return 'No hay un trimestre activo configurado. Contacta al administrador.';
     }
 
     return undefined;
@@ -290,10 +290,10 @@ export default function ProfessorLeavesPage() {
     const semester = activeLeaveSemester();
     if (semester) return semester.name;
     if (editingLeaveId()) {
-      return editingLeaveSemester.loading ? 'Cargando semestre...' : 'Semestre no disponible';
+      return editingLeaveSemester.loading ? 'Cargando trimestre...' : 'Trimestre no disponible';
     }
 
-    return currentSemester.loading ? 'Cargando semestre actual...' : 'Semestre no disponible';
+    return currentSemester.loading ? 'Cargando trimestre actual...' : 'Trimestre no disponible';
   });
 
   const resolvedLeaveSemesterId = createMemo(() => {
@@ -391,12 +391,12 @@ export default function ProfessorLeavesPage() {
     setLeaveTouched(touched);
 
     if (!editingLeaveId() && currentSemester.loading) {
-      setLeaveError('Cargando semestre actual. Intenta nuevamente.');
+      setLeaveError('Cargando trimestre actual. Intenta nuevamente.');
       return;
     }
 
     if (editingLeaveId() && editingLeaveSemester.loading) {
-      setLeaveError('Cargando semestre. Intenta nuevamente.');
+      setLeaveError('Cargando trimestre. Intenta nuevamente.');
       return;
     }
 
@@ -639,7 +639,7 @@ export default function ProfessorLeavesPage() {
           </Show>
 
           <label class="block">
-            <span class="text-sm text-gray-700">Semestre</span>
+            <span class="text-sm text-gray-700">Trimestre</span>
             <div
               class="mt-1 rounded-lg border px-3 py-2 text-sm"
               classList={{

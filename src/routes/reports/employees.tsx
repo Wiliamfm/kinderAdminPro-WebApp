@@ -161,7 +161,7 @@ function validateForm(form: EmployeeReportForm): FieldErrorMap<EmployeeReportFie
   }
 
   if (form.semester_id.trim().length === 0) {
-    errors.semester_id = 'Semestre es obligatorio.';
+    errors.semester_id = 'Trimestre es obligatorio.';
   }
 
   return errors;
@@ -707,7 +707,7 @@ export default function ReportsEmployeesPage() {
           {
             label: selectedJobId.length > 0
               ? `Empleados (${jobLabel})`
-              : 'Empleados (últimos 5 semestres)',
+              : 'Empleados (últimos 5 trimestres)',
             data: points.map((point) => point.value),
             backgroundColor: '#93c5fd',
             borderColor: '#2563eb',
@@ -840,7 +840,7 @@ export default function ReportsEmployeesPage() {
             <div>
               <h1 class="text-2xl font-semibold">Informe de empleados</h1>
               <p class="mt-1 text-sm text-gray-600">
-                Consulta y administra reportes administrativos por empleado, cargo y semestre.
+                Consulta y administra reportes administrativos por empleado, cargo y trimestre.
               </p>
             </div>
             <button
@@ -858,7 +858,7 @@ export default function ReportsEmployeesPage() {
             <div>
               <h2 class="text-xl font-semibold">Empleados</h2>
               <p class="mt-1 text-sm text-gray-600">
-                Gestiona observaciones administrativas por empleado, cargo y semestre.
+                Gestiona observaciones administrativas por empleado, cargo y trimestre.
               </p>
             </div>
 
@@ -912,14 +912,14 @@ export default function ReportsEmployeesPage() {
               </label>
 
               <label class="block">
-                <span class="text-sm text-gray-700">Semestre</span>
+                <span class="text-sm text-gray-700">Trimestre</span>
                 <select
                   class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
                   value={filterDraft().semesterId}
                   onChange={(event) => setFilterField('semesterId', event.currentTarget.value)}
                   disabled={formOptionsLoading() || employeeReports.loading}
                 >
-                  <option value="">Todos los semestres</option>
+                  <option value="">Todos los trimestres</option>
                   <For each={formOptions().semesters}>
                     {(semester) => <option value={semester.id}>{semester.label}</option>}
                   </For>
@@ -1015,7 +1015,7 @@ export default function ReportsEmployeesPage() {
                   />
                   <SortableHeaderCell
                     class="px-4 py-3 font-semibold"
-                    label="Semestre"
+                    label="Trimestre"
                     columnKey="semester_name"
                     sort={reportSort()}
                     onSort={handleSort}
@@ -1142,10 +1142,10 @@ export default function ReportsEmployeesPage() {
           <div class="mt-8 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
             <h3 class="text-sm font-semibold text-gray-700">Analítica de empleados</h3>
             <p class="mt-1 text-xs text-gray-600">
-              Visualiza empleados únicos por cargo y semestre, junto con las licencias por empleado.
+              Visualiza empleados únicos por cargo y trimestre, junto con las licencias por empleado.
             </p>
             <p class="mt-2 text-xs text-gray-600">
-              La gráfica de licencias inicia en el semestre actual con empleados activos. Al cambiar el semestre se incluyen históricos activos e inactivos.
+              La gráfica de licencias inicia en el trimestre actual con empleados activos. Al cambiar el trimestre se incluyen históricos activos e inactivos.
             </p>
 
             <Show
@@ -1168,15 +1168,15 @@ export default function ReportsEmployeesPage() {
                   <div class="rounded-lg border border-yellow-200 bg-white p-4">
                     <h4 class="text-sm font-semibold text-gray-700">Empleados por cargo</h4>
                     <label class="mt-3 block">
-                      <span class="text-sm text-gray-700">Filtro por semestre</span>
+                      <span class="text-sm text-gray-700">Filtro por trimestre</span>
                       <select
-                        aria-label="Semestre (para gráfico por cargo)"
+                        aria-label="Trimestre (para gráfico por cargo)"
                         class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
                         value={jobChartSemesterId()}
                         onChange={(event) => setJobChartSemesterId(event.currentTarget.value)}
                         disabled={formOptionsLoading() || employeeReportsAnalytics.loading}
                       >
-                        <option value="">Todos los semestres</option>
+                        <option value="">Todos los trimestres</option>
                         <For each={formOptions().semesters}>
                           {(semester) => <option value={semester.id}>{semester.label}</option>}
                         </For>
@@ -1203,9 +1203,9 @@ export default function ReportsEmployeesPage() {
                   <div class="rounded-lg border border-yellow-200 bg-white p-4">
                     <h4 class="text-sm font-semibold text-gray-700">Licencias por empleado</h4>
                     <label class="mt-3 block">
-                      <span class="text-sm text-gray-700">Filtro por semestre</span>
+                      <span class="text-sm text-gray-700">Filtro por trimestre</span>
                       <select
-                        aria-label="Semestre (para gráfico de licencias)"
+                        aria-label="Trimestre (para gráfico de licencias)"
                         class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
                         value={leaveChartSemesterId()}
                         onChange={(event) => {
@@ -1215,7 +1215,7 @@ export default function ReportsEmployeesPage() {
                         disabled={formOptionsLoading() || leaveAnalytics.loading || formOptions().semesters.length === 0}
                       >
                         <option value="">
-                          {formOptionsLoading() ? 'Cargando semestres...' : 'Selecciona un semestre'}
+                          {formOptionsLoading() ? 'Cargando trimestres...' : 'Selecciona un trimestre'}
                         </option>
                         <For each={formOptions().semesters}>
                           {(semester) => <option value={semester.id}>{semester.label}</option>}
@@ -1227,10 +1227,10 @@ export default function ReportsEmployeesPage() {
                       fallback={(
                         <div class="mt-3 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-gray-600">
                           {formOptions().semesters.length === 0
-                            ? 'No hay semestres disponibles para generar la gráfica de licencias.'
+                            ? 'No hay trimestres disponibles para generar la gráfica de licencias.'
                             : leaveChartUsesActiveEmployeesOnly()
-                              ? 'No hay licencias registradas para empleados activos en el semestre seleccionado.'
-                              : 'No hay licencias registradas para el semestre seleccionado.'}
+                              ? 'No hay licencias registradas para empleados activos en el trimestre seleccionado.'
+                              : 'No hay licencias registradas para el trimestre seleccionado.'}
                         </div>
                       )}
                     >
@@ -1245,11 +1245,11 @@ export default function ReportsEmployeesPage() {
                   </div>
 
                   <div class="rounded-lg border border-yellow-200 bg-white p-4">
-                    <h4 class="text-sm font-semibold text-gray-700">Empleados por semestre</h4>
+                    <h4 class="text-sm font-semibold text-gray-700">Empleados por trimestre</h4>
                     <label class="mt-3 block">
                       <span class="text-sm text-gray-700">Filtro por cargo</span>
                       <select
-                        aria-label="Cargo (para gráfico por semestre)"
+                        aria-label="Cargo (para gráfico por trimestre)"
                         class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
                         value={semesterChartJobId()}
                         onChange={(event) => setSemesterChartJobId(event.currentTarget.value)}
@@ -1273,7 +1273,7 @@ export default function ReportsEmployeesPage() {
                         <canvas
                           ref={(element) => setSemesterChartCanvas(element)}
                           role="img"
-                          aria-label="Gráfico de empleados por semestre"
+                          aria-label="Gráfico de empleados por trimestre"
                         />
                       </div>
                     </Show>
@@ -1341,7 +1341,7 @@ export default function ReportsEmployeesPage() {
           </label>
 
           <label class="block">
-            <span class="text-sm text-gray-700">Semestre</span>
+            <span class="text-sm text-gray-700">Trimestre</span>
             <select
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               classList={{ 'field-input-invalid': !!createFieldError('semester_id') }}
@@ -1352,7 +1352,7 @@ export default function ReportsEmployeesPage() {
               aria-describedby={createFieldError('semester_id') ? 'create-report-semester-error' : undefined}
             >
               <option value="">
-                {formOptionsLoading() ? 'Cargando semestres...' : 'Selecciona un semestre'}
+                {formOptionsLoading() ? 'Cargando trimestres...' : 'Selecciona un trimestre'}
               </option>
               <For each={formOptions().semesters}>
                 {(semester) => <option value={semester.id}>{semester.label}</option>}
@@ -1435,7 +1435,7 @@ export default function ReportsEmployeesPage() {
           </label>
 
           <label class="block">
-            <span class="text-sm text-gray-700">Semestre</span>
+            <span class="text-sm text-gray-700">Trimestre</span>
             <select
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               classList={{ 'field-input-invalid': !!editFieldError('semester_id') }}
@@ -1446,7 +1446,7 @@ export default function ReportsEmployeesPage() {
               aria-describedby={editFieldError('semester_id') ? 'edit-report-semester-error' : undefined}
             >
               <option value="">
-                {formOptionsLoading() ? 'Cargando semestres...' : 'Selecciona un semestre'}
+                {formOptionsLoading() ? 'Cargando trimestres...' : 'Selecciona un trimestre'}
               </option>
               <For each={formOptions().semesters}>
                 {(semester) => <option value={semester.id}>{semester.label}</option>}

@@ -163,7 +163,7 @@ function validateForm(form: BulletinStudentForm): FieldErrorMap<BulletinStudentF
   }
 
   if (form.semester_id.trim().length === 0) {
-    errors.semester_id = 'Semestre es obligatorio.';
+    errors.semester_id = 'Trimestre es obligatorio.';
   }
 
   const noteRaw = form.note.trim();
@@ -644,7 +644,7 @@ export default function ReportsStudentsPage() {
           {
             label: selectedGradeId.length > 0
               ? `Estudiantes (${gradeLabel})`
-              : 'Estudiantes (últimos 5 semestres)',
+              : 'Estudiantes (últimos 5 trimestres)',
             data: points.map((point) => point.value),
             backgroundColor: '#93c5fd',
             borderColor: '#2563eb',
@@ -745,7 +745,7 @@ export default function ReportsStudentsPage() {
             <div>
               <h2 class="text-xl font-semibold">Estudiantes</h2>
               <p class="mt-1 text-sm text-gray-600">
-                Gestiona el registro de notas y observaciones por boletín, grado y semestre.
+                Gestiona el registro de notas y observaciones por boletín, grado y trimestre.
               </p>
             </div>
 
@@ -799,14 +799,14 @@ export default function ReportsStudentsPage() {
               </label>
 
               <label class="block">
-                <span class="text-sm text-gray-700">Semestre</span>
+                <span class="text-sm text-gray-700">Trimestre</span>
                 <select
                   class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
                   value={filterDraft().semesterId}
                   onChange={(event) => setFilterField('semesterId', event.currentTarget.value)}
                   disabled={formOptionsLoading() || bulletinsStudents.loading}
                 >
-                  <option value="">Todos los semestres</option>
+                  <option value="">Todos los trimestres</option>
                   <For each={formOptions().semesters}>
                     {(semester) => <option value={semester.id}>{semester.label}</option>}
                   </For>
@@ -909,7 +909,7 @@ export default function ReportsStudentsPage() {
                   />
                   <SortableHeaderCell
                     class="px-4 py-3 font-semibold"
-                    label="Semestre"
+                    label="Trimestre"
                     columnKey="semester_name"
                     sort={reportSort()}
                     onSort={handleSort}
@@ -1045,7 +1045,7 @@ export default function ReportsStudentsPage() {
           <div class="mt-8 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
             <h3 class="text-sm font-semibold text-gray-700">Distribución de estudiantes</h3>
             <p class="mt-1 text-xs text-gray-600">
-              Visualiza el número de estudiantes únicos por grado y por semestre.
+              Visualiza el número de estudiantes únicos por grado y por trimestre.
             </p>
 
             <Show
@@ -1076,15 +1076,15 @@ export default function ReportsStudentsPage() {
                     <div class="rounded-lg border border-yellow-200 bg-white p-4">
                       <h4 class="text-sm font-semibold text-gray-700">Estudiantes por grado</h4>
                       <label class="mt-3 block">
-                        <span class="text-sm text-gray-700">Filtro por semestre</span>
+                        <span class="text-sm text-gray-700">Filtro por trimestre</span>
                         <select
-                          aria-label="Semestre (para gráfico por grado)"
+                          aria-label="Trimestre (para gráfico por grado)"
                           class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
                           value={gradeChartSemesterId()}
                           onChange={(event) => setGradeChartSemesterId(event.currentTarget.value)}
                           disabled={formOptionsLoading() || bulletinsStudentsAnalytics.loading}
                         >
-                          <option value="">Todos los semestres</option>
+                          <option value="">Todos los trimestres</option>
                           <For each={formOptions().semesters}>
                             {(semester) => <option value={semester.id}>{semester.label}</option>}
                           </For>
@@ -1100,11 +1100,11 @@ export default function ReportsStudentsPage() {
                     </div>
 
                     <div class="rounded-lg border border-yellow-200 bg-white p-4">
-                      <h4 class="text-sm font-semibold text-gray-700">Estudiantes por semestre</h4>
+                      <h4 class="text-sm font-semibold text-gray-700">Estudiantes por trimestre</h4>
                       <label class="mt-3 block">
                         <span class="text-sm text-gray-700">Filtro por grado</span>
                         <select
-                          aria-label="Grado (para gráfico por semestre)"
+                          aria-label="Grado (para gráfico por trimestre)"
                           class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
                           value={semesterChartGradeId()}
                           onChange={(event) => setSemesterChartGradeId(event.currentTarget.value)}
@@ -1120,7 +1120,7 @@ export default function ReportsStudentsPage() {
                         <canvas
                           ref={(element) => setSemesterChartCanvas(element)}
                           role="img"
-                          aria-label="Gráfico de estudiantes por semestre"
+                          aria-label="Gráfico de estudiantes por trimestre"
                         />
                       </div>
                     </div>
@@ -1209,7 +1209,7 @@ export default function ReportsStudentsPage() {
           </label>
 
           <label class="block">
-            <span class="text-sm text-gray-700">Semestre</span>
+            <span class="text-sm text-gray-700">Trimestre</span>
             <select
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               classList={{ 'field-input-invalid': !!createFieldError('semester_id') }}
@@ -1220,7 +1220,7 @@ export default function ReportsStudentsPage() {
               aria-describedby={createFieldError('semester_id') ? 'create-report-semester-error' : undefined}
             >
               <option value="">
-                {formOptionsLoading() ? 'Cargando semestres...' : 'Selecciona un semestre'}
+                {formOptionsLoading() ? 'Cargando trimestres...' : 'Selecciona un trimestre'}
               </option>
               <For each={formOptions().semesters}>
                 {(semester) => <option value={semester.id}>{semester.label}</option>}
@@ -1341,7 +1341,7 @@ export default function ReportsStudentsPage() {
           </label>
 
           <label class="block">
-            <span class="text-sm text-gray-700">Semestre</span>
+            <span class="text-sm text-gray-700">Trimestre</span>
             <select
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               classList={{ 'field-input-invalid': !!editFieldError('semester_id') }}
@@ -1352,7 +1352,7 @@ export default function ReportsStudentsPage() {
               aria-describedby={editFieldError('semester_id') ? 'edit-report-semester-error' : undefined}
             >
               <option value="">
-                {formOptionsLoading() ? 'Cargando semestres...' : 'Selecciona un semestre'}
+                {formOptionsLoading() ? 'Cargando trimestres...' : 'Selecciona un trimestre'}
               </option>
               <For each={formOptions().semesters}>
                 {(semester) => <option value={semester.id}>{semester.label}</option>}

@@ -164,7 +164,7 @@ describe('ProfessorLeavesPage', () => {
     await openCreateModal();
 
     expect(await screen.findByText('2026-1')).toBeInTheDocument();
-    expect(screen.queryByRole('combobox', { name: /semestre/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: /trimestre/i })).not.toBeInTheDocument();
     expect(mocks.getCurrentSemester).toHaveBeenCalledTimes(1);
     expect(mocks.getSemesterById).not.toHaveBeenCalled();
   });
@@ -175,7 +175,7 @@ describe('ProfessorLeavesPage', () => {
     await openCreateModal();
 
     expect(
-      await screen.findByText('No hay un semestre activo configurado. Contacta al administrador.'),
+      await screen.findByText('No hay un trimestre activo configurado. Contacta al administrador.'),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Registrar ausencia' })).toBeDisabled();
   });
@@ -192,7 +192,7 @@ describe('ProfessorLeavesPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Registrar ausencia' }));
 
     expect(
-      await screen.findByText('La fecha debe estar dentro del semestre (01/03/2026 - 31/07/2026).'),
+      await screen.findByText('La fecha debe estar dentro del trimestre (01/03/2026 - 31/07/2026).'),
     ).toBeInTheDocument();
     expect(mocks.createEmployeeLeave).not.toHaveBeenCalled();
   });
@@ -209,7 +209,7 @@ describe('ProfessorLeavesPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Registrar ausencia' }));
 
     expect(
-      await screen.findByText('La fecha debe estar dentro del semestre (01/03/2026 - 31/07/2026).'),
+      await screen.findByText('La fecha debe estar dentro del trimestre (01/03/2026 - 31/07/2026).'),
     ).toBeInTheDocument();
     expect(mocks.createEmployeeLeave).not.toHaveBeenCalled();
   });
@@ -260,7 +260,7 @@ describe('ProfessorLeavesPage', () => {
 
     expect(await screen.findByText('2025-2')).toBeInTheDocument();
     expect(mocks.getSemesterById).toHaveBeenCalledWith('sem-old');
-    expect(screen.queryByRole('combobox', { name: /semestre/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: /trimestre/i })).not.toBeInTheDocument();
 
     const startInput = screen.getByLabelText('Fecha y hora de inicio') as HTMLInputElement;
     const endInput = screen.getByLabelText('Fecha y hora de fin') as HTMLInputElement;
@@ -285,14 +285,14 @@ describe('ProfessorLeavesPage', () => {
 
   it('shows the semester load error when the current semester request fails', async () => {
     mocks.getCurrentSemester.mockRejectedValue({
-      message: 'No autorizado para consultar semestres.',
+      message: 'No autorizado para consultar trimestres.',
       status: 403,
       isAbort: false,
     });
 
     await openCreateModal();
 
-    expect(await screen.findByText('No autorizado para consultar semestres.')).toBeInTheDocument();
+    expect(await screen.findByText('No autorizado para consultar trimestres.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Registrar ausencia' })).toBeDisabled();
   });
 });

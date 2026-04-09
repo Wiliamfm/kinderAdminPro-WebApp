@@ -229,7 +229,7 @@ function parseLocalDateTime(value: string): Date | null {
 function validateLeaveForm(current: LeaveCreateInput): FieldErrorMap<LeaveField> {
   const errors: FieldErrorMap<LeaveField> = {};
   if (current.semesterId.trim().length === 0) {
-    errors.semesterId = 'Semestre es obligatorio.';
+    errors.semesterId = 'Trimestre es obligatorio.';
   }
 
   const startValue = current.start_datetime.trim();
@@ -612,7 +612,7 @@ export default function StaffEmployeesPage() {
     if (!leaveTarget()) return undefined;
     if (leaveSemesters.error) return getErrorMessage(leaveSemesters.error);
     if (!leaveSemesters.loading && leaveSemesterOptions().length === 0) {
-      return 'No hay semestres registrados. Debes crear uno antes de guardar una licencia.';
+      return 'No hay trimestres registrados. Debes crear uno antes de guardar una licencia.';
     }
 
     return undefined;
@@ -661,7 +661,7 @@ export default function StaffEmployeesPage() {
 
     setLeaveTouched((current) => touchAllFields(current));
     if (leaveSemesters.loading) {
-      setLeaveError('Cargando semestres. Intenta nuevamente.');
+      setLeaveError('Cargando trimestres. Intenta nuevamente.');
       return;
     }
     const semesterAvailabilityError = leaveSemesterAvailabilityError();
@@ -754,7 +754,7 @@ export default function StaffEmployeesPage() {
     if (editingInvoice()) return undefined;
     if (currentInvoiceSemester.error) return getErrorMessage(currentInvoiceSemester.error);
     if (!currentInvoiceSemester.loading && !currentInvoiceSemester()) {
-      return 'No hay un semestre activo. No se puede crear la factura.';
+      return 'No hay un trimestre activo. No se puede crear la factura.';
     }
 
     return undefined;
@@ -765,7 +765,7 @@ export default function StaffEmployeesPage() {
       return formatText(invoiceToEdit.semesterName || invoiceToEdit.semesterId);
     }
 
-    if (currentInvoiceSemester.loading) return 'Cargando semestre activo...';
+    if (currentInvoiceSemester.loading) return 'Cargando trimestre activo...';
     return formatText(currentInvoiceSemester()?.name);
   });
 
@@ -778,7 +778,7 @@ export default function StaffEmployeesPage() {
 
     if (!invoiceToEdit) {
       if (currentInvoiceSemester.loading) {
-        setInvoiceError('Cargando semestre activo. Intenta nuevamente.');
+        setInvoiceError('Cargando trimestre activo. Intenta nuevamente.');
         return;
       }
 
@@ -788,7 +788,7 @@ export default function StaffEmployeesPage() {
       }
 
       if (!currentSemester) {
-        setInvoiceError('No hay un semestre activo. No se puede crear la factura.');
+        setInvoiceError('No hay un trimestre activo. No se puede crear la factura.');
         return;
       }
     }
@@ -1292,7 +1292,7 @@ export default function StaffEmployeesPage() {
             <div class="space-y-4">
             <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
               <label class="block">
-                <span class="text-sm text-gray-700">Semestre</span>
+                <span class="text-sm text-gray-700">Trimestre</span>
                 <select
                   class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                   classList={{ 'field-input-invalid': !!leaveFieldError('semesterId') }}
@@ -1303,7 +1303,7 @@ export default function StaffEmployeesPage() {
                   aria-describedby={leaveFieldError('semesterId') ? 'leave-semester-error' : undefined}
                 >
                   <option value="">
-                    {leaveSemesters.loading ? 'Cargando semestres...' : 'Selecciona un semestre'}
+                    {leaveSemesters.loading ? 'Cargando trimestres...' : 'Selecciona un trimestre'}
                   </option>
                   <For each={leaveSemesterOptions()}>
                     {(semester) => (
@@ -1454,7 +1454,7 @@ export default function StaffEmployeesPage() {
           <div class="space-y-4">
             <label class="block">
               <span class="text-sm text-gray-700">
-                Semestre de factura <span class="text-red-600">*</span>
+                Trimestre de factura <span class="text-red-600">*</span>
               </span>
               <input
                 class="mt-1 w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700"
@@ -1532,7 +1532,7 @@ export default function StaffEmployeesPage() {
                     />
                     <SortableHeaderCell
                       class="px-4 py-3 font-semibold"
-                      label="Semestre"
+                      label="Trimestre"
                       columnKey="semester_name"
                       sort={invoiceSort()}
                       onSort={handleInvoiceSort}

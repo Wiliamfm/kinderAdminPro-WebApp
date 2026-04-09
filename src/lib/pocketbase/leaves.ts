@@ -189,7 +189,7 @@ function formatSemesterDate(value: string): string {
 
 function createLeaveBoundaryError(startDate: string, endDate: string) {
   return {
-    message: `Las fechas de la ausencia deben estar dentro del semestre (${formatSemesterDate(startDate)} - ${formatSemesterDate(endDate)}).`,
+    message: `Las fechas de la ausencia deben estar dentro del trimestre (${formatSemesterDate(startDate)} - ${formatSemesterDate(endDate)}).`,
     status: 400,
     isAbort: false,
   } as const;
@@ -197,7 +197,7 @@ function createLeaveBoundaryError(startDate: string, endDate: string) {
 
 function createMissingSemesterError() {
   return {
-    message: 'Semestre es obligatorio.',
+    message: 'Trimestre es obligatorio.',
     status: 400,
     isAbort: false,
   } as const;
@@ -220,7 +220,7 @@ async function assertLeaveWithinSemester(
   const semester = semesterResult.items[0] as PbSemesterRecord | undefined;
   if (!semester) {
     throw {
-      message: 'No se encontró el semestre asociado.',
+      message: 'No se encontró el trimestre asociado.',
       status: 404,
       isAbort: false,
     } as const;
@@ -237,7 +237,7 @@ async function assertLeaveWithinSemester(
     || Number.isNaN(leaveEnd.getTime())
   ) {
     throw {
-      message: 'No se pudo validar el rango de fechas del semestre asociado.',
+      message: 'No se pudo validar el rango de fechas del trimestre asociado.',
       status: 400,
       isAbort: false,
     } as const;

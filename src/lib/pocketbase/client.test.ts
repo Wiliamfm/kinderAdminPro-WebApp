@@ -34,14 +34,14 @@ describe('pocketbase client error normalization', () => {
           },
           semester_id: {
             code: 'validation_invalid_relation',
-            message: 'Selecciona un semestre valido.',
+            message: 'Selecciona un trimestre valido.',
           },
         },
       },
     });
 
     expect(normalizePocketBaseError(error)).toEqual({
-      message: 'Failed to create record. Selecciona un empleado valido.; Selecciona un semestre valido.',
+      message: 'Failed to create record. Selecciona un empleado valido.; Selecciona un trimestre valido.',
       status: 400,
       isAbort: false,
     });

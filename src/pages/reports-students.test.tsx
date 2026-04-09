@@ -198,7 +198,7 @@ describe('ReportsStudentsPage', () => {
     });
 
     await waitFor(() => {
-      const bySemester = findChartConfigByLabel('Estudiantes (últimos 5 semestres)') as {
+      const bySemester = findChartConfigByLabel('Estudiantes (últimos 5 trimestres)') as {
         data: { labels: string[]; datasets: Array<{ data: number[] }> };
       };
       expect(bySemester).toBeDefined();
@@ -240,7 +240,7 @@ describe('ReportsStudentsPage', () => {
     render(() => <ReportsStudentsPage />);
     await screen.findByRole('cell', { name: 'Ana Pérez' });
 
-    fireEvent.change(screen.getByLabelText('Semestre (para gráfico por grado)'), {
+    fireEvent.change(screen.getByLabelText('Trimestre (para gráfico por grado)'), {
       target: { value: 'sem6' },
     });
 
@@ -260,7 +260,7 @@ describe('ReportsStudentsPage', () => {
       expect(byGradeForSemester.data.datasets[0]?.data).toEqual([0, 0, 0, 0, 1, 1]);
     });
 
-    fireEvent.change(screen.getByLabelText('Grado (para gráfico por semestre)'), {
+    fireEvent.change(screen.getByLabelText('Grado (para gráfico por trimestre)'), {
       target: { value: 'g2' },
     });
 
@@ -306,7 +306,7 @@ describe('ReportsStudentsPage', () => {
     fireEvent.change(createModalQueries.getByLabelText('Boletín'), { target: { value: 'b1' } });
     fireEvent.change(createModalQueries.getByLabelText('Estudiante'), { target: { value: 's1' } });
     fireEvent.change(createModalQueries.getByLabelText('Grado'), { target: { value: 'g1' } });
-    fireEvent.change(createModalQueries.getByLabelText('Semestre'), { target: { value: 'sem1' } });
+    fireEvent.change(createModalQueries.getByLabelText('Trimestre'), { target: { value: 'sem1' } });
     fireEvent.input(createModalQueries.getByLabelText('Nota'), { target: { value: '99' } });
     fireEvent.input(createModalQueries.getByLabelText('Comentarios'), { target: { value: 'Muy bien.' } });
     fireEvent.click(screen.getByRole('button', { name: 'Crear reporte' }));
@@ -420,7 +420,7 @@ describe('ReportsStudentsPage', () => {
     await screen.findByRole('cell', { name: 'Ana Pérez' });
 
     fireEvent.change(screen.getByLabelText('Grado'), { target: { value: 'g1' } });
-    fireEvent.change(screen.getByLabelText('Semestre'), { target: { value: 'sem1' } });
+    fireEvent.change(screen.getByLabelText('Trimestre'), { target: { value: 'sem1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
 
     await waitFor(() => {
@@ -459,7 +459,7 @@ describe('ReportsStudentsPage', () => {
     await screen.findByRole('cell', { name: 'Ana Pérez' });
 
     fireEvent.change(screen.getByLabelText('Grado'), { target: { value: 'g1' } });
-    fireEvent.change(screen.getByLabelText('Semestre'), { target: { value: 'sem1' } });
+    fireEvent.change(screen.getByLabelText('Trimestre'), { target: { value: 'sem1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
 
     await waitFor(() => {
@@ -502,7 +502,7 @@ describe('ReportsStudentsPage', () => {
     await screen.findByRole('cell', { name: 'Ana Pérez' });
 
     fireEvent.change(screen.getByLabelText('Grado'), { target: { value: 'g1' } });
-    fireEvent.change(screen.getByLabelText('Semestre'), { target: { value: 'sem1' } });
+    fireEvent.change(screen.getByLabelText('Trimestre'), { target: { value: 'sem1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
 
     await waitFor(() => {
@@ -562,7 +562,7 @@ describe('ReportsStudentsPage', () => {
       fireEvent.change(createModalQueries.getByLabelText('Boletín'), { target: { value: 'b1' } });
       fireEvent.change(createModalQueries.getByLabelText('Estudiante'), { target: { value: 's1' } });
       fireEvent.change(createModalQueries.getByLabelText('Grado'), { target: { value: 'g1' } });
-      fireEvent.change(createModalQueries.getByLabelText('Semestre'), { target: { value: 'sem1' } });
+      fireEvent.change(createModalQueries.getByLabelText('Trimestre'), { target: { value: 'sem1' } });
       fireEvent.input(createModalQueries.getByLabelText('Nota'), { target: { value } });
       fireEvent.click(screen.getByRole('button', { name: 'Crear reporte' }));
 
