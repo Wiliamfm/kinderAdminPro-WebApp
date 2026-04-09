@@ -458,6 +458,24 @@ export default function EventManagementCalendarPage() {
     setFormError(null);
   };
 
+  const allAssigneesSelected = createMemo(
+    () => employeeOptions().length > 0
+      && eventForm().assigneeIds.length === employeeOptions().length
+  );
+
+  const toggleSelectAll = () => {
+    if (allAssigneesSelected()) {
+      setEventForm((current) => ({ ...current, assigneeIds: [] }));
+    } else {
+      setEventForm((current) => ({
+        ...current,
+        assigneeIds: employeeOptions().map((e) => e.id),
+      }));
+    }
+    setEventTouched((current) => touchField(current, 'assigneeIds'));
+    setFormError(null);
+  };
+
   const toggleAllDay = (checked: boolean) => {
     setEventForm((current) => {
       if (checked) {
@@ -896,11 +914,22 @@ export default function EventManagementCalendarPage() {
                   Obligatorio para tareas. Los eventos informativos pueden quedar sin responsables.
                 </p>
               </div>
-              <Show when={eventForm().kind === 'task'}>
-                <span class="rounded-full border border-blue-300 bg-blue-50 px-2 py-1 text-[11px] font-medium text-blue-700">
-                  Requerido
-                </span>
-              </Show>
+              <div class="flex flex-col items-end gap-1">
+                <Show when={eventForm().kind === 'task'}>
+                  <span class="rounded-full border border-blue-300 bg-blue-50 px-2 py-1 text-[11px] font-medium text-blue-700">
+                    Requerido
+                  </span>
+                </Show>
+                <Show when={employeeOptions().length > 0}>
+                  <button
+                    type="button"
+                    class="text-xs font-medium text-blue-600 hover:text-blue-800"
+                    onClick={toggleSelectAll}
+                  >
+                    {allAssigneesSelected() ? 'Deseleccionar todos' : 'Seleccionar todos'}
+                  </button>
+                </Show>
+              </div>
             </div>
 
             <div class="mt-4 grid max-h-56 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
