@@ -32,7 +32,11 @@ import {
   type LeaveRecord,
   type LeaveSortField,
 } from '../../../lib/pocketbase/leaves';
-import { getCurrentSemester, listSemesterOptions } from '../../../lib/pocketbase/semesters';
+import {
+  getCurrentSemester,
+  getSemesterById,
+  type SemesterRecord,
+} from '../../../lib/pocketbase/semesters';
 
 const LEAVE_FIELDS = ['semesterId', 'start_datetime', 'end_datetime'] as const;
 type LeaveField = (typeof LEAVE_FIELDS)[number];
@@ -58,9 +62,68 @@ function toDateTimeLocalValue(isoValue: string): string {
   return new Date(parsed.getTime() - tzOffsetMs).toISOString().slice(0, 16);
 }
 
-function validateLeaveForm(current: LeaveCreateInput): FieldErrorMap<LeaveField> {
+type LeaveSemesterRange = Pick<SemesterRecord, 'start_date' | 'end_date'>;
+
+function extractSemesterDatePart(value: string): string | null {
+  const match = value.trim().match(/^(\d{4}-\d{2}-\d{2})/);
+  return match?.[1] ?? null;
+}
+
+function extractSemesterOffset(value: string): string {
+  const match = value.trim().match(/(Z|[+-]\d{2}:\d{2})$/);
+  return match?.[1] ?? 'Z';
+}
+
+function toSemesterBoundaryDate(value: string, boundary: 'start' | 'end'): Date | null {
+  const datePart = extractSemesterDatePart(value);
+  if (datePart) {
+    const timePart = boundary === 'start' ? 'T00:00:00.000' : 'T23:59:59.999';
+    const boundaryDate = new Date(`${datePart}${timePart}${extractSemesterOffset(value)}`);
+    if (!Number.isNaN(boundaryDate.getTime())) return boundaryDate;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  const normalized = new Date(parsed);
+  if (boundary === 'start') {
+    normalized.setHours(0, 0, 0, 0);
+  } else {
+    normalized.setHours(23, 59, 59, 999);
+  }
+
+  return normalized;
+}
+
+function formatSemesterDate(value: string): string {
+  const datePart = extractSemesterDatePart(value);
+  if (datePart) {
+    const [year, month, day] = datePart.split('-');
+    return `${day}/${month}/${year}`;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+
+  return new Intl.DateTimeFormat('es-CO', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(parsed);
+}
+
+function buildSemesterBoundaryMessage(semester: LeaveSemesterRange): string {
+  return `La fecha debe estar dentro del semestre (${formatSemesterDate(semester.start_date)} - ${formatSemesterDate(semester.end_date)}).`;
+}
+
+function validateLeaveForm(
+  current: LeaveCreateInput,
+  semester: LeaveSemesterRange | null,
+  semesterId: string,
+): FieldErrorMap<LeaveField> {
   const errors: FieldErrorMap<LeaveField> = {};
-  if (current.semesterId.trim().length === 0) {
+  if (semesterId.length === 0) {
     errors.semesterId = 'Semestre es obligatorio.';
   }
 
@@ -81,7 +144,24 @@ function validateLeaveForm(current: LeaveCreateInput): FieldErrorMap<LeaveField>
     return errors;
   }
 
-  if (end.getTime() <= start.getTime()) {
+  if (semester) {
+    const semesterStart = toSemesterBoundaryDate(semester.start_date, 'start');
+    const semesterEnd = toSemesterBoundaryDate(semester.end_date, 'end');
+
+    if (semesterStart && semesterEnd) {
+      const boundaryMessage = buildSemesterBoundaryMessage(semester);
+
+      if (start.getTime() < semesterStart.getTime() || start.getTime() > semesterEnd.getTime()) {
+        errors.start_datetime = boundaryMessage;
+      }
+
+      if (end.getTime() < semesterStart.getTime() || end.getTime() > semesterEnd.getTime()) {
+        errors.end_datetime = boundaryMessage;
+      }
+    }
+  }
+
+  if (!errors.end_datetime && end.getTime() <= start.getTime()) {
     errors.end_datetime = 'La fecha de fin debe ser posterior a la fecha de inicio.';
   }
 
@@ -146,58 +226,85 @@ export default function ProfessorLeavesPage() {
       listEmployeeLeaves(eid, page, DEFAULT_TABLE_PAGE_SIZE, { sortField, sortDirection }),
   );
 
-  const [leaveSemesters] = createResource(
-    () => {
-      const eid = employeeId();
-      if (!createModalOpen() || !eid) return undefined;
-      return eid;
-    },
-    async () => {
-      setLeaveSemesterLoadError(null);
-
-      try {
-        return await listSemesterOptions();
-      } catch (error) {
-        setLeaveSemesterLoadError(getErrorMessage(error));
-        return [];
-      }
-    },
-  );
-  const [currentSemesterData] = createResource(
+  const [currentSemester] = createResource(
     () => {
       const eid = employeeId();
       if (!createModalOpen() || editingLeaveId() || !eid) return undefined;
       return eid;
     },
     async () => {
+      setLeaveSemesterLoadError(null);
+
       try {
         return await getCurrentSemester();
-      } catch {
+      } catch (error) {
+        setLeaveSemesterLoadError(getErrorMessage(error));
+        return null;
+      }
+    },
+  );
+  const [editingLeaveSemester] = createResource(
+    () => {
+      const eid = employeeId();
+      const editId = editingLeaveId();
+      const semesterId = leaveForm().semesterId.trim();
+      if (!createModalOpen() || !eid || !editId || semesterId.length === 0) return undefined;
+      return semesterId;
+    },
+    async (semesterId) => {
+      setLeaveSemesterLoadError(null);
+
+      try {
+        return await getSemesterById(semesterId);
+      } catch (error) {
+        setLeaveSemesterLoadError(getErrorMessage(error));
         return null;
       }
     },
   );
 
-  const leaveSemesterOptions = () => leaveSemesters() ?? [];
+  const activeLeaveSemester = createMemo(() => {
+    if (editingLeaveId()) return editingLeaveSemester() ?? null;
+    return currentSemester() ?? null;
+  });
+
   const leaveSemesterAvailabilityError = createMemo(() => {
     if (!createModalOpen()) return undefined;
     if (leaveSemesterLoadError()) return leaveSemesterLoadError() ?? undefined;
-    if (!leaveSemesters.loading && leaveSemesterOptions().length === 0) {
-      return 'No hay semestres registrados. Debes crear uno antes de guardar una ausencia.';
+
+    if (editingLeaveId()) {
+      if (!editingLeaveSemester.loading && !editingLeaveSemester()) {
+        return 'No se pudo cargar el semestre asociado a esta ausencia.';
+      }
+      return undefined;
+    }
+
+    if (!currentSemester.loading && !currentSemester()) {
+      return 'No hay un semestre activo configurado. Contacta al administrador.';
     }
 
     return undefined;
   });
 
-  const currentLeaveSemester = createMemo(() => {
-    const current = currentSemesterData();
-    const options = leaveSemesterOptions();
-    if (current) return options.find((s) => s.id === current.id) ?? null;
-    if (options.length > 0) return options[0];
-    return null;
+  const leaveSemesterDisplayValue = createMemo(() => {
+    const semester = activeLeaveSemester();
+    if (semester) return semester.name;
+    if (editingLeaveId()) {
+      return editingLeaveSemester.loading ? 'Cargando semestre...' : 'Semestre no disponible';
+    }
+
+    return currentSemester.loading ? 'Cargando semestre actual...' : 'Semestre no disponible';
   });
 
-  const leaveFieldErrors = createMemo(() => validateLeaveForm(leaveForm()));
+  const resolvedLeaveSemesterId = createMemo(() => {
+    const formSemesterId = leaveForm().semesterId.trim();
+    if (formSemesterId.length > 0) return formSemesterId;
+    return activeLeaveSemester()?.id.trim() ?? '';
+  });
+
+  const leaveFieldErrors = createMemo(() => (
+    validateLeaveForm(leaveForm(), activeLeaveSemester(), resolvedLeaveSemesterId())
+  ));
 
   const leaveFieldError = (field: LeaveField): string | undefined => {
     if (field === 'semesterId') {
@@ -217,26 +324,27 @@ export default function ProfessorLeavesPage() {
     if (!createModalOpen() || editingLeaveId()) return;
 
     const eid = employeeId();
-    const currentSemester = currentLeaveSemester();
-    if (!eid || !currentSemester) return;
+    const semester = currentSemester();
+    if (!eid || !semester) return;
 
     setLeaveForm((current) => {
-      if (current.employeeId !== eid || current.semesterId.trim().length > 0) {
+      if (current.employeeId === eid && current.semesterId === semester.id) {
         return current;
       }
 
       return {
         ...current,
-        semesterId: currentSemester.id,
+        employeeId: eid,
+        semesterId: semester.id,
       };
     });
   });
 
   const openCreate = () => {
-    const currentSemester = currentLeaveSemester();
+    setLeaveSemesterLoadError(null);
     setLeaveForm({
       employeeId: employeeId(),
-      semesterId: currentSemester?.id ?? '',
+      semesterId: '',
       start_datetime: '',
       end_datetime: '',
     });
@@ -248,6 +356,7 @@ export default function ProfessorLeavesPage() {
   };
 
   const openEdit = (leave: LeaveRecord) => {
+    setLeaveSemesterLoadError(null);
     setLeaveForm({
       employeeId: employeeId(),
       semesterId: leave.semesterId,
@@ -265,6 +374,7 @@ export default function ProfessorLeavesPage() {
     if (leaveBusy()) return;
     setCreateModalOpen(false);
     setEditingLeaveId(null);
+    setLeaveSemesterLoadError(null);
   };
 
   const updateLeaveField = (field: keyof LeaveCreateInput, value: string) => {
@@ -279,10 +389,17 @@ export default function ProfessorLeavesPage() {
   const submitLeave = async () => {
     const touched = touchAllFields(leaveTouched());
     setLeaveTouched(touched);
-    if (leaveSemesters.loading) {
-      setLeaveError('Cargando semestres. Intenta nuevamente.');
+
+    if (!editingLeaveId() && currentSemester.loading) {
+      setLeaveError('Cargando semestre actual. Intenta nuevamente.');
       return;
     }
+
+    if (editingLeaveId() && editingLeaveSemester.loading) {
+      setLeaveError('Cargando semestre. Intenta nuevamente.');
+      return;
+    }
+
     const semesterAvailabilityError = leaveSemesterAvailabilityError();
     if (semesterAvailabilityError) {
       setLeaveError(semesterAvailabilityError);
@@ -313,15 +430,17 @@ export default function ProfessorLeavesPage() {
 
       const payload: LeaveCreateInput = {
         employeeId: employeeId(),
-        semesterId: leaveForm().semesterId.trim(),
+        semesterId: resolvedLeaveSemesterId(),
         start_datetime: start.toISOString(),
         end_datetime: end.toISOString(),
       };
+      console.log(payload);
 
       const editId = editingLeaveId();
       if (editId) {
         await updateEmployeeLeave(editId, payload);
       } else {
+        console.log("Creating");
         await createEmployeeLeave(payload);
       }
 
@@ -332,12 +451,13 @@ export default function ProfessorLeavesPage() {
       setEditingLeaveId(null);
       setLeaveForm({
         employeeId: employeeId(),
-        semesterId: currentLeaveSemester()?.id ?? '',
+        semesterId: currentSemester()?.id ?? '',
         start_datetime: '',
         end_datetime: '',
       });
       setLeaveTouched(createInitialTouchedMap(LEAVE_FIELDS));
     } catch (error) {
+      console.error(error);
       setLeaveError(getErrorMessage(error));
     } finally {
       setLeaveBusy(false);
@@ -350,6 +470,14 @@ export default function ProfessorLeavesPage() {
   };
 
   const leaveRows = () => leaves()?.items ?? [];
+  const leaveConfirmDisabled = createMemo(() => {
+    if (leaveBusy()) return true;
+    if (editingLeaveId()) {
+      return editingLeaveSemester.loading || !!leaveSemesterAvailabilityError();
+    }
+
+    return currentSemester.loading || !!leaveSemesterAvailabilityError();
+  });
 
   return (
     <section class="min-h-screen bg-yellow-50 p-4 sm:p-6 lg:p-8 text-gray-800">
@@ -482,6 +610,26 @@ export default function ProfessorLeavesPage() {
         busy={leaveBusy()}
         onConfirm={submitLeave}
         onClose={closeLeaveModal}
+        footer={(
+          <div class="mt-6 flex shrink-0 justify-end gap-2">
+            <button
+              type="button"
+              class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={leaveBusy()}
+              onClick={closeLeaveModal}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              class="rounded-lg bg-yellow-600 px-4 py-2 text-sm text-white transition-colors hover:bg-yellow-700 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={leaveConfirmDisabled()}
+              onClick={submitLeave}
+            >
+              {leaveBusy() ? 'Procesando...' : editingLeaveId() ? 'Guardar cambios' : 'Registrar ausencia'}
+            </button>
+          </div>
+        )}
       >
         <div class="space-y-3">
           <Show when={leaveError()}>
@@ -492,24 +640,17 @@ export default function ProfessorLeavesPage() {
 
           <label class="block">
             <span class="text-sm text-gray-700">Semestre</span>
-            <select
-              class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              classList={{ 'field-input-invalid': !!leaveFieldError('semesterId') }}
-              value={leaveForm().semesterId}
-              onChange={(event) => updateLeaveField('semesterId', event.currentTarget.value)}
-              disabled={leaveBusy() || leaveSemesters.loading || !!leaveSemesterAvailabilityError()}
+            <div
+              class="mt-1 rounded-lg border px-3 py-2 text-sm"
+              classList={{
+                'border-red-300 bg-red-50 text-red-700': !!leaveFieldError('semesterId'),
+                'border-gray-300 bg-gray-50 text-gray-700': !leaveFieldError('semesterId'),
+              }}
               aria-invalid={!!leaveFieldError('semesterId')}
               aria-describedby={leaveFieldError('semesterId') ? 'leave-semester-error' : undefined}
             >
-              <option value="">
-                {leaveSemesters.loading ? 'Cargando semestres...' : 'Selecciona un semestre'}
-              </option>
-              <For each={leaveSemesterOptions()}>
-                {(semester) => (
-                  <option value={semester.id}>{semester.name}</option>
-                )}
-              </For>
-            </select>
+              {leaveSemesterDisplayValue()}
+            </div>
             <InlineFieldAlert id="leave-semester-error" message={leaveFieldError('semesterId')} />
           </label>
 

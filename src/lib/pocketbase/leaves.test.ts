@@ -50,6 +50,7 @@ describe('leaves pocketbase client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     hoisted.getAuthenticatedPb.mockResolvedValue(hoisted.pb);
+    hoisted.normalizePocketBaseError.mockImplementation((error: unknown) => error);
   });
 
   it('lists employee leaves with descending sort and filter binding', async () => {
@@ -109,7 +110,19 @@ describe('leaves pocketbase client', () => {
     });
   });
 
-  it('creates a leave record', async () => {
+  it('creates a leave record when dates are within the semester boundaries', async () => {
+    hoisted.filter.mockReturnValue('semester-filter');
+    hoisted.getList.mockResolvedValueOnce({
+      items: [{
+        id: 'sem1',
+        start_date: '2026-02-01T00:00:00-05:00',
+        end_date: '2026-02-28T00:00:00-05:00',
+      }],
+      page: 1,
+      perPage: 1,
+      totalItems: 1,
+      totalPages: 1,
+    });
     hoisted.create.mockResolvedValue({
       id: 'l2',
       employee_id: 'e1',
@@ -126,6 +139,12 @@ describe('leaves pocketbase client', () => {
     };
     const result = await createEmployeeLeave(payload);
 
+    expect(hoisted.filter).toHaveBeenCalledWith('id = {:semesterId}', { semesterId: 'sem1' });
+    expect(hoisted.getList).toHaveBeenCalledWith(1, 1, {
+      filter: 'semester-filter',
+      fields: 'id,name,start_date,end_date',
+      requestKey: null,
+    });
     expect(hoisted.create).toHaveBeenCalledWith({
       employee_id: 'e1',
       semester_id: 'sem1',
@@ -135,7 +154,62 @@ describe('leaves pocketbase client', () => {
     expect(result.id).toBe('l2');
   });
 
-  it('updates a leave record', async () => {
+  it('rejects leave creation when the start datetime is before the semester start', async () => {
+    hoisted.filter.mockReturnValue('semester-filter');
+    hoisted.getList.mockResolvedValueOnce({
+      items: [{
+        id: 'sem1',
+        start_date: '2026-02-01T00:00:00-05:00',
+        end_date: '2026-02-28T00:00:00-05:00',
+      }],
+      page: 1,
+      perPage: 1,
+      totalItems: 1,
+      totalPages: 1,
+    });
+
+    await expect(createEmployeeLeave({
+      employeeId: 'e1',
+      semesterId: 'sem1',
+      start_datetime: '2026-01-31T23:59:59.999-05:00',
+      end_datetime: '2026-02-01T10:00:00.000-05:00',
+    })).rejects.toEqual({
+      message: 'Las fechas de la ausencia deben estar dentro del semestre (01/02/2026 - 28/02/2026).',
+      status: 400,
+      isAbort: false,
+    });
+
+    expect(hoisted.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects leave creation when semester id is missing', async () => {
+    await expect(createEmployeeLeave({
+      employeeId: 'e1',
+      semesterId: '',
+      start_datetime: '2026-02-10T10:00:00.000Z',
+      end_datetime: '2026-02-10T12:00:00.000Z',
+    })).rejects.toEqual({
+      message: 'Semestre es obligatorio.',
+      status: 400,
+      isAbort: false,
+    });
+
+    expect(hoisted.create).not.toHaveBeenCalled();
+  });
+
+  it('updates a leave record when dates are within the semester boundaries', async () => {
+    hoisted.filter.mockReturnValue('semester-filter');
+    hoisted.getList.mockResolvedValueOnce({
+      items: [{
+        id: 'sem1',
+        start_date: '2026-02-01T00:00:00-05:00',
+        end_date: '2026-02-28T00:00:00-05:00',
+      }],
+      page: 1,
+      perPage: 1,
+      totalItems: 1,
+      totalPages: 1,
+    });
     hoisted.update.mockResolvedValue({
       id: 'l2',
       employee_id: 'e1',
@@ -152,6 +226,11 @@ describe('leaves pocketbase client', () => {
     };
     const result = await updateEmployeeLeave('l2', payload);
 
+    expect(hoisted.getList).toHaveBeenCalledWith(1, 1, {
+      filter: 'semester-filter',
+      fields: 'id,name,start_date,end_date',
+      requestKey: null,
+    });
     expect(hoisted.update).toHaveBeenCalledWith('l2', {
       employee_id: 'e1',
       semester_id: 'sem1',
@@ -159,6 +238,34 @@ describe('leaves pocketbase client', () => {
       end_datetime: '2026-02-02T14:00:00.000Z',
     });
     expect(result.id).toBe('l2');
+  });
+
+  it('rejects leave updates when the end datetime is after the semester end day', async () => {
+    hoisted.filter.mockReturnValue('semester-filter');
+    hoisted.getList.mockResolvedValueOnce({
+      items: [{
+        id: 'sem1',
+        start_date: '2026-02-01T00:00:00-05:00',
+        end_date: '2026-02-28T00:00:00-05:00',
+      }],
+      page: 1,
+      perPage: 1,
+      totalItems: 1,
+      totalPages: 1,
+    });
+
+    await expect(updateEmployeeLeave('l2', {
+      employeeId: 'e1',
+      semesterId: 'sem1',
+      start_datetime: '2026-02-28T10:00:00.000-05:00',
+      end_datetime: '2026-03-01T00:00:00.000-05:00',
+    })).rejects.toEqual({
+      message: 'Las fechas de la ausencia deben estar dentro del semestre (01/02/2026 - 28/02/2026).',
+      status: 400,
+      isAbort: false,
+    });
+
+    expect(hoisted.update).not.toHaveBeenCalled();
   });
 
   it('lists leave analytics rows with employee metadata and excludes incomplete rows', async () => {
@@ -225,6 +332,14 @@ describe('leaves pocketbase client', () => {
     );
 
     expect(result).toBe(true);
+    expect(hoisted.filter).toHaveBeenCalledWith(
+      'employee_id = {:employeeId} && start_datetime < {:endIso} && end_datetime > {:startIso}',
+      {
+        employeeId: 'e1',
+        startIso: '2026-02-10T08:00:00.000Z',
+        endIso: '2026-02-10T10:00:00.000Z',
+      },
+    );
     expect(hoisted.getList).toHaveBeenCalledWith(1, 1, {
       filter: 'overlap-filter',
     });

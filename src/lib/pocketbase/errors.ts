@@ -6,7 +6,66 @@ export type PocketBaseRequestError = {
   isAbort: boolean;
 };
 
+function appendMessage(messages: string[], seen: Set<string>, value: unknown): void {
+  if (typeof value !== 'string') return;
+
+  const normalized = value.trim();
+  if (normalized.length === 0 || seen.has(normalized)) return;
+
+  seen.add(normalized);
+  messages.push(normalized);
+}
+
+function collectPocketBaseDetailMessages(
+  value: unknown,
+  messages: string[],
+  seen: Set<string>,
+): void {
+  if (!value || typeof value !== 'object') return;
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectPocketBaseDetailMessages(item, messages, seen);
+    }
+    return;
+  }
+
+  const detail = value as { message?: unknown };
+  appendMessage(messages, seen, detail.message);
+
+  for (const entry of Object.values(value)) {
+    collectPocketBaseDetailMessages(entry, messages, seen);
+  }
+}
+
+function formatClientResponseMessage(error: ClientResponseError): string {
+  const baseMessage = typeof error.response?.message === 'string' && error.response.message.trim().length > 0
+    ? error.response.message.trim()
+    : error.message;
+
+  const detailMessages: string[] = [];
+  const seen = new Set<string>();
+  collectPocketBaseDetailMessages(
+    (error.response as { data?: unknown } | undefined)?.data,
+    detailMessages,
+    seen,
+  );
+
+  const filteredDetails = detailMessages.filter((message) => message !== baseMessage);
+  if (filteredDetails.length === 0) return baseMessage;
+
+  return `${baseMessage} ${filteredDetails.join('; ')}`;
+}
+
 export function normalizePocketBaseError(error: unknown): PocketBaseRequestError {
+  if (error instanceof ClientResponseError) {
+    return {
+      message: formatClientResponseMessage(error),
+      status: error.status ?? null,
+      isAbort: error.isAbort,
+    };
+  }
+
   if (
     typeof error === 'object'
     && error !== null
@@ -25,14 +84,6 @@ export function normalizePocketBaseError(error: unknown): PocketBaseRequestError
       message: normalized.message,
       status: normalized.status,
       isAbort: normalized.isAbort,
-    };
-  }
-
-  if (error instanceof ClientResponseError) {
-    return {
-      message: error.response?.message || error.message,
-      status: error.status ?? null,
-      isAbort: error.isAbort,
     };
   }
 

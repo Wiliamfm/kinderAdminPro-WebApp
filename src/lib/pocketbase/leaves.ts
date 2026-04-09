@@ -1,6 +1,7 @@
 import { getAuthenticatedPb } from '../server/get-authenticated-pb';
 import { normalizePocketBaseError } from './errors';
 import type { PaginatedListResult } from '../table/pagination';
+import type PocketBase from 'pocketbase';
 
 type PbLeaveRecord = {
   id: string;
@@ -15,6 +16,13 @@ type PbLeavePayload = {
   semester_id: string;
   start_datetime: string;
   end_datetime: string;
+};
+
+type PbSemesterRecord = {
+  id: string;
+  name?: string;
+  start_date: string;
+  end_date: string;
 };
 
 export type LeaveAnalyticsRecord = {
@@ -130,6 +138,121 @@ function buildSortExpression(
   return sortDirection === 'desc' ? `-${sortField}` : sortField;
 }
 
+function extractSemesterDatePart(value: string): string | null {
+  const match = value.trim().match(/^(\d{4}-\d{2}-\d{2})/);
+  return match?.[1] ?? null;
+}
+
+function extractSemesterOffset(value: string): string {
+  const match = value.trim().match(/(Z|[+-]\d{2}:\d{2})$/);
+  return match?.[1] ?? 'Z';
+}
+
+function toSemesterBoundaryDate(value: string, boundary: 'start' | 'end'): Date | null {
+  const datePart = extractSemesterDatePart(value);
+  if (datePart) {
+    const timePart = boundary === 'start' ? 'T00:00:00.000' : 'T23:59:59.999';
+    const boundaryDate = new Date(`${datePart}${timePart}${extractSemesterOffset(value)}`);
+    if (!Number.isNaN(boundaryDate.getTime())) return boundaryDate;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  const normalized = new Date(parsed);
+  if (boundary === 'start') {
+    normalized.setHours(0, 0, 0, 0);
+  } else {
+    normalized.setHours(23, 59, 59, 999);
+  }
+
+  return normalized;
+}
+
+function formatSemesterDate(value: string): string {
+  const datePart = extractSemesterDatePart(value);
+  if (datePart) {
+    const [year, month, day] = datePart.split('-');
+    return `${day}/${month}/${year}`;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+
+  return new Intl.DateTimeFormat('es-CO', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(parsed);
+}
+
+function createLeaveBoundaryError(startDate: string, endDate: string) {
+  return {
+    message: `Las fechas de la ausencia deben estar dentro del semestre (${formatSemesterDate(startDate)} - ${formatSemesterDate(endDate)}).`,
+    status: 400,
+    isAbort: false,
+  } as const;
+}
+
+function createMissingSemesterError() {
+  return {
+    message: 'Semestre es obligatorio.',
+    status: 400,
+    isAbort: false,
+  } as const;
+}
+
+async function assertLeaveWithinSemester(
+  pb: PocketBase,
+  payload: LeaveCreateInput,
+): Promise<void> {
+  const semesterId = typeof payload.semesterId === 'string' ? payload.semesterId.trim() : '';
+  if (!semesterId) {
+    throw createMissingSemesterError();
+  }
+
+  const semesterResult = await pb.collection('semesters').getList(1, 1, {
+    filter: pb.filter('id = {:semesterId}', { semesterId }),
+    fields: 'id,name,start_date,end_date',
+    requestKey: null,
+  });
+  const semester = semesterResult.items[0] as PbSemesterRecord | undefined;
+  if (!semester) {
+    throw {
+      message: 'No se encontró el semestre asociado.',
+      status: 404,
+      isAbort: false,
+    } as const;
+  }
+  const semesterStart = toSemesterBoundaryDate(semester.start_date, 'start');
+  const semesterEnd = toSemesterBoundaryDate(semester.end_date, 'end');
+  const leaveStart = new Date(payload.start_datetime);
+  const leaveEnd = new Date(payload.end_datetime);
+
+  if (
+    !semesterStart
+    || !semesterEnd
+    || Number.isNaN(leaveStart.getTime())
+    || Number.isNaN(leaveEnd.getTime())
+  ) {
+    throw {
+      message: 'No se pudo validar el rango de fechas del semestre asociado.',
+      status: 400,
+      isAbort: false,
+    } as const;
+  }
+
+  if (
+    leaveStart.getTime() < semesterStart.getTime()
+    || leaveStart.getTime() > semesterEnd.getTime()
+    || leaveEnd.getTime() < semesterStart.getTime()
+    || leaveEnd.getTime() > semesterEnd.getTime()
+  ) {
+    throw createLeaveBoundaryError(semester.start_date, semester.end_date);
+  }
+}
+
 export async function listEmployeeLeaves(
   employeeId: string,
   page: number,
@@ -155,14 +278,16 @@ export async function listEmployeeLeaves(
       totalPages: result.totalPages,
     };
   } catch (error) {
+    console.error(error);
     throw normalizePocketBaseError(error);
   }
 }
 
 export async function createEmployeeLeave(payload: LeaveCreateInput): Promise<LeaveRecord> {
   "use server";
-  const pb = await getAuthenticatedPb();
   try {
+    const pb = await getAuthenticatedPb();
+    await assertLeaveWithinSemester(pb, payload);
     const record = await pb.collection('leaves').create(mapLeavePayload(payload));
     return mapLeaveRecord(record);
   } catch (error) {
@@ -175,8 +300,9 @@ export async function updateEmployeeLeave(
   payload: LeaveCreateInput,
 ): Promise<LeaveRecord> {
   "use server";
-  const pb = await getAuthenticatedPb();
   try {
+    const pb = await getAuthenticatedPb();
+    await assertLeaveWithinSemester(pb, payload);
     const record = await pb.collection('leaves').update(id, mapLeavePayload(payload));
     return mapLeaveRecord(record);
   } catch (error) {
@@ -220,17 +346,27 @@ export async function hasLeaveOverlap(
   try {
     const baseFilter =
       'employee_id = {:employeeId} && start_datetime < {:endIso} && end_datetime > {:startIso}';
-    const filter = excludeLeaveId
+    const normalizedExcludeLeaveId = typeof excludeLeaveId === 'string'
+      ? excludeLeaveId.trim()
+      : '';
+    const filter = normalizedExcludeLeaveId
       ? `${baseFilter} && id != {:excludeLeaveId}`
       : baseFilter;
-
-    const result = await pb.collection('leaves').getList(1, 1, {
-      filter: pb.filter(filter, {
+    const filterParams = normalizedExcludeLeaveId
+      ? {
         employeeId,
         startIso,
         endIso,
-        excludeLeaveId,
-      }),
+        excludeLeaveId: normalizedExcludeLeaveId,
+      }
+      : {
+        employeeId,
+        startIso,
+        endIso,
+      };
+
+    const result = await pb.collection('leaves').getList(1, 1, {
+      filter: pb.filter(filter, filterParams),
     });
 
     return result.totalItems > 0;
