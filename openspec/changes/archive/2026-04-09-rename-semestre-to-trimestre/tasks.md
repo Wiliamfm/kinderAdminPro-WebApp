@@ -16,7 +16,7 @@
 
 ## 3. Batch 3 - Error Messages & Tests
 
-- [ ] 3.1 Update `lib/pocketbase/leaves.ts` - validation error messages
+- [x] 3.1 Update `lib/pocketbase/leaves.ts` - validation error messages
 - [x] 3.2 Update test files in `src/pages/` - semester-related test strings
 - [x] 3.3 Update test files in `src/lib/pocketbase/` - validation test strings
 
