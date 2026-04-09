@@ -4,6 +4,8 @@ The professor invoices page (`/professor/personal/invoices`) currently displays 
 
 The infrastructure exists: PocketBase serves files via `pb.files.getURL(record, fileName)`, the project already uses this pattern for employee CVs in `employees.ts`, and download utilities (`downloadBlobFile`) exist in `src/lib/reports/download.ts`.
 
+The invoice list already expands `semester_id`, but the UI should treat the semester label as a resolved display value. If relation expansion is absent for any row, the list wrapper must resolve the semester name server-side rather than exposing the raw relation id in the table.
+
 ## Goals / Non-Goals
 
 **Goals:**

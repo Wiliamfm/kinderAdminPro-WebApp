@@ -16,3 +16,8 @@ The Gestión de pagos e incapacidades section MUST expose a Consultar pagos subm
 - **WHEN** a professor views the Consultar pagos page
 - **THEN** each invoice row is clickable to preview the PDF
 - **THEN** checkboxes are available for selecting invoices for bulk download
+
+#### Scenario: Semester column shows resolved semester names
+- **WHEN** a professor views invoice rows in Consultar pagos
+- **THEN** the semester column displays the resolved semester name
+- **THEN** the raw `semester_id` value is not shown in the table

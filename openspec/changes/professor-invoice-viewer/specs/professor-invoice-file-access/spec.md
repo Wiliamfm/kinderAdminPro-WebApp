@@ -41,6 +41,11 @@ The invoice table MUST include a checkbox column. Professors can select individu
 - **WHEN** one or more invoices are selected
 - **THEN** a bulk download button appears showing the count of selected invoices
 
+#### Scenario: Semester label is resolved before rendering
+- **WHEN** invoice rows are rendered in the table
+- **THEN** each row shows the resolved semester name for `semester_id`
+- **THEN** the UI does not fall back to showing the relation id string
+
 ### Requirement: Professor SHALL be able to bulk download selected invoices
 When invoices are selected, a bulk download button MUST be available. Clicking it SHALL trigger individual browser downloads for each selected invoice.
 
