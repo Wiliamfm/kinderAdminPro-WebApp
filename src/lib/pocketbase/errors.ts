@@ -18,6 +18,35 @@ export class PocketBaseError extends Error {
   }
 }
 
+const ERROR_MESSAGE_TRANSLATIONS: Record<string, string> = {
+  'Failed to fetch': 'Error al conectar con el servidor',
+  'Failed to create record': 'No se pudo crear el registro',
+  'Failed to update record': 'No se pudo actualizar el registro',
+  'Failed to delete record': 'No se pudo eliminar el registro',
+  'Unknown PocketBase request error': 'Ocurrió un error inesperado. Intenta de nuevo más tarde.',
+};
+
+export function translateErrorMessage(message: string): string {
+  const normalized = message.trim();
+  const translated = ERROR_MESSAGE_TRANSLATIONS[normalized];
+  if (translated) return translated;
+
+  if (normalized.endsWith('.')) {
+    const withoutPeriod = normalized.slice(0, -1);
+    return ERROR_MESSAGE_TRANSLATIONS[withoutPeriod] ?? normalized;
+  }
+
+  return normalized;
+}
+
+function createPocketBaseError(
+  message: string,
+  status: number | null,
+  isAbort: boolean,
+): PocketBaseError {
+  return new PocketBaseError(translateErrorMessage(message), status, isAbort);
+}
+
 function appendMessage(messages: string[], seen: Set<string>, value: unknown): void {
   if (typeof value !== 'string') return;
 
@@ -64,18 +93,19 @@ function formatClientResponseMessage(error: ClientResponseError): string {
   );
 
   const filteredDetails = detailMessages.filter((message) => message !== baseMessage);
-  if (filteredDetails.length === 0) return baseMessage;
+  const translatedBaseMessage = translateErrorMessage(baseMessage);
+  if (filteredDetails.length === 0) return translatedBaseMessage;
 
-  return `${baseMessage} ${filteredDetails.join('; ')}`;
+  return `${translatedBaseMessage} ${filteredDetails.join('; ')}`;
 }
 
 export function normalizePocketBaseError(error: unknown): PocketBaseError {
   if (error instanceof PocketBaseError) {
-    return error;
+    return createPocketBaseError(error.message, error.status, error.isAbort);
   }
 
   if (error instanceof ClientResponseError) {
-    return new PocketBaseError(
+    return createPocketBaseError(
       formatClientResponseMessage(error),
       error.status ?? null,
       error.isAbort,
@@ -96,7 +126,7 @@ export function normalizePocketBaseError(error: unknown): PocketBaseError {
     && typeof (error as { isAbort: unknown }).isAbort === 'boolean'
   ) {
     const normalized = error as PocketBaseRequestError;
-    return new PocketBaseError(
+    return createPocketBaseError(
       normalized.message,
       normalized.status,
       normalized.isAbort,
@@ -104,8 +134,8 @@ export function normalizePocketBaseError(error: unknown): PocketBaseError {
   }
 
   if (error instanceof Error) {
-    return new PocketBaseError(error.message, null, false);
+    return createPocketBaseError(error.message, null, false);
   }
 
-  return new PocketBaseError('Unknown PocketBase request error', null, false);
+  return createPocketBaseError('Unknown PocketBase request error', null, false);
 }
