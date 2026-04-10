@@ -178,10 +178,16 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - Frontend modules:
   - list/create/soft-delete page: `src/pages/enrollment-students.tsx`,
   - edit page: `src/pages/enrollment-student-edit.tsx`,
-  - wrapper/API access: `src/lib/pocketbase/students.ts`.
+  - wrapper/API access: `src/lib/pocketbase/students.ts`,
+  - public registration create flow: `src/routes/register.tsx` via `src/lib/pocketbase/public-students.ts`.
 - Routing:
+  - `/register`,
   - `/enrollment-management/students`,
   - `/enrollment-management/students/:id`.
+- Pending request workflow:
+  - public registration submissions create student records with `active = true` and `accepted = false`,
+  - anonymous PocketBase `create` is enabled for `students` to support `/register`,
+  - `/enrollment-management/requests` lists records with `active = true && accepted = false`.
 
 ## Fathers Data Model
 - `fathers` collection stores student parent/tutor records with enrollment-authorized writes.
@@ -203,7 +209,10 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - Frontend modules:
   - list/create/soft-delete page: `src/pages/enrollment-tutors.tsx`,
   - edit page: `src/pages/enrollment-tutor-edit.tsx`,
-  - wrapper/API access: `src/lib/pocketbase/fathers.ts`.
+  - wrapper/API access: `src/lib/pocketbase/fathers.ts`,
+  - public registration create flow: `src/lib/pocketbase/public-fathers.ts`.
+- Access note:
+  - anonymous PocketBase `create` is enabled for `fathers` to support `/register`.
 - Routing:
   - `/enrollment-management/tutors`,
   - `/enrollment-management/tutors/:id`.
@@ -225,6 +234,8 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - `CREATE INDEX idx_students_fathers_created_at ON students_fathers (created_at)`.
 - Frontend usage:
   - relation management helpers live in `src/lib/pocketbase/students-fathers.ts`,
+  - public registration create flow uses `src/lib/pocketbase/public-students-fathers.ts`,
+  - anonymous PocketBase `create` is enabled for `students_fathers` to support `/register`,
   - all `students_fathers` reads use `sort: created_at,id`,
   - student and tutor create/edit forms use repeatable link rows (`counterpart + relationship`),
   - both flows enforce at least one linked counterpart on create and edit.
@@ -243,7 +254,10 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - grade deletion is blocked at UI level when active students are linked to the target grade.
 - Frontend modules:
   - list/create/edit/delete page: `src/pages/enrollment-grades.tsx`,
-  - wrapper/API access: `src/lib/pocketbase/grades.ts`.
+  - wrapper/API access: `src/lib/pocketbase/grades.ts`,
+  - public registration lookup access: `src/lib/pocketbase/public-grades.ts`.
+- Access note:
+  - anonymous PocketBase `list/view` is enabled for `grades` so `/register` can load selectable grade options.
 - Routing:
   - `/enrollment-management/grades`.
 

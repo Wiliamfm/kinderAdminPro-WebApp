@@ -8,6 +8,7 @@ This application is a SolidJS frontend for staff and operational management work
 ## Scope
 Primary functional areas exposed through routes:
 - Authentication (`/login`)
+- Public student registration (`/register`)
 - Invitation onboarding (`/auth/set-password`)
 - Home and backend health (`/`)
 - Staff management (`/staff-management`, `/staff-management/employees`, `/staff-management/employees/:id`, `/staff-management/jobs`, `/staff-management/app-users`)
@@ -57,6 +58,16 @@ Primary functional areas exposed through routes:
   - create student records from modal form,
   - edit records in dedicated route,
   - soft delete via `active = false`.
+- Accept public enrollment requests from `/register`:
+  - route is accessible with or without authentication,
+  - route hides the protected-app navbar to match the anonymous flow,
+  - form collects one student plus one father, mother, or acudiente,
+  - grade options are loaded through unauthenticated PocketBase helpers,
+  - submit flow creates `fathers`, then `students`, then `students_fathers`,
+  - PocketBase rules now allow anonymous `create` on `fathers`, `students`, and `students_fathers`, plus anonymous `list/view` on `grades`,
+  - created public student records persist `active = true` and `accepted = false`,
+  - partial failures trigger best-effort rollback of created father/student records through a server-side superuser cleanup path,
+  - successful submissions replace the form with `Tu solicitud está pendiente de aprobación`.
 - Manage student-family data in PocketBase:
   - `fathers` collection stores parent/tutor identity and contact data,
   - enrollment-authorized CRUD access for `fathers`,

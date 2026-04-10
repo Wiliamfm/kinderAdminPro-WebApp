@@ -22,6 +22,7 @@ import Navbar from './components/Navbar';
 
 import Index from './routes/index';
 import Login from './routes/login';
+import Register from './routes/register';
 import StaffManagement from './routes/staff-management';
 import EnrollmentManagement from './routes/enrollment-management';
 import EventManagement from './routes/event-management';
@@ -50,11 +51,16 @@ const AppShell: Component<{ children: Element }> = (props) => {
     const search = location.search;
     const valid = isAuthenticated();
     const isPublicAuthRoute = pathname === '/login' || pathname === '/auth/set-password';
+    const isPublicRoute = pathname === '/register';
 
     if (isPublicAuthRoute) {
       if (valid) {
         navigate('/', { replace: true });
       }
+      return;
+    }
+
+    if (isPublicRoute) {
       return;
     }
 
@@ -74,7 +80,8 @@ const AppShell: Component<{ children: Element }> = (props) => {
   const showNavbar = () =>
     isAuthenticated()
     && location.pathname !== '/login'
-    && location.pathname !== '/auth/set-password';
+    && location.pathname !== '/auth/set-password'
+    && location.pathname !== '/register';
 
   return (
     <>
@@ -108,6 +115,7 @@ export default function App() {
     <Router root={AppShell}>
       <Route path="/" component={Index} />
       <Route path="/login" component={Login} />
+      <Route path="/register" component={Register} />
 
       <Route path="/staff-management" component={StaffManagement} />
       <Route path="/staff-management/employees" component={lazy(() => import('./routes/staff-management/employees'))} />
