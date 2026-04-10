@@ -80,6 +80,7 @@ export const sectionIndexByPage: Record<string, SectionIndexEntry> = {
       {
         label: 'Gestion de Solicitudes',
         href: '/enrollment-management/requests',
+        requiredModules: ['enrollment'],
       },
       {
         label: 'Gestion de Grados',

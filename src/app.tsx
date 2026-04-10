@@ -123,6 +123,7 @@ export default function App() {
       <Route path="/enrollment-management/semesters" component={lazy(() => import('./routes/enrollment-management/semesters'))} />
       <Route path="/enrollment-management/semesters/:id" component={lazy(() => import('./routes/enrollment-management/semesters/[id]'))} />
       <Route path="/enrollment-management/grades" component={lazy(() => import('./routes/enrollment-management/grades'))} />
+      <Route path="/enrollment-management/requests" component={lazy(() => import('./routes/enrollment-management/requests'))} />
       <Route path="/enrollment-management/bulletins" component={lazy(() => import('./routes/enrollment-management/bulletins'))} />
 
       <Route path="/event-management" component={EventManagement} />

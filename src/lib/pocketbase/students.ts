@@ -346,3 +346,118 @@ export async function deleteStudent(id: string): Promise<void> {
     throw normalizePocketBaseError(error);
   }
 }
+
+export type EnrollmentRequestRecord = {
+  id: string;
+  name: string;
+  document_id: string;
+  grade_id: string;
+  grade_name: string;
+  birth_place: string;
+  department: string;
+  father_names: string[];
+};
+
+export type EnrollmentRequestSortField =
+  | 'name'
+  | 'document_id'
+  | 'grade_name'
+  | 'birth_place'
+  | 'department';
+
+export type EnrollmentRequestListOptions = {
+  sortField?: EnrollmentRequestSortField;
+  sortDirection?: 'asc' | 'desc';
+};
+
+export type PaginatedEnrollmentRequestsResult = PaginatedListResult<EnrollmentRequestRecord>;
+
+const ENROLLMENT_REQUEST_SORT_FIELD_MAP: Record<EnrollmentRequestSortField, string> = {
+  name: 'name',
+  document_id: 'document_id',
+  grade_name: 'grade_id.name',
+  birth_place: 'birth_place',
+  department: 'department',
+};
+
+function mapEnrollmentRequestRecord(
+  record: Record<string, unknown> & { id: string; get?: (key: string) => unknown },
+): EnrollmentRequestRecord {
+  const expandedGrade = getExpandedGrade(record);
+
+  return {
+    id: record.id,
+    name: toStringValue(record.get?.('name') ?? record.name),
+    document_id: toStringValue(record.get?.('document_id') ?? record.document_id),
+    grade_id: toStringValue(record.get?.('grade_id') ?? record.grade_id),
+    grade_name: toStringValue(expandedGrade?.name),
+    birth_place: toStringValue(record.get?.('birth_place') ?? record.birth_place),
+    department: toStringValue(record.get?.('department') ?? record.department),
+    father_names: [],
+  };
+}
+
+export async function listPendingEnrollmentRequests(
+  page: number,
+  perPage: number,
+  options: EnrollmentRequestListOptions = {},
+): Promise<PaginatedEnrollmentRequestsResult> {
+  "use server";
+  const pb = await getAuthenticatedPb();
+  try {
+    const sortField = options.sortField ?? 'document_id';
+    const sortDirection = options.sortDirection ?? 'desc';
+    const mappedField = ENROLLMENT_REQUEST_SORT_FIELD_MAP[sortField];
+    const sort = sortDirection === 'desc' ? `-${mappedField}` : mappedField;
+
+    const result = await pb.collection('students').getList(page, perPage, {
+      sort: sort,
+      filter: 'active = true && accepted = false',
+      expand: 'grade_id',
+    });
+
+    const items = result.items.map((record) => mapEnrollmentRequestRecord(record));
+    const studentIds = items.map((item) => item.id);
+    const namesByStudentId = studentIds.length > 0
+      ? await listFatherNamesByStudentIds(studentIds)
+      : {};
+
+    return {
+      items: items.map((item) => ({
+        ...item,
+        father_names: namesByStudentId[item.id] ?? [],
+      })),
+      page: result.page,
+      perPage: result.perPage,
+      totalItems: result.totalItems,
+      totalPages: result.totalPages,
+    };
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
+export async function acceptEnrollmentRequest(id: string): Promise<void> {
+  "use server";
+  const pb = await getAuthenticatedPb();
+  try {
+    await pb.collection('students').update(id, {
+      accepted: true,
+      active: true,
+    });
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
+export async function rejectEnrollmentRequest(id: string): Promise<void> {
+  "use server";
+  const pb = await getAuthenticatedPb();
+  try {
+    await pb.collection('students').update(id, {
+      rejected: new Date().toISOString(),
+    });
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
