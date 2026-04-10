@@ -1,5 +1,5 @@
 import { getAuthenticatedPb } from '../server/get-authenticated-pb';
-import { normalizePocketBaseError } from './errors';
+import { normalizePocketBaseError, PocketBaseError } from './errors';
 import type { PaginatedListResult } from '../table/pagination';
 import type PocketBase from 'pocketbase';
 
@@ -302,11 +302,7 @@ async function assertLeaveWithinSemester(
   });
   const semester = semesterResult.items[0] as PbSemesterRecord | undefined;
   if (!semester) {
-    throw {
-      message: 'No se encontró el trimestre asociado.',
-      status: 404,
-      isAbort: false,
-    } as const;
+    throw new PocketBaseError('No se encontró el trimestre asociado.', 404, false);
   }
   const semesterStart = toSemesterBoundaryDate(semester.start_date, 'start');
   const semesterEnd = toSemesterBoundaryDate(semester.end_date, 'end');
@@ -319,11 +315,7 @@ async function assertLeaveWithinSemester(
     || Number.isNaN(leaveStart.getTime())
     || Number.isNaN(leaveEnd.getTime())
   ) {
-    throw {
-      message: 'No se pudo validar el rango de fechas del trimestre asociado.',
-      status: 400,
-      isAbort: false,
-    } as const;
+    throw new PocketBaseError('No se pudo validar el rango de fechas del trimestre asociado.', 400, false);
   }
 
   if (

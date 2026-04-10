@@ -6,6 +6,18 @@ export type PocketBaseRequestError = {
   isAbort: boolean;
 };
 
+export class PocketBaseError extends Error {
+  status: number | null;
+  isAbort: boolean;
+
+  constructor(message: string, status: number | null, isAbort: boolean) {
+    super(message);
+    this.name = 'PocketBaseError';
+    this.status = status;
+    this.isAbort = isAbort;
+  }
+}
+
 function appendMessage(messages: string[], seen: Set<string>, value: unknown): void {
   if (typeof value !== 'string') return;
 
@@ -57,13 +69,17 @@ function formatClientResponseMessage(error: ClientResponseError): string {
   return `${baseMessage} ${filteredDetails.join('; ')}`;
 }
 
-export function normalizePocketBaseError(error: unknown): PocketBaseRequestError {
+export function normalizePocketBaseError(error: unknown): PocketBaseError {
+  if (error instanceof PocketBaseError) {
+    return error;
+  }
+
   if (error instanceof ClientResponseError) {
-    return {
-      message: formatClientResponseMessage(error),
-      status: error.status ?? null,
-      isAbort: error.isAbort,
-    };
+    return new PocketBaseError(
+      formatClientResponseMessage(error),
+      error.status ?? null,
+      error.isAbort,
+    );
   }
 
   if (
@@ -80,24 +96,16 @@ export function normalizePocketBaseError(error: unknown): PocketBaseRequestError
     && typeof (error as { isAbort: unknown }).isAbort === 'boolean'
   ) {
     const normalized = error as PocketBaseRequestError;
-    return {
-      message: normalized.message,
-      status: normalized.status,
-      isAbort: normalized.isAbort,
-    };
+    return new PocketBaseError(
+      normalized.message,
+      normalized.status,
+      normalized.isAbort,
+    );
   }
 
   if (error instanceof Error) {
-    return {
-      message: error.message,
-      status: null,
-      isAbort: false,
-    };
+    return new PocketBaseError(error.message, null, false);
   }
 
-  return {
-    message: 'Unknown PocketBase request error',
-    status: null,
-    isAbort: false,
-  };
+  return new PocketBaseError('Unknown PocketBase request error', null, false);
 }

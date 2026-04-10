@@ -1,13 +1,10 @@
 import { getRequestEvent } from 'solid-js/web';
 import type PocketBase from 'pocketbase';
 import { resolveRequestAuth } from './auth-session';
+import { PocketBaseError } from '../pocketbase/errors';
 
 function createUnauthenticatedError() {
-  return {
-    message: 'Debes iniciar sesión para continuar.',
-    status: 401,
-    isAbort: false,
-  } as const;
+  return new PocketBaseError('Debes iniciar sesión para continuar.', 401, false);
 }
 
 export async function getAuthenticatedPb(): Promise<PocketBase> {
