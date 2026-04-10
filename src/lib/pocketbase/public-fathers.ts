@@ -1,4 +1,6 @@
-import { normalizePocketBaseError } from './errors';
+import { ClientResponseError } from 'pocketbase';
+import { normalizeRoleValues, type AppRole } from '../auth/shared';
+import { normalizePocketBaseError, PocketBaseError } from './errors';
 import type { FatherCreateInput, FatherRecord } from './fathers';
 import { getPublicPb } from './public-client';
 
@@ -9,6 +11,25 @@ function toStringValue(value: unknown): string {
 function toActiveValue(value: unknown): boolean {
   return value !== false;
 }
+
+function toBooleanValue(value: unknown): boolean {
+  return value === true;
+}
+
+export type PublicFatherUserCreateInput = {
+  email: string;
+  name: string;
+  password: string;
+  passwordConfirm: string;
+};
+
+export type PublicFatherUserRecord = {
+  id: string;
+  email: string;
+  name: string;
+  roles: AppRole[];
+  verified: boolean;
+};
 
 function mapFatherRecord(
   record: Record<string, unknown> & { id: string; get?: (key: string) => unknown },
@@ -25,6 +46,54 @@ function mapFatherRecord(
     is_active: toActiveValue(record.get?.('is_active') ?? record.is_active),
     student_names: [],
   };
+}
+
+function mapPublicFatherUserRecord(
+  record: Record<string, unknown> & { id: string; get?: (key: string) => unknown },
+): PublicFatherUserRecord {
+  return {
+    id: record.id,
+    email: toStringValue(record.get?.('email') ?? record.email),
+    name: toStringValue(record.get?.('name') ?? record.name),
+    roles: normalizeRoleValues(record.get?.('roles') ?? record.roles),
+    verified: toBooleanValue(record.get?.('verified') ?? record.verified),
+  };
+}
+
+function isEmailAlreadyInUseError(error: ClientResponseError): boolean {
+  const emailMessage = (
+    error.response as { data?: { email?: { message?: unknown } } } | undefined
+  )?.data?.email?.message;
+
+  return typeof emailMessage === 'string'
+    && emailMessage.toLowerCase().includes('already in use');
+}
+
+export async function publicCreateFatherUser(
+  payload: PublicFatherUserCreateInput,
+): Promise<PublicFatherUserRecord> {
+  "use server";
+
+  const pb = getPublicPb();
+
+  try {
+    const record = await pb.collection('users').create({
+      email: payload.email.trim(),
+      name: payload.name.trim(),
+      password: payload.password,
+      passwordConfirm: payload.passwordConfirm,
+      roles: ['father'],
+      is_admin: false,
+    });
+
+    return mapPublicFatherUserRecord(record);
+  } catch (error) {
+    if (error instanceof ClientResponseError && isEmailAlreadyInUseError(error)) {
+      throw new PocketBaseError('El correo electrónico ya está en uso', error.status ?? null, error.isAbort);
+    }
+
+    throw normalizePocketBaseError(error);
+  }
 }
 
 export async function publicCreateFather(payload: FatherCreateInput): Promise<FatherRecord> {

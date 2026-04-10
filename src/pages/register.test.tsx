@@ -46,6 +46,8 @@ async function fillValidForm() {
   fireEvent.input(screen.getByLabelText('Empresa'), { target: { value: 'ACME' } });
   fireEvent.input(screen.getByLabelText('Correo electrónico'), { target: { value: 'laura@example.com' } });
   fireEvent.input(screen.getByLabelText('Dirección'), { target: { value: 'Calle 1 # 2-3' } });
+  fireEvent.input(screen.getByLabelText('Contraseña'), { target: { value: 'Password123' } });
+  fireEvent.input(screen.getByLabelText('Confirmar contraseña'), { target: { value: 'Password123' } });
   fireEvent.change(screen.getByLabelText('Relación con el estudiante'), { target: { value: 'mother' } });
 }
 
@@ -66,6 +68,33 @@ describe('RegisterPage', () => {
     expect(screen.getByText('Grado es obligatorio.')).toBeInTheDocument();
     expect(screen.getAllByText('Documento es obligatorio.')).toHaveLength(2);
     expect(screen.getByText('Correo electrónico es obligatorio.')).toBeInTheDocument();
+    expect(screen.getByText('Contraseña es obligatoria.')).toBeInTheDocument();
+    expect(screen.getByText('Confirmación de contraseña es obligatoria.')).toBeInTheDocument();
+    expect(mocks.submitPublicRegistration).not.toHaveBeenCalled();
+  });
+
+  it('shows a validation error when passwords do not match', async () => {
+    render(() => <RegisterPage />);
+    await screen.findByText('Solicitud de inscripción estudiantil');
+
+    await fillValidForm();
+    fireEvent.input(screen.getByLabelText('Confirmar contraseña'), { target: { value: 'Different123' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar solicitud' }));
+
+    expect(screen.getByText('Las contraseñas no coinciden')).toBeInTheDocument();
+    expect(mocks.submitPublicRegistration).not.toHaveBeenCalled();
+  });
+
+  it('shows a validation error when password is too short', async () => {
+    render(() => <RegisterPage />);
+    await screen.findByText('Solicitud de inscripción estudiantil');
+
+    await fillValidForm();
+    fireEvent.input(screen.getByLabelText('Contraseña'), { target: { value: 'Short7' } });
+    fireEvent.input(screen.getByLabelText('Confirmar contraseña'), { target: { value: 'Short7' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar solicitud' }));
+
+    expect(screen.getByText('La contraseña debe tener al menos 8 caracteres')).toBeInTheDocument();
     expect(mocks.submitPublicRegistration).not.toHaveBeenCalled();
   });
 
@@ -128,10 +157,13 @@ describe('RegisterPage', () => {
           date_of_birth: expect.stringMatching(/Z$/),
         }),
         relationship: 'mother',
+        password: 'Password123',
+        passwordConfirm: 'Password123',
       });
     });
 
     expect(await screen.findByText('Tu solicitud está pendiente de aprobación')).toBeInTheDocument();
+    expect(screen.getByText(/puedes iniciar sesión con el correo y la contraseña/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Enviar solicitud' })).not.toBeInTheDocument();
   });
 

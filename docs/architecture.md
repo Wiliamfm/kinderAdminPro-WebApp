@@ -1,6 +1,6 @@
 # Architecture Reference
 
-Last updated: 2026-04-09
+Last updated: 2026-04-10
 
 ## Purpose
 Provide a stable technical reference for module responsibilities, data flow, and key design constraints.
@@ -50,6 +50,7 @@ Provide a stable technical reference for module responsibilities, data flow, and
 ## Authorization Model
 - App login uses PocketBase `users` auth collection.
 - App authorization uses `users.roles` as a multi-select field with values `super_admin`, `staff_admin`, `enrollment_admin`, `reports_admin`, `events_admin`, and `user_admin`.
+- Public enrollment also creates `users` auth records for fathers with role `father`, using the registration email/password supplied on `/register`.
 - Frontend route, page, and navigation checks are centralized in `src/lib/pocketbase/auth.ts` through role and module helpers such as `getAuthUserRoles`, `canAccessModule`, and `canAccessModules`.
 - `super_admin` grants access to every protected module; module roles map to the staff, enrollment, reports, events, and app-user surfaces.
 - During the rollout, frontend helpers and backend rules tolerate legacy `users.is_admin = true` as a compatibility fallback that behaves like `super_admin`.
@@ -211,6 +212,7 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - edit page: `src/pages/enrollment-tutor-edit.tsx`,
   - wrapper/API access: `src/lib/pocketbase/fathers.ts`,
   - public registration create flow: `src/lib/pocketbase/public-fathers.ts`.
+- Public registration also creates a linked auth account in `users` with role `father`; the form collects password and password confirmation on `/register`.
 - Access note:
   - anonymous PocketBase `create` is enabled for `fathers` to support `/register`.
 - Routing:

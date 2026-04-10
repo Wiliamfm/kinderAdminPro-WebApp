@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { submitPublicRegistration } from './public-registration';
 
 const hoisted = vi.hoisted(() => {
+  const publicCreateFatherUser = vi.fn();
   const publicCreateFather = vi.fn();
   const publicCreateStudent = vi.fn();
   const publicCreateStudentFatherLink = vi.fn();
   const authWithPassword = vi.fn();
+  const deleteUser = vi.fn();
   const deleteStudent = vi.fn();
   const deleteFather = vi.fn();
   const normalizePocketBaseError = vi.fn((error: unknown) => error);
@@ -20,15 +22,20 @@ const hoisted = vi.hoisted(() => {
       if (name === 'fathers') {
         return { delete: deleteFather };
       }
+      if (name === 'users') {
+        return { delete: deleteUser };
+      }
       throw new Error(`Unexpected collection ${name}`);
     }),
   }));
 
   return {
+    publicCreateFatherUser,
     publicCreateFather,
     publicCreateStudent,
     publicCreateStudentFatherLink,
     authWithPassword,
+    deleteUser,
     deleteStudent,
     deleteFather,
     normalizePocketBaseError,
@@ -37,6 +44,7 @@ const hoisted = vi.hoisted(() => {
 });
 
 vi.mock('./public-fathers', () => ({
+  publicCreateFatherUser: hoisted.publicCreateFatherUser,
   publicCreateFather: hoisted.publicCreateFather,
 }));
 
@@ -61,15 +69,17 @@ describe('submitPublicRegistration', () => {
     vi.clearAllMocks();
     process.env.BASE_ADMIN_EMAIL = 'admin@example.com';
     process.env.BASE_ADMIN_PASSWORD = 'secret';
+    hoisted.publicCreateFatherUser.mockResolvedValue({ id: 'u1' });
     hoisted.publicCreateFather.mockResolvedValue({ id: 'f1' });
     hoisted.publicCreateStudent.mockResolvedValue({ id: 's1' });
     hoisted.publicCreateStudentFatherLink.mockResolvedValue({ id: 'l1' });
     hoisted.authWithPassword.mockResolvedValue({});
+    hoisted.deleteUser.mockResolvedValue(undefined);
     hoisted.deleteStudent.mockResolvedValue(undefined);
     hoisted.deleteFather.mockResolvedValue(undefined);
   });
 
-  it('creates father, student, and link in order', async () => {
+  it('creates user, father, student, and link in order', async () => {
     await submitPublicRegistration({
       father: {
         full_name: 'Laura Perez',
@@ -94,8 +104,19 @@ describe('submitPublicRegistration', () => {
         allergies: 'Ninguna',
       },
       relationship: 'mother',
+      password: 'Password123',
+      passwordConfirm: 'Password123',
     });
 
+    expect(hoisted.publicCreateFatherUser).toHaveBeenCalledWith({
+      email: 'laura@example.com',
+      name: 'Laura Perez',
+      password: 'Password123',
+      passwordConfirm: 'Password123',
+    });
+    expect(hoisted.publicCreateFatherUser.mock.invocationCallOrder[0]).toBeLessThan(
+      hoisted.publicCreateFather.mock.invocationCallOrder[0],
+    );
     expect(hoisted.publicCreateFather.mock.invocationCallOrder[0]).toBeLessThan(
       hoisted.publicCreateStudent.mock.invocationCallOrder[0],
     );
@@ -134,11 +155,14 @@ describe('submitPublicRegistration', () => {
           allergies: 'Ninguna',
         },
         relationship: 'mother',
+        password: 'Password123',
+        passwordConfirm: 'Password123',
       }),
     ).rejects.toMatchObject({ message: 'link failed' });
 
     expect(hoisted.authWithPassword).toHaveBeenCalledWith('admin@example.com', 'secret');
     expect(hoisted.deleteStudent).toHaveBeenCalledWith('s1');
     expect(hoisted.deleteFather).toHaveBeenCalledWith('f1');
+    expect(hoisted.deleteUser).toHaveBeenCalledWith('u1');
   });
 });

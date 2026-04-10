@@ -37,12 +37,15 @@ type RegistrationForm = {
   company: string;
   email: string;
   address: string;
+  password: string;
+  passwordConfirm: string;
   relationship: StudentFatherRelationship | '';
 };
 
 const BLOOD_TYPE_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
 const DOCUMENT_ID_REGEX = /^\d+$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 8;
 
 const REGISTRATION_VALIDATED_FIELDS = [
   'student_name',
@@ -60,6 +63,8 @@ const REGISTRATION_VALIDATED_FIELDS = [
   'occupation',
   'email',
   'address',
+  'password',
+  'passwordConfirm',
   'relationship',
 ] as const;
 
@@ -84,6 +89,8 @@ const emptyForm: RegistrationForm = {
   company: '',
   email: '',
   address: '',
+  password: '',
+  passwordConfirm: '',
   relationship: 'father',
 };
 
@@ -183,6 +190,16 @@ function validateRegistrationForm(
     errors.email = 'Correo electrónico no es válido.';
   }
   if (form.address.trim().length === 0) errors.address = 'Dirección es obligatorio.';
+  if (form.password.length === 0) {
+    errors.password = 'Contraseña es obligatoria.';
+  } else if (form.password.length < MIN_PASSWORD_LENGTH) {
+    errors.password = 'La contraseña debe tener al menos 8 caracteres';
+  }
+  if (form.passwordConfirm.length === 0) {
+    errors.passwordConfirm = 'Confirmación de contraseña es obligatoria.';
+  } else if (form.password !== form.passwordConfirm) {
+    errors.passwordConfirm = 'Las contraseñas no coinciden';
+  }
   if (!STUDENT_FATHER_RELATIONSHIPS.includes(form.relationship as StudentFatherRelationship)) {
     errors.relationship = 'Relación es obligatoria.';
   }
@@ -282,6 +299,8 @@ export default function RegisterPage() {
           allergies: form().allergies,
         },
         relationship: form().relationship as StudentFatherRelationship,
+        password: form().password,
+        passwordConfirm: form().passwordConfirm,
       });
 
       setSubmitSuccess(true);
@@ -315,6 +334,10 @@ export default function RegisterPage() {
                 <p class="mt-3 text-sm text-emerald-800 sm:text-base">
                   Recibimos la información correctamente. El equipo de matrícula la revisará en el
                   flujo de solicitudes pendientes.
+                </p>
+                <p class="mt-3 text-sm text-emerald-800 sm:text-base">
+                  Tu cuenta ya fue creada y puedes iniciar sesión con el correo y la contraseña que
+                  registraste.
                 </p>
               </div>
             )}
@@ -556,6 +579,33 @@ export default function RegisterPage() {
                       onInput={(event) => setField('address', event.currentTarget.value)}
                     />
                     <InlineFieldAlert message={fieldError('address')} />
+                  </label>
+
+                  <label class="block">
+                    <span class="text-sm font-medium text-gray-700">Contraseña</span>
+                    <input
+                      class="mt-2 w-full rounded-xl border border-yellow-300 bg-white px-4 py-3"
+                      type="password"
+                      aria-label="Contraseña"
+                      autocomplete="new-password"
+                      value={form().password}
+                      onInput={(event) => setField('password', event.currentTarget.value)}
+                    />
+                    <p class="mt-2 text-xs text-gray-500">Debe tener al menos 8 caracteres.</p>
+                    <InlineFieldAlert message={fieldError('password')} />
+                  </label>
+
+                  <label class="block">
+                    <span class="text-sm font-medium text-gray-700">Confirmar contraseña</span>
+                    <input
+                      class="mt-2 w-full rounded-xl border border-yellow-300 bg-white px-4 py-3"
+                      type="password"
+                      aria-label="Confirmar contraseña"
+                      autocomplete="new-password"
+                      value={form().passwordConfirm}
+                      onInput={(event) => setField('passwordConfirm', event.currentTarget.value)}
+                    />
+                    <InlineFieldAlert message={fieldError('passwordConfirm')} />
                   </label>
 
                   <label class="block md:col-span-2">
