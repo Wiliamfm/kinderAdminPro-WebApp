@@ -27,6 +27,7 @@ import StaffManagement from './routes/staff-management';
 import EnrollmentManagement from './routes/enrollment-management';
 import EventManagement from './routes/event-management';
 import Reports from './routes/reports';
+import FatherPortal from './routes/father-portal';
 
 import ProfessorEvents from './routes/professor/events';
 import ProfessorPersonal from './routes/professor/personal';
@@ -141,6 +142,7 @@ export default function App() {
       <Route path="/reports" component={Reports} />
       <Route path="/reports/students" component={lazy(() => import('./routes/reports/students'))} />
       <Route path="/reports/employees" component={lazy(() => import('./routes/reports/employees'))} />
+      <Route path="/father-portal" component={FatherPortal} />
 
       <Route path="/professor/events" component={ProfessorEvents} />
       <Route path="/professor/personal" component={ProfessorPersonal} />

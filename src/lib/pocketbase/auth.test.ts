@@ -57,6 +57,7 @@ describe('auth session state', () => {
     expect(isAuthenticated()).toBe(true);
     expect(canAccessModule('professor-personal')).toBe(true);
     expect(canAccessModule('staff')).toBe(false);
+    expect(canAccessModule('father-portal')).toBe(false);
   });
 
   it('clears auth state after server-side logout', async () => {
@@ -107,6 +108,18 @@ describe('canAccessModule', () => {
     expect(canAccessModule('reports')).toBe(false);
     expect(canAccessModule('events')).toBe(false);
     expect(canAccessModule('users')).toBe(false);
+    expect(canAccessModule('father-portal')).toBe(false);
+  });
+
+  it('grants father portal access to father users', () => {
+    primeAuthState({
+      id: 'u4',
+      name: 'Carlos',
+      email: 'carlos@test.com',
+      roles: ['father'],
+    });
+    expect(canAccessModule('father-portal')).toBe(true);
+    expect(canAccessModule('staff')).toBe(false);
   });
 
   it('grants professor modules to professor users', () => {
@@ -137,6 +150,7 @@ describe('canAccessModule', () => {
     expect(canAccessModule('professor-personal')).toBe(false);
     expect(canAccessModule('professor-students')).toBe(false);
     expect(canAccessModule('professor-events')).toBe(false);
+    expect(canAccessModule('father-portal')).toBe(true);
   });
 
   it('grants both admin and professor modules to users with both roles', () => {

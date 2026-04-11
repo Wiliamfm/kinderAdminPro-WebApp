@@ -1,5 +1,7 @@
 import { A } from '@solidjs/router';
+import { useNavigate } from '@solidjs/router';
 import { For, Show, createSignal, onMount, onCleanup } from 'solid-js';
+import { createEffect } from 'solid-js';
 import { hasRole } from '../lib/pocketbase/auth';
 import { professorSectionIndexByPage } from '../lib/section-index';
 import { getDashboardData } from '../lib/pocketbase/dashboard';
@@ -191,39 +193,49 @@ function Dashboard() {
 }
 
 export default function Home() {
-  const isProfessor = () => hasRole('professor') && !hasRole('admin');
+  const navigate = useNavigate();
+  const isProfessor = () => hasRole('professor') && !hasRole('admin') && !hasRole('father');
+  const isFatherOnly = () => hasRole('father') && !hasRole('admin') && !hasRole('professor');
+
+  createEffect(() => {
+    if (isFatherOnly()) {
+      navigate('/father-portal', { replace: true });
+    }
+  });
 
   return (
-    <section class="min-h-screen bg-yellow-50 text-gray-800 p-8">
-      <Show
-        when={isProfessor()}
-        fallback={<Dashboard />}
-      >
-        <div class="mx-auto max-w-3xl rounded-xl bg-white border border-yellow-300 p-6">
-          <h1 class="text-2xl font-semibold">KinderAdminPro</h1>
-          <p class="mt-2 text-gray-600">Selecciona un módulo para continuar.</p>
+    <Show when={!isFatherOnly()}>
+      <section class="min-h-screen bg-yellow-50 text-gray-800 p-8">
+        <Show
+          when={isProfessor()}
+          fallback={<Dashboard />}
+        >
+          <div class="mx-auto max-w-3xl rounded-xl bg-white border border-yellow-300 p-6">
+            <h1 class="text-2xl font-semibold">KinderAdminPro</h1>
+            <p class="mt-2 text-gray-600">Selecciona un módulo para continuar.</p>
 
-          <ul class="mt-6 space-y-3">
-            <For each={PROFESSOR_MODULE_KEYS}>
-              {(key) => {
-                const section = professorSectionIndexByPage[key];
-                const href = PROFESSOR_MODULE_HREFS[key];
-                return (
-                  <li>
-                    <A
-                      href={href}
-                      class="flex flex-col rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 transition-colors hover:bg-yellow-100"
-                    >
-                      <span class="font-medium text-gray-900">{section.title}</span>
-                      <span class="mt-1 text-sm text-gray-600">{section.description}</span>
-                    </A>
-                  </li>
-                );
-              }}
-            </For>
-          </ul>
-        </div>
-      </Show>
-    </section>
+            <ul class="mt-6 space-y-3">
+              <For each={PROFESSOR_MODULE_KEYS}>
+                {(key) => {
+                  const section = professorSectionIndexByPage[key];
+                  const href = PROFESSOR_MODULE_HREFS[key];
+                  return (
+                    <li>
+                      <A
+                        href={href}
+                        class="flex flex-col rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 transition-colors hover:bg-yellow-100"
+                      >
+                        <span class="font-medium text-gray-900">{section.title}</span>
+                        <span class="mt-1 text-sm text-gray-600">{section.description}</span>
+                      </A>
+                    </li>
+                  );
+                }}
+              </For>
+            </ul>
+          </div>
+        </Show>
+      </section>
+    </Show>
   );
 }

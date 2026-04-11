@@ -7,6 +7,7 @@ export type ProtectedModule =
   | 'reports'
   | 'events'
   | 'users'
+  | 'father-portal'
   | 'professor-personal'
   | 'professor-students'
   | 'professor-events';
@@ -107,6 +108,10 @@ export function canUserAccessModule(user: AuthUser | null, module: ProtectedModu
 
   if (PROFESSOR_MODULES.includes(module)) {
     return user.roles.includes('professor');
+  }
+
+  if (module === 'father-portal') {
+    return user.roles.includes('father') || user.roles.includes('admin');
   }
 
   return user.roles.includes('admin');
