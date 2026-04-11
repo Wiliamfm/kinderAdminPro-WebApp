@@ -1,5 +1,5 @@
 import { createEffect, createSignal, Show } from 'solid-js';
-import { useLocation, useNavigate } from '@solidjs/router';
+import { A, useLocation, useNavigate } from '@solidjs/router';
 import {
   isAuthenticated,
   isAuthResolved,
@@ -90,6 +90,13 @@ export default function Login() {
           >
             {loading() ? 'Ingresando...' : 'Ingresar'}
           </button>
+
+          <p class="text-center text-sm text-gray-600">
+            ¿No tienes cuenta?{' '}
+            <A href="/register" class="font-medium text-yellow-700 underline underline-offset-2 hover:text-yellow-800">
+              Regístrate
+            </A>
+          </p>
         </form>
       </div>
     </section>

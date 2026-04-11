@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@solidjs/router', () => ({
+  A: (props: { href: string; children: unknown }) => <a href={props.href}>{props.children}</a>,
   useNavigate: () => mocks.navigate,
   useLocation: () => ({ search: '?redirect=%2Freports' }),
 }));
@@ -37,8 +38,8 @@ describe('LoginPage', () => {
     render(() => <LoginPage />);
 
     fireEvent.input(screen.getByLabelText('Email'), { target: { value: 'ana@test.com' } });
-    fireEvent.input(screen.getByLabelText('Password'), { target: { value: 'Password123!' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    fireEvent.input(screen.getByLabelText('Contraseña'), { target: { value: 'Password123!' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Ingresar' }));
 
     await waitFor(() => {
       expect(mocks.loginWithPassword).toHaveBeenCalledWith('ana@test.com', 'Password123!');
@@ -53,10 +54,16 @@ describe('LoginPage', () => {
     render(() => <LoginPage />);
 
     fireEvent.input(screen.getByLabelText('Email'), { target: { value: 'ana@test.com' } });
-    fireEvent.input(screen.getByLabelText('Password'), { target: { value: 'wrong' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    fireEvent.input(screen.getByLabelText('Contraseña'), { target: { value: 'wrong' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Ingresar' }));
 
     expect(await screen.findByText('Credenciales inválidas.')).toBeInTheDocument();
+  });
+
+  it('renders a register link', () => {
+    render(() => <LoginPage />);
+
+    expect(screen.getByRole('link', { name: 'Regístrate' })).toHaveAttribute('href', '/register');
   });
 
   it('redirects authenticated users away from the login route', async () => {
