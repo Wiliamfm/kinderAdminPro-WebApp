@@ -204,6 +204,7 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - `company` (optional text),
   - `email` (optional email, non-unique),
   - `address` (optional text),
+  - `user_id` (optional relation to `users`, `maxSelect = 1`),
   - `is_active` (optional bool used for soft delete, where active lists filter `is_active != false`).
 - Indexes:
   - `CREATE UNIQUE INDEX idx_fathers_document_id ON fathers (document_id)`.
@@ -213,6 +214,7 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - wrapper/API access: `src/lib/pocketbase/fathers.ts`,
   - public registration create flow: `src/lib/pocketbase/public-fathers.ts`.
 - Public registration also creates a linked auth account in `users` with role `father`; the form collects password and password confirmation on `/register`.
+- Public registration persists `fathers.user_id` with the created `users.id` when the linked auth account is created successfully.
 - Access note:
   - anonymous PocketBase `create` is enabled for `fathers` to support `/register`.
 - Routing:

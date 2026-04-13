@@ -71,6 +71,7 @@ describe('public registration pocketbase helpers', () => {
       email: 'laura@example.com',
       address: 'Calle 1',
       is_active: true,
+      user_id: 'u1',
     });
 
     await publicCreateFather({
@@ -81,6 +82,7 @@ describe('public registration pocketbase helpers', () => {
       company: 'ACME',
       email: 'laura@example.com',
       address: 'Calle 1',
+      userId: 'u1',
     });
 
     expect(hoisted.create).toHaveBeenCalledWith({
@@ -92,6 +94,7 @@ describe('public registration pocketbase helpers', () => {
       email: 'laura@example.com',
       address: 'Calle 1',
       is_active: true,
+      user_id: 'u1',
     });
   });
 

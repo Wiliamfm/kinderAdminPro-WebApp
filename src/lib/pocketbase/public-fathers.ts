@@ -38,6 +38,7 @@ export type PublicFatherUserRecord = {
 function mapFatherRecord(
   record: Record<string, unknown> & { id: string; get?: (key: string) => unknown },
 ): FatherRecord {
+  const userId = toStringValue(record.get?.('user_id') ?? record.user_id);
   return {
     id: record.id,
     full_name: toStringValue(record.get?.('full_name') ?? record.full_name),
@@ -48,6 +49,7 @@ function mapFatherRecord(
     email: toStringValue(record.get?.('email') ?? record.email),
     address: toStringValue(record.get?.('address') ?? record.address),
     is_active: toActiveValue(record.get?.('is_active') ?? record.is_active),
+    userId: userId.length > 0 ? userId : null,
     student_names: [],
   };
 }
@@ -100,6 +102,7 @@ export async function publicCreateFather(payload: FatherCreateInput): Promise<Fa
   "use server";
 
   const pb = getPublicPb();
+  const userId = toStringValue(payload.userId);
 
   try {
     const record = await pb.collection('fathers').create({
@@ -111,6 +114,7 @@ export async function publicCreateFather(payload: FatherCreateInput): Promise<Fa
       email: payload.email.trim(),
       address: payload.address.trim(),
       is_active: true,
+      ...(userId.length > 0 ? { user_id: userId } : {}),
     });
 
     return mapFatherRecord(record);

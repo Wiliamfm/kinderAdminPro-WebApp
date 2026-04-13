@@ -76,6 +76,7 @@ describe('fathers pocketbase client', () => {
           email: 'carlos@example.com',
           address: 'Calle 1',
           is_active: true,
+          user_id: 'u1',
         },
       ],
       page: 1,
@@ -99,6 +100,7 @@ describe('fathers pocketbase client', () => {
       full_name: 'Carlos Perez',
       student_names: ['Ana', 'Luis'],
       is_active: true,
+      userId: 'u1',
     });
   });
 
@@ -114,12 +116,14 @@ describe('fathers pocketbase client', () => {
         email: '',
         address: '',
         is_active: true,
+        user_id: '',
       },
       {
         id: 'f2',
         full_name: 'Inactivo',
         document_id: '54321',
         is_active: false,
+        user_id: null,
       },
     ]);
     hoisted.listStudentNamesByFatherIds.mockResolvedValue({ f1: ['Ana'] });
@@ -131,7 +135,7 @@ describe('fathers pocketbase client', () => {
       filter: 'is_active != false',
     });
     expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({ id: 'f1', student_names: ['Ana'] });
+    expect(result[0]).toMatchObject({ id: 'f1', student_names: ['Ana'], userId: null });
   });
 
   it('lists active fathers without student-name enrichment when requested', async () => {
@@ -146,6 +150,7 @@ describe('fathers pocketbase client', () => {
         email: '',
         address: '',
         is_active: true,
+        user_id: 'u2',
       },
     ]);
 
@@ -157,6 +162,7 @@ describe('fathers pocketbase client', () => {
         id: 'f1',
         full_name: 'Carlos Perez',
         student_names: [],
+        userId: 'u2',
       }),
     ]);
   });
@@ -172,6 +178,7 @@ describe('fathers pocketbase client', () => {
       email: 'carlos@example.com',
       address: 'Calle 1',
       is_active: true,
+      user_id: 'u3',
     });
     hoisted.listStudentNamesByFatherIds.mockResolvedValue({ f1: ['Ana'] });
 
@@ -179,6 +186,7 @@ describe('fathers pocketbase client', () => {
 
     expect(hoisted.getOne).toHaveBeenCalledWith('f1');
     expect(result.student_names).toEqual(['Ana']);
+    expect(result.userId).toBe('u3');
   });
 
   it('creates, updates and deactivates father', async () => {
@@ -192,6 +200,7 @@ describe('fathers pocketbase client', () => {
       email: '',
       address: '',
       is_active: true,
+      user_id: 'u4',
     });
 
     await createFather({
@@ -202,6 +211,7 @@ describe('fathers pocketbase client', () => {
       company: '',
       email: '',
       address: '',
+      userId: 'u4',
     });
 
     expect(hoisted.create).toHaveBeenCalledWith({
@@ -213,6 +223,7 @@ describe('fathers pocketbase client', () => {
       email: '',
       address: '',
       is_active: true,
+      user_id: 'u4',
     });
 
     hoisted.update.mockResolvedValue({
@@ -225,6 +236,47 @@ describe('fathers pocketbase client', () => {
       email: '',
       address: '',
       is_active: true,
+      user_id: 'u4',
+    });
+
+    await updateFather('f1', {
+      full_name: 'Carlos P',
+      document_id: '12345',
+      phone_number: '300',
+      occupation: '',
+      company: '',
+      email: '',
+      address: '',
+      userId: 'u4',
+    });
+
+    expect(hoisted.update).toHaveBeenCalledWith('f1', {
+      full_name: 'Carlos P',
+      document_id: '12345',
+      phone_number: '300',
+      occupation: '',
+      company: '',
+      email: '',
+      address: '',
+      user_id: 'u4',
+    });
+
+    await deactivateFather('f1');
+    expect(hoisted.update).toHaveBeenLastCalledWith('f1', { is_active: false });
+  });
+
+  it('does not clear user_id when update input omits userId', async () => {
+    hoisted.update.mockResolvedValue({
+      id: 'f1',
+      full_name: 'Carlos P',
+      document_id: '12345',
+      phone_number: '300',
+      occupation: '',
+      company: '',
+      email: '',
+      address: '',
+      is_active: true,
+      user_id: 'u4',
     });
 
     await updateFather('f1', {
@@ -246,9 +298,6 @@ describe('fathers pocketbase client', () => {
       email: '',
       address: '',
     });
-
-    await deactivateFather('f1');
-    expect(hoisted.update).toHaveBeenLastCalledWith('f1', { is_active: false });
   });
 
   it('normalizes and rethrows errors', async () => {

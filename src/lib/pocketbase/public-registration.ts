@@ -81,7 +81,10 @@ export async function submitPublicRegistration(payload: PublicRegistrationInput)
     });
     createdUserId = createdUser.id;
 
-    const createdFather = await publicCreateFather(payload.father);
+    const createdFather = await publicCreateFather({
+      ...payload.father,
+      userId: createdUser.id,
+    });
     createdFatherId = createdFather.id;
 
     const createdStudent = await publicCreateStudent(payload.student);

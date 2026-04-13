@@ -13,6 +13,7 @@ export type FatherRecord = {
   email: string;
   address: string;
   is_active: boolean;
+  userId: string | null;
   student_names: string[];
 };
 
@@ -24,6 +25,7 @@ export type FatherCreateInput = {
   company: string;
   email: string;
   address: string;
+  userId?: string | null;
 };
 
 export type FatherUpdateInput = FatherCreateInput;
@@ -58,6 +60,7 @@ type PbFatherPayload = {
   company: string;
   email: string;
   address: string;
+  user_id?: string | null;
 };
 
 function toStringValue(value: unknown): string {
@@ -66,6 +69,11 @@ function toStringValue(value: unknown): string {
 
 function toActiveValue(value: unknown): boolean {
   return value !== false;
+}
+
+function toNullableStringValue(value: unknown): string | null {
+  const normalized = toStringValue(value);
+  return normalized.length > 0 ? normalized : null;
 }
 
 function mapFatherRecord(
@@ -81,12 +89,13 @@ function mapFatherRecord(
     email: toStringValue(record.get?.('email') ?? record.email),
     address: toStringValue(record.get?.('address') ?? record.address),
     is_active: toActiveValue(record.get?.('is_active') ?? record.is_active),
+    userId: toNullableStringValue(record.get?.('user_id') ?? record.user_id),
     student_names: [],
   };
 }
 
 function mapFatherPayload(payload: FatherCreateInput | FatherUpdateInput): PbFatherPayload {
-  return {
+  const mapped: PbFatherPayload = {
     full_name: payload.full_name.trim(),
     document_id: payload.document_id.trim(),
     phone_number: payload.phone_number.trim(),
@@ -95,6 +104,12 @@ function mapFatherPayload(payload: FatherCreateInput | FatherUpdateInput): PbFat
     email: payload.email.trim(),
     address: payload.address.trim(),
   };
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'userId')) {
+    mapped.user_id = toNullableStringValue(payload.userId);
+  }
+
+  return mapped;
 }
 
 function buildSortExpression(

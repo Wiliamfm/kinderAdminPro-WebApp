@@ -114,6 +114,16 @@ describe('submitPublicRegistration', () => {
       password: 'Password123',
       passwordConfirm: 'Password123',
     });
+    expect(hoisted.publicCreateFather).toHaveBeenCalledWith({
+      full_name: 'Laura Perez',
+      document_id: '9001',
+      phone_number: '3001234567',
+      occupation: 'Ingeniera',
+      company: 'ACME',
+      email: 'laura@example.com',
+      address: 'Calle 1',
+      userId: 'u1',
+    });
     expect(hoisted.publicCreateFatherUser.mock.invocationCallOrder[0]).toBeLessThan(
       hoisted.publicCreateFather.mock.invocationCallOrder[0],
     );
