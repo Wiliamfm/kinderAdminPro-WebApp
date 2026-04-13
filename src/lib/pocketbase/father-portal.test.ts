@@ -5,17 +5,11 @@ const hoisted = vi.hoisted(() => {
   const getFullList = vi.fn();
   const getList = vi.fn();
   const requireModuleAccess = vi.fn();
-  const getAuthenticatedPb = vi.fn();
+  const getAuthenticatedPbWithUserId = vi.fn();
   const listBulletinsStudentsForExport = vi.fn();
   const normalizePocketBaseError = vi.fn();
 
   const pb = {
-    authStore: {
-      record: {
-        father_id: 'f1',
-        get: (key: string) => (key === 'father_id' ? 'f1' : undefined),
-      },
-    },
     collection: vi.fn(() => ({
       getFullList,
       getList,
@@ -26,7 +20,7 @@ const hoisted = vi.hoisted(() => {
     getFullList,
     getList,
     requireModuleAccess,
-    getAuthenticatedPb,
+    getAuthenticatedPbWithUserId,
     listBulletinsStudentsForExport,
     normalizePocketBaseError,
     pb,
@@ -34,7 +28,7 @@ const hoisted = vi.hoisted(() => {
 });
 
 vi.mock('../server/get-authenticated-pb', () => ({
-  getAuthenticatedPb: hoisted.getAuthenticatedPb,
+  getAuthenticatedPbWithUserId: hoisted.getAuthenticatedPbWithUserId,
 }));
 
 vi.mock('../server/require-module-access', () => ({
@@ -56,10 +50,10 @@ vi.mock('./errors', async () => {
 describe('father portal pocketbase client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    hoisted.getAuthenticatedPb.mockResolvedValue(hoisted.pb);
+    hoisted.getAuthenticatedPbWithUserId.mockResolvedValue({ pb: hoisted.pb, userId: 'u1' });
     hoisted.requireModuleAccess.mockResolvedValue(undefined);
     hoisted.normalizePocketBaseError.mockImplementation((error: unknown) => error);
-    hoisted.getList.mockResolvedValue({ totalItems: 1 });
+    hoisted.getList.mockResolvedValue({ totalItems: 1, items: [{ id: 'f1' }] });
     hoisted.listBulletinsStudentsForExport.mockResolvedValue([]);
   });
 
@@ -124,6 +118,11 @@ describe('father portal pocketbase client', () => {
     const result = await listFatherStudents();
 
     expect(hoisted.requireModuleAccess).toHaveBeenCalledWith('father-portal');
+    expect(hoisted.getList).toHaveBeenCalledWith(1, 1, {
+      filter: 'user_id = "u1"',
+      fields: 'id',
+      requestKey: 'father-portal-father-by-user-u1',
+    });
     expect(hoisted.getFullList).toHaveBeenCalledWith({
       filter: 'father_id = "f1"',
       expand: 'student_id,student_id.grade_id',
@@ -135,6 +134,14 @@ describe('father portal pocketbase client', () => {
       expect.objectContaining({ id: 's2', name: 'Luis', gradeName: 'Segundo', status: 'Pendiente' }),
       expect.objectContaining({ id: 's3', name: 'Zoe', gradeName: 'Tercero', status: 'Rechazado' }),
     ]);
+  });
+
+  it('returns empty when no father record found for user', async () => {
+    hoisted.getList.mockResolvedValue({ totalItems: 0, items: [] });
+
+    const result = await listFatherStudents();
+
+    expect(result).toEqual([]);
   });
 
   it('checks father ownership before listing a student bulletin', async () => {

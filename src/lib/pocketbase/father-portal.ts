@@ -1,4 +1,4 @@
-import { getAuthenticatedPb } from '../server/get-authenticated-pb';
+import { getAuthenticatedPbWithUserId } from '../server/get-authenticated-pb';
 import { requireModuleAccess } from '../server/require-module-access';
 import { type BulletinStudentRecord, listBulletinsStudentsForExport } from './bulletins-students';
 import { normalizePocketBaseError, PocketBaseError } from './errors';
@@ -63,13 +63,6 @@ function escapeFilterValue(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
-function getAuthenticatedFatherId(pb: {
-  authStore: { record?: (Record<string, unknown> & { get?: (key: string) => unknown }) | null };
-}): string {
-  const record = pb.authStore.record;
-  return toStringValue(record?.get?.('father_id') ?? record?.father_id);
-}
-
 function computeStudentStatus(student: Record<string, unknown> | null): FatherStudentStatus {
   const rejectedAt = toStringValue(student?.rejected);
   if (rejectedAt.length > 0) {
@@ -118,11 +111,21 @@ async function assertFatherStudentAccess(
 export async function listFatherStudents(): Promise<FatherStudentRecord[]> {
   "use server";
   await requireModuleAccess('father-portal');
-  const pb = await getAuthenticatedPb();
+  const { pb, userId } = await getAuthenticatedPbWithUserId();
 
   try {
-    const fatherId = getAuthenticatedFatherId(pb);
-    if (fatherId.length === 0) {
+    if (!userId) {
+      return [];
+    }
+
+    const fathers = await pb.collection('fathers').getList(1, 1, {
+      filter: `user_id = "${escapeFilterValue(userId)}"`,
+      fields: 'id',
+      requestKey: `father-portal-father-by-user-${userId}`,
+    });
+
+    const fatherId = fathers.items[0]?.id ?? '';
+    if (!fatherId) {
       return [];
     }
 
@@ -170,11 +173,21 @@ export async function listFatherStudents(): Promise<FatherStudentRecord[]> {
 export async function listFatherBulletin(studentId: string): Promise<BulletinStudentRecord[]> {
   "use server";
   await requireModuleAccess('father-portal');
-  const pb = await getAuthenticatedPb();
+  const { pb, userId } = await getAuthenticatedPbWithUserId();
 
   try {
-    const fatherId = getAuthenticatedFatherId(pb);
-    if (fatherId.length === 0) {
+    if (!userId) {
+      return [];
+    }
+
+    const fathers = await pb.collection('fathers').getList(1, 1, {
+      filter: `user_id = "${escapeFilterValue(userId)}"`,
+      fields: 'id',
+      requestKey: `father-portal-father-by-user-${userId}`,
+    });
+
+    const fatherId = fathers.items[0]?.id ?? '';
+    if (!fatherId) {
       return [];
     }
 
