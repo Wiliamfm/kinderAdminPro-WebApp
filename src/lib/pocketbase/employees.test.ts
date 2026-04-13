@@ -1,3 +1,4 @@
+import { ClientResponseError } from 'pocketbase';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createEmployee,
@@ -54,9 +55,13 @@ vi.mock('../server/get-authenticated-pb', () => ({
   getAuthenticatedPb: hoisted.getAuthenticatedPb,
 }));
 
-vi.mock('./errors', () => ({
-  normalizePocketBaseError: hoisted.normalizePocketBaseError,
-}));
+vi.mock('./errors', async () => {
+  const actual = await vi.importActual<typeof import('./errors')>('./errors');
+  return {
+    ...actual,
+    normalizePocketBaseError: hoisted.normalizePocketBaseError,
+  };
+});
 
 describe('employees pocketbase client', () => {
   beforeEach(() => {
@@ -322,6 +327,42 @@ describe('employees pocketbase client', () => {
     expect(payload.get('user_id')).toBe('u3');
     expect(payload.get('active')).toBe('true');
     expect(payload.get('cv')).toBe(cv);
+  });
+
+  it('throws a contextual error for duplicate employee document ids', async () => {
+    const rawError = new ClientResponseError({
+      status: 400,
+      response: {
+        message: 'Failed to create record.',
+        data: {
+          document_id: {
+            code: 'validation_not_unique',
+            message: 'Value must be unique',
+          },
+        },
+      },
+    });
+    hoisted.create.mockRejectedValue(rawError);
+    hoisted.normalizePocketBaseError.mockReturnValue({
+      message: 'No se pudo crear el registro',
+      status: 400,
+      isAbort: false,
+    });
+
+    await expect(createEmployee({
+      name: 'Ana',
+      documentId: '123456',
+      email: 'ana@test.com',
+      phone: '300',
+      address: 'Calle 1',
+      emergency_contact: 'Luis',
+      userId: 'u3',
+      jobId: 'j1',
+    })).rejects.toMatchObject({
+      message: 'El documento ya está registrado',
+      status: 400,
+      isAbort: false,
+    });
   });
 
   it('updates and deactivates employees', async () => {

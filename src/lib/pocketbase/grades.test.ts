@@ -1,3 +1,4 @@
+import { ClientResponseError } from 'pocketbase';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   countActiveStudentsByGradeId,
@@ -59,9 +60,13 @@ vi.mock('../server/get-authenticated-pb', () => ({
   getAuthenticatedPb: hoisted.getAuthenticatedPb,
 }));
 
-vi.mock('./errors', () => ({
-  normalizePocketBaseError: hoisted.normalizePocketBaseError,
-}));
+vi.mock('./errors', async () => {
+  const actual = await vi.importActual<typeof import('./errors')>('./errors');
+  return {
+    ...actual,
+    normalizePocketBaseError: hoisted.normalizePocketBaseError,
+  };
+});
 
 describe('grades pocketbase client', () => {
   beforeEach(() => {
@@ -159,6 +164,60 @@ describe('grades pocketbase client', () => {
       capacity: 32,
     });
     expect(updated.capacity).toBe(32);
+  });
+
+  it('throws a contextual error when creating a duplicate grade name', async () => {
+    const rawError = new ClientResponseError({
+      status: 400,
+      response: {
+        message: 'Failed to create record.',
+        data: {
+          name: {
+            code: 'validation_not_unique',
+            message: 'Value must be unique',
+          },
+        },
+      },
+    });
+    hoisted.create.mockRejectedValue(rawError);
+    hoisted.normalizePocketBaseError.mockReturnValue({
+      message: 'No se pudo crear el registro',
+      status: 400,
+      isAbort: false,
+    });
+
+    await expect(createGrade({ name: 'Primero A', capacity: 30 })).rejects.toMatchObject({
+      message: 'El nombre ya está en uso',
+      status: 400,
+      isAbort: false,
+    });
+  });
+
+  it('throws a contextual error when updating a duplicate grade name', async () => {
+    const rawError = new ClientResponseError({
+      status: 400,
+      response: {
+        message: 'Failed to update record.',
+        data: {
+          name: {
+            code: 'validation_not_unique',
+            message: 'Value must be unique',
+          },
+        },
+      },
+    });
+    hoisted.update.mockRejectedValue(rawError);
+    hoisted.normalizePocketBaseError.mockReturnValue({
+      message: 'No se pudo actualizar el registro',
+      status: 400,
+      isAbort: false,
+    });
+
+    await expect(updateGrade('g1', { name: 'Primero A', capacity: 30 })).rejects.toMatchObject({
+      message: 'El nombre ya está en uso',
+      status: 400,
+      isAbort: false,
+    });
   });
 
   it('deletes grades', async () => {

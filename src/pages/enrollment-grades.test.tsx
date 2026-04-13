@@ -96,6 +96,21 @@ describe('EnrollmentGradesPage', () => {
     });
   });
 
+  it('shows the duplicate grade name error from the backend', async () => {
+    mocks.createGrade.mockRejectedValue({ message: 'El nombre ya está en uso' });
+
+    render(() => <EnrollmentGradesPage />);
+    await screen.findByText('Primero A');
+
+    fireEvent.click(screen.getByText('Nuevo grado'));
+    fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: 'Primero A' } });
+    fireEvent.input(screen.getByLabelText('Capacidad'), { target: { value: '32' } });
+    fireEvent.click(screen.getAllByText('Crear grado')[1]);
+
+    expect(await screen.findByText('El nombre ya está en uso')).toBeInTheDocument();
+    expect(mocks.createGrade).toHaveBeenCalledWith({ name: 'Primero A', capacity: 32 });
+  });
+
   it('shows realtime validation in create modal after touching capacity', async () => {
     render(() => <EnrollmentGradesPage />);
     await screen.findByText('Primero A');

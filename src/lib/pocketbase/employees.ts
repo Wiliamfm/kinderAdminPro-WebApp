@@ -1,6 +1,11 @@
 import type PocketBase from 'pocketbase';
 import { getAuthenticatedPb } from '../server/get-authenticated-pb';
-import { normalizePocketBaseError } from './errors';
+import {
+  getUniqueFieldErrorMessage,
+  isUniqueFieldError,
+  normalizePocketBaseError,
+  PocketBaseError,
+} from './errors';
 import type { PaginatedListResult } from '../table/pagination';
 
 export type EmployeeRecord = {
@@ -294,6 +299,15 @@ export async function createEmployee(payload: EmployeeCreateInput): Promise<Empl
     });
     return mapEmployeeRecord(record, pb);
   } catch (error) {
+    if (isUniqueFieldError(error, 'document_id')) {
+      const normalized = normalizePocketBaseError(error);
+      throw new PocketBaseError(
+        getUniqueFieldErrorMessage('document_id'),
+        normalized.status,
+        normalized.isAbort,
+      );
+    }
+
     throw normalizePocketBaseError(error);
   }
 }

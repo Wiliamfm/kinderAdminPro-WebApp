@@ -26,6 +26,12 @@ const ERROR_MESSAGE_TRANSLATIONS: Record<string, string> = {
   'Unknown PocketBase request error': 'Ocurrió un error inesperado. Intenta de nuevo más tarde.',
 };
 
+const UNIQUE_ERROR_MESSAGE_PATTERNS = [
+  'must be unique',
+  'already in use',
+  'already exists',
+];
+
 export function translateErrorMessage(message: string): string {
   const normalized = message.trim();
   const translated = ERROR_MESSAGE_TRANSLATIONS[normalized];
@@ -37,6 +43,61 @@ export function translateErrorMessage(message: string): string {
   }
 
   return normalized;
+}
+
+function containsUniqueConstraintMessage(value: unknown): boolean {
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return UNIQUE_ERROR_MESSAGE_PATTERNS.some((pattern) => normalized.includes(pattern));
+  }
+
+  return false;
+}
+
+function hasUniqueConstraintViolation(value: unknown): boolean {
+  if (containsUniqueConstraintMessage(value)) return true;
+
+  if (!value || typeof value !== 'object') return false;
+
+  if (Array.isArray(value)) {
+    return value.some((entry) => hasUniqueConstraintViolation(entry));
+  }
+
+  const detail = value as { code?: unknown; message?: unknown };
+  if (typeof detail.code === 'string' && detail.code.toLowerCase().includes('unique')) {
+    return true;
+  }
+
+  if (containsUniqueConstraintMessage(detail.message)) {
+    return true;
+  }
+
+  return Object.values(value).some((entry) => hasUniqueConstraintViolation(entry));
+}
+
+export function isUniqueFieldError(error: unknown, fieldName: string): boolean {
+  if (!(error instanceof ClientResponseError)) return false;
+
+  const data = (error.response as { data?: Record<string, unknown> } | undefined)?.data;
+  return hasUniqueConstraintViolation(data?.[fieldName]);
+}
+
+export function getUniqueFieldLabel(fieldName: string): string {
+  const labels: Record<string, string> = {
+    document_id: 'documento',
+    name: 'nombre',
+    email: 'correo electrónico',
+  };
+
+  return labels[fieldName] ?? fieldName;
+}
+
+export function getUniqueFieldErrorMessage(fieldName: string): string {
+  if (fieldName === 'document_id') {
+    return `El ${getUniqueFieldLabel(fieldName)} ya está registrado`;
+  }
+
+  return `El ${getUniqueFieldLabel(fieldName)} ya está en uso`;
 }
 
 function createPocketBaseError(

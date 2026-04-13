@@ -1,5 +1,10 @@
 import { getAuthenticatedPb } from '../server/get-authenticated-pb';
-import { normalizePocketBaseError } from './errors';
+import {
+  getUniqueFieldErrorMessage,
+  isUniqueFieldError,
+  normalizePocketBaseError,
+  PocketBaseError,
+} from './errors';
 import type { PaginatedListResult } from '../table/pagination';
 
 export type GradeRecord = {
@@ -144,6 +149,15 @@ export async function createGrade(payload: GradeCreateInput): Promise<GradeRecor
 
     return mapGradeRecord(record);
   } catch (error) {
+    if (isUniqueFieldError(error, 'name')) {
+      const normalized = normalizePocketBaseError(error);
+      throw new PocketBaseError(
+        getUniqueFieldErrorMessage('name'),
+        normalized.status,
+        normalized.isAbort,
+      );
+    }
+
     throw normalizePocketBaseError(error);
   }
 }
@@ -162,6 +176,15 @@ export async function updateGrade(
 
     return mapGradeRecord(record);
   } catch (error) {
+    if (isUniqueFieldError(error, 'name')) {
+      const normalized = normalizePocketBaseError(error);
+      throw new PocketBaseError(
+        getUniqueFieldErrorMessage('name'),
+        normalized.status,
+        normalized.isAbort,
+      );
+    }
+
     throw normalizePocketBaseError(error);
   }
 }

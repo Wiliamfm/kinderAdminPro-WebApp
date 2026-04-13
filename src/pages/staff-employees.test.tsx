@@ -427,6 +427,22 @@ describe('StaffEmployeesPage features', () => {
     });
   });
 
+  it('shows the duplicate employee document error from the backend', async () => {
+    mocks.createEmployee.mockRejectedValue({ message: 'El documento ya está registrado' });
+
+    render(() => <StaffEmployeesPage />);
+    await screen.findByText('Ana');
+
+    fireEvent.click(screen.getByText('Nuevo empleado'));
+    await screen.findByRole('heading', { name: 'Crear empleado' });
+    fillCreateEmployeeModal({ documentId: '9002' });
+    fireEvent.click(screen.getAllByText('Crear empleado')[1]);
+
+    expect(await screen.findByText('El documento ya está registrado')).toBeInTheDocument();
+    expect(mocks.createEmployeeUser).toHaveBeenCalledTimes(1);
+    expect(mocks.createEmployee).toHaveBeenCalledTimes(1);
+  });
+
   it('does not render resend invitation action', async () => {
     render(() => <StaffEmployeesPage />);
     await screen.findByText('Ana');

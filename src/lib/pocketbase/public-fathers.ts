@@ -1,6 +1,10 @@
-import { ClientResponseError } from 'pocketbase';
 import { normalizeRoleValues, type AppRole } from '../auth/shared';
-import { normalizePocketBaseError, PocketBaseError } from './errors';
+import {
+  getUniqueFieldErrorMessage,
+  isUniqueFieldError,
+  normalizePocketBaseError,
+  PocketBaseError,
+} from './errors';
 import type { FatherCreateInput, FatherRecord } from './fathers';
 import { getPublicPb } from './public-client';
 
@@ -60,15 +64,6 @@ function mapPublicFatherUserRecord(
   };
 }
 
-function isEmailAlreadyInUseError(error: ClientResponseError): boolean {
-  const emailMessage = (
-    error.response as { data?: { email?: { message?: unknown } } } | undefined
-  )?.data?.email?.message;
-
-  return typeof emailMessage === 'string'
-    && emailMessage.toLowerCase().includes('already in use');
-}
-
 export async function publicCreateFatherUser(
   payload: PublicFatherUserCreateInput,
 ): Promise<PublicFatherUserRecord> {
@@ -88,8 +83,13 @@ export async function publicCreateFatherUser(
 
     return mapPublicFatherUserRecord(record);
   } catch (error) {
-    if (error instanceof ClientResponseError && isEmailAlreadyInUseError(error)) {
-      throw new PocketBaseError('El correo electrónico ya está en uso', error.status ?? null, error.isAbort);
+    if (isUniqueFieldError(error, 'email')) {
+      const normalized = normalizePocketBaseError(error);
+      throw new PocketBaseError(
+        getUniqueFieldErrorMessage('email'),
+        normalized.status,
+        normalized.isAbort,
+      );
     }
 
     throw normalizePocketBaseError(error);
@@ -115,6 +115,15 @@ export async function publicCreateFather(payload: FatherCreateInput): Promise<Fa
 
     return mapFatherRecord(record);
   } catch (error) {
+    if (isUniqueFieldError(error, 'document_id')) {
+      const normalized = normalizePocketBaseError(error);
+      throw new PocketBaseError(
+        getUniqueFieldErrorMessage('document_id'),
+        normalized.status,
+        normalized.isAbort,
+      );
+    }
+
     throw normalizePocketBaseError(error);
   }
 }

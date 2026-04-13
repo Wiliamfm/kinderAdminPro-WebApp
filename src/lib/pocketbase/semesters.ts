@@ -1,5 +1,10 @@
 import { getAuthenticatedPb } from '../server/get-authenticated-pb';
-import { normalizePocketBaseError } from './errors';
+import {
+  getUniqueFieldErrorMessage,
+  isUniqueFieldError,
+  normalizePocketBaseError,
+  PocketBaseError,
+} from './errors';
 import type PocketBase from 'pocketbase';
 import type { PaginatedListResult } from '../table/pagination';
 
@@ -177,6 +182,15 @@ export async function createSemester(payload: SemesterCreateInput): Promise<Seme
     const record = await pb.collection('semesters').create(mapSemesterPayload(payload));
     return mapSemesterRecord(record);
   } catch (error) {
+    if (isUniqueFieldError(error, 'name')) {
+      const normalized = normalizePocketBaseError(error);
+      throw new PocketBaseError(
+        getUniqueFieldErrorMessage('name'),
+        normalized.status,
+        normalized.isAbort,
+      );
+    }
+
     throw normalizePocketBaseError(error);
   }
 }
@@ -195,6 +209,15 @@ export async function updateSemester(
     const record = await pb.collection('semesters').update(id, mapSemesterPayload(payload));
     return mapSemesterRecord(record);
   } catch (error) {
+    if (isUniqueFieldError(error, 'name')) {
+      const normalized = normalizePocketBaseError(error);
+      throw new PocketBaseError(
+        getUniqueFieldErrorMessage('name'),
+        normalized.status,
+        normalized.isAbort,
+      );
+    }
+
     throw normalizePocketBaseError(error);
   }
 }

@@ -179,4 +179,17 @@ describe('RegisterPage', () => {
     expect(await screen.findByText('No se pudo crear el vínculo.')).toBeInTheDocument();
     expect(mocks.submitPublicRegistration).toHaveBeenCalledTimes(1);
   });
+
+  it('shows the duplicate document error from the registration flow', async () => {
+    mocks.submitPublicRegistration.mockRejectedValue({ message: 'El documento ya está registrado' });
+
+    render(() => <RegisterPage />);
+    await screen.findByText('Solicitud de inscripción estudiantil');
+
+    await fillValidForm();
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar solicitud' }));
+
+    expect(await screen.findByText('El documento ya está registrado')).toBeInTheDocument();
+    expect(mocks.submitPublicRegistration).toHaveBeenCalledTimes(1);
+  });
 });

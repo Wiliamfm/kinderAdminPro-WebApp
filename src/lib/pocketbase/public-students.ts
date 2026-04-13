@@ -1,4 +1,9 @@
-import { normalizePocketBaseError } from './errors';
+import {
+  getUniqueFieldErrorMessage,
+  isUniqueFieldError,
+  normalizePocketBaseError,
+  PocketBaseError,
+} from './errors';
 import type { StudentCreateInput, StudentRecord } from './students';
 import { getPublicPb } from './public-client';
 
@@ -72,6 +77,15 @@ export async function publicCreateStudent(payload: StudentCreateInput): Promise<
 
     return mapStudentRecord(record);
   } catch (error) {
+    if (isUniqueFieldError(error, 'document_id')) {
+      const normalized = normalizePocketBaseError(error);
+      throw new PocketBaseError(
+        getUniqueFieldErrorMessage('document_id'),
+        normalized.status,
+        normalized.isAbort,
+      );
+    }
+
     throw normalizePocketBaseError(error);
   }
 }

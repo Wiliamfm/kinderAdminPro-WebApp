@@ -1,3 +1,4 @@
+import { ClientResponseError } from 'pocketbase';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createSemester,
@@ -43,9 +44,13 @@ vi.mock('../server/get-authenticated-pb', () => ({
   getAuthenticatedPb: hoisted.getAuthenticatedPb,
 }));
 
-vi.mock('./errors', () => ({
-  normalizePocketBaseError: hoisted.normalizePocketBaseError,
-}));
+vi.mock('./errors', async () => {
+  const actual = await vi.importActual<typeof import('./errors')>('./errors');
+  return {
+    ...actual,
+    normalizePocketBaseError: hoisted.normalizePocketBaseError,
+  };
+});
 
 describe('semesters pocketbase client', () => {
   beforeEach(() => {
@@ -273,6 +278,39 @@ describe('semesters pocketbase client', () => {
     });
   });
 
+  it('throws a contextual error when creating a duplicate semester name', async () => {
+    const rawError = new ClientResponseError({
+      status: 400,
+      response: {
+        message: 'Failed to create record.',
+        data: {
+          name: {
+            code: 'validation_not_unique',
+            message: 'Value must be unique',
+          },
+        },
+      },
+    });
+    hoisted.getFullList.mockResolvedValue([]);
+    hoisted.create.mockRejectedValue(rawError);
+    hoisted.normalizePocketBaseError.mockReturnValue({
+      message: 'No se pudo crear el registro',
+      status: 400,
+      isAbort: false,
+    });
+
+    await expect(createSemester({
+      name: '2026-A',
+      start_date: '2026-01-15T05:00:00.000Z',
+      end_date: '2026-06-15T05:00:00.000Z',
+      is_current: false,
+    })).rejects.toMatchObject({
+      message: 'El nombre ya está en uso',
+      status: 400,
+      isAbort: false,
+    });
+  });
+
   it('sets other current semesters to false before updating semester as current', async () => {
     hoisted.getFullList.mockResolvedValue([{ id: 's-other' }]);
     hoisted.update.mockResolvedValue({
@@ -302,6 +340,38 @@ describe('semesters pocketbase client', () => {
       start_date: '2026-01-15T05:00:00.000Z',
       end_date: '2026-06-15T05:00:00.000Z',
       is_current: true,
+    });
+  });
+
+  it('throws a contextual error when updating a duplicate semester name', async () => {
+    const rawError = new ClientResponseError({
+      status: 400,
+      response: {
+        message: 'Failed to update record.',
+        data: {
+          name: {
+            code: 'validation_not_unique',
+            message: 'Value must be unique',
+          },
+        },
+      },
+    });
+    hoisted.update.mockRejectedValue(rawError);
+    hoisted.normalizePocketBaseError.mockReturnValue({
+      message: 'No se pudo actualizar el registro',
+      status: 400,
+      isAbort: false,
+    });
+
+    await expect(updateSemester('s1', {
+      name: '2026-A',
+      start_date: '2026-01-15T05:00:00.000Z',
+      end_date: '2026-06-15T05:00:00.000Z',
+      is_current: false,
+    })).rejects.toMatchObject({
+      message: 'El nombre ya está en uso',
+      status: 400,
+      isAbort: false,
     });
   });
 

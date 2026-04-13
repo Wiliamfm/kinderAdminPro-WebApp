@@ -1,5 +1,10 @@
 import { getAuthenticatedPb } from '../server/get-authenticated-pb';
-import { normalizePocketBaseError } from './errors';
+import {
+  getUniqueFieldErrorMessage,
+  isUniqueFieldError,
+  normalizePocketBaseError,
+  PocketBaseError,
+} from './errors';
 import type { PaginatedListResult } from '../table/pagination';
 
 export type BulletinCategoryRecord = {
@@ -108,6 +113,15 @@ export async function createBulletinCategory(
 
     return mapBulletinCategoryRecord(record);
   } catch (error) {
+    if (isUniqueFieldError(error, 'name')) {
+      const normalized = normalizePocketBaseError(error);
+      throw new PocketBaseError(
+        getUniqueFieldErrorMessage('name'),
+        normalized.status,
+        normalized.isAbort,
+      );
+    }
+
     throw normalizePocketBaseError(error);
   }
 }
@@ -126,6 +140,15 @@ export async function updateBulletinCategory(
 
     return mapBulletinCategoryRecord(record);
   } catch (error) {
+    if (isUniqueFieldError(error, 'name')) {
+      const normalized = normalizePocketBaseError(error);
+      throw new PocketBaseError(
+        getUniqueFieldErrorMessage('name'),
+        normalized.status,
+        normalized.isAbort,
+      );
+    }
+
     throw normalizePocketBaseError(error);
   }
 }

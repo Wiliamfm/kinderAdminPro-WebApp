@@ -1,5 +1,6 @@
+import { ClientResponseError } from 'pocketbase';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { publicCreateFather } from './public-fathers';
+import { publicCreateFather, publicCreateFatherUser } from './public-fathers';
 import { listPublicGrades } from './public-grades';
 import { publicCreateStudent } from './public-students';
 import { publicCreateStudentFatherLink } from './public-students-fathers';
@@ -30,9 +31,13 @@ vi.mock('./public-client', () => ({
   getPublicPb: hoisted.getPublicPb,
 }));
 
-vi.mock('./errors', () => ({
-  normalizePocketBaseError: hoisted.normalizePocketBaseError,
-}));
+vi.mock('./errors', async () => {
+  const actual = await vi.importActual<typeof import('./errors')>('./errors');
+  return {
+    ...actual,
+    normalizePocketBaseError: hoisted.normalizePocketBaseError,
+  };
+});
 
 describe('public registration pocketbase helpers', () => {
   beforeEach(() => {
@@ -90,6 +95,73 @@ describe('public registration pocketbase helpers', () => {
     });
   });
 
+  it('throws a contextual error when the public father email is already in use', async () => {
+    const rawError = new ClientResponseError({
+      status: 400,
+      response: {
+        message: 'Failed to create record.',
+        data: {
+          email: {
+            code: 'validation_not_unique',
+            message: 'The email is already in use.',
+          },
+        },
+      },
+    });
+    hoisted.create.mockRejectedValue(rawError);
+    hoisted.normalizePocketBaseError.mockReturnValue({
+      message: 'No se pudo crear el registro',
+      status: 400,
+      isAbort: false,
+    });
+
+    await expect(publicCreateFatherUser({
+      email: 'laura@example.com',
+      name: 'Laura Perez',
+      password: 'Password123',
+      passwordConfirm: 'Password123',
+    })).rejects.toMatchObject({
+      message: 'El correo electrónico ya está en uso',
+      status: 400,
+      isAbort: false,
+    });
+  });
+
+  it('throws a contextual error when the public father document is duplicated', async () => {
+    const rawError = new ClientResponseError({
+      status: 400,
+      response: {
+        message: 'Failed to create record.',
+        data: {
+          document_id: {
+            code: 'validation_not_unique',
+            message: 'Value must be unique',
+          },
+        },
+      },
+    });
+    hoisted.create.mockRejectedValue(rawError);
+    hoisted.normalizePocketBaseError.mockReturnValue({
+      message: 'No se pudo crear el registro',
+      status: 400,
+      isAbort: false,
+    });
+
+    await expect(publicCreateFather({
+      full_name: 'Laura Perez',
+      document_id: '9001',
+      phone_number: '3001234567',
+      occupation: 'Ingeniera',
+      company: 'ACME',
+      email: 'laura@example.com',
+      address: 'Calle 1',
+    })).rejects.toMatchObject({
+      message: 'El documento ya está registrado',
+      status: 400,
+      isAbort: false,
+    });
+  });
+
   it('creates a public student with pending-approval flags', async () => {
     hoisted.create.mockResolvedValue({
       id: 's1',
@@ -136,6 +208,45 @@ describe('public registration pocketbase helpers', () => {
       allergies: 'Ninguna',
       active: true,
       accepted: false,
+    });
+  });
+
+  it('throws a contextual error when the public student document is duplicated', async () => {
+    const rawError = new ClientResponseError({
+      status: 400,
+      response: {
+        message: 'Failed to create record.',
+        data: {
+          document_id: {
+            code: 'validation_not_unique',
+            message: 'Value must be unique',
+          },
+        },
+      },
+    });
+    hoisted.create.mockRejectedValue(rawError);
+    hoisted.normalizePocketBaseError.mockReturnValue({
+      message: 'No se pudo crear el registro',
+      status: 400,
+      isAbort: false,
+    });
+
+    await expect(publicCreateStudent({
+      name: 'Ana',
+      grade_id: 'g1',
+      date_of_birth: '2016-01-10T13:30:00.000Z',
+      birth_place: 'Bogota',
+      department: 'Cundinamarca',
+      document_id: '1001',
+      weight: 20.5,
+      height: 115,
+      blood_type: 'O+',
+      social_security: 'EPS',
+      allergies: 'Ninguna',
+    })).rejects.toMatchObject({
+      message: 'El documento ya está registrado',
+      status: 400,
+      isAbort: false,
     });
   });
 
