@@ -111,7 +111,7 @@ export function canUserAccessModule(user: AuthUser | null, module: ProtectedModu
   }
 
   if (module === 'father-portal') {
-    return user.roles.includes('father') || user.roles.includes('admin');
+    return user.roles.includes('father');
   }
 
   return user.roles.includes('admin');
