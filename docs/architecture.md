@@ -241,8 +241,21 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - public registration create flow uses `src/lib/pocketbase/public-students-fathers.ts`,
   - anonymous PocketBase `create` is enabled for `students_fathers` to support `/register`,
   - all `students_fathers` reads use `sort: created_at,id`,
-  - student and tutor create/edit forms use repeatable link rows (`counterpart + relationship`),
-  - both flows enforce at least one linked counterpart on create and edit.
+- student and tutor create/edit forms use repeatable link rows (`counterpart + relationship`),
+- both flows enforce at least one linked counterpart on create and edit.
+
+## Father Portal Design
+- UI location: `src/routes/father-portal.tsx`.
+- Data sources:
+  - linked students and bulletin access via `src/lib/pocketbase/father-portal.ts`,
+  - authenticated student registration via `src/lib/pocketbase/father-register-student.ts`,
+  - public grade selector options via `src/lib/pocketbase/public-grades.ts`.
+- Capabilities:
+  - list linked students with `Activo` / `Pendiente` / `Rechazado` / `Desactivado` status badges,
+  - expand each student to review grouped bulletins and export the PDF report,
+  - open a responsive modal to register a new student with student-only fields plus a relationship selector,
+  - validate `students.document_id` uniqueness on blur and re-check it on submit server-side,
+  - on successful registration create `students.active = true` and `students.accepted = false`, create the `students_fathers` link for the authenticated father, close the modal, show the pending-approval message, and refetch the student list.
 
 ## Grades Data Model
 - `grades` collection stores enrollment grades with enrollment-authorized writes.
