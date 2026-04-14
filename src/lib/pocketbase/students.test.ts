@@ -15,18 +15,51 @@ const hoisted = vi.hoisted(() => {
   const getOne = vi.fn();
   const create = vi.fn();
   const update = vi.fn();
+  const deleteRecord = vi.fn();
+  const studentFatherGetFullList = vi.fn();
+  const studentFatherCreate = vi.fn();
+  const studentFatherDelete = vi.fn();
+  const fatherUpdate = vi.fn();
+  const userDelete = vi.fn();
   const normalizePocketBaseError = vi.fn();
   const listFatherNamesByStudentIds = vi.fn();
   const getAuthenticatedPb = vi.fn();
 
   const pb = {
-    collection: vi.fn(() => ({
-      getFullList,
-      getList,
-      getOne,
-      create,
-      update,
-    })),
+    collection: vi.fn((name: string) => {
+      if (name === 'students') {
+        return {
+          getFullList,
+          getList,
+          getOne,
+          create,
+          update,
+          delete: deleteRecord,
+        };
+      }
+
+      if (name === 'students_fathers') {
+        return {
+          getFullList: studentFatherGetFullList,
+          create: studentFatherCreate,
+          delete: studentFatherDelete,
+        };
+      }
+
+      if (name === 'fathers') {
+        return {
+          update: fatherUpdate,
+        };
+      }
+
+      if (name === 'users') {
+        return {
+          delete: userDelete,
+        };
+      }
+
+      throw new Error(`Unexpected collection: ${name}`);
+    }),
   };
 
   return {
@@ -35,6 +68,12 @@ const hoisted = vi.hoisted(() => {
     getOne,
     create,
     update,
+    deleteRecord,
+    studentFatherGetFullList,
+    studentFatherCreate,
+    studentFatherDelete,
+    fatherUpdate,
+    userDelete,
     normalizePocketBaseError,
     listFatherNamesByStudentIds,
     getAuthenticatedPb,
@@ -59,6 +98,13 @@ describe('students pocketbase client', () => {
     vi.clearAllMocks();
     hoisted.getAuthenticatedPb.mockResolvedValue(hoisted.pb);
     hoisted.listFatherNamesByStudentIds.mockResolvedValue({});
+    hoisted.normalizePocketBaseError.mockImplementation((error: unknown) => error);
+    hoisted.deleteRecord.mockResolvedValue(undefined);
+    hoisted.studentFatherGetFullList.mockResolvedValue([]);
+    hoisted.studentFatherCreate.mockResolvedValue({ id: 'sf-restored' });
+    hoisted.studentFatherDelete.mockResolvedValue(undefined);
+    hoisted.fatherUpdate.mockResolvedValue({});
+    hoisted.userDelete.mockResolvedValue(undefined);
   });
 
   it('lists active students and maps fields', async () => {
@@ -360,6 +406,192 @@ describe('students pocketbase client', () => {
 
     await deactivateStudent('s1');
     expect(hoisted.update).toHaveBeenLastCalledWith('s1', { active: false });
+    expect(hoisted.studentFatherGetFullList).toHaveBeenCalledWith({
+      filter: 'student_id = "s1"',
+      expand: 'father_id',
+      fields: 'id,father_id,relationship,expand.father_id.is_active,expand.father_id.user_id',
+      sort: 'created_at,id',
+    });
+    expect(hoisted.studentFatherDelete).not.toHaveBeenCalled();
+    expect(hoisted.fatherUpdate).not.toHaveBeenCalled();
+    expect(hoisted.userDelete).not.toHaveBeenCalled();
+  });
+
+  it('keeps fathers active when they still have other active students', async () => {
+    hoisted.studentFatherGetFullList
+      .mockResolvedValueOnce([
+        {
+          id: 'sf1',
+          father_id: 'f1',
+          relationship: 'father',
+          expand: {
+            father_id: {
+              is_active: true,
+              user_id: 'u1',
+            },
+          },
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 'sf2',
+          expand: {
+            student_id: {
+              active: true,
+            },
+          },
+        },
+      ]);
+
+    await deactivateStudent('s1');
+
+    expect(hoisted.studentFatherDelete).toHaveBeenCalledWith('sf1');
+    expect(hoisted.update).toHaveBeenCalledWith('s1', { active: false });
+    expect(hoisted.fatherUpdate).not.toHaveBeenCalled();
+    expect(hoisted.userDelete).not.toHaveBeenCalled();
+  });
+
+  it('soft-deletes fathers without active students and deletes their linked users', async () => {
+    hoisted.studentFatherGetFullList
+      .mockResolvedValueOnce([
+        {
+          id: 'sf1',
+          father_id: 'f1',
+          relationship: 'father',
+          expand: {
+            father_id: {
+              is_active: true,
+              user_id: 'u1',
+            },
+          },
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    await deactivateStudent('s1');
+
+    expect(hoisted.studentFatherDelete).toHaveBeenCalledWith('sf1');
+    expect(hoisted.fatherUpdate).toHaveBeenCalledWith('f1', { is_active: false });
+    expect(hoisted.userDelete).toHaveBeenCalledWith('u1');
+  });
+
+  it('skips father and user changes when the father is already inactive', async () => {
+    hoisted.studentFatherGetFullList
+      .mockResolvedValueOnce([
+        {
+          id: 'sf1',
+          father_id: 'f1',
+          relationship: 'father',
+          expand: {
+            father_id: {
+              is_active: false,
+              user_id: 'u1',
+            },
+          },
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    await deactivateStudent('s1');
+
+    expect(hoisted.studentFatherDelete).toHaveBeenCalledWith('sf1');
+    expect(hoisted.fatherUpdate).not.toHaveBeenCalled();
+    expect(hoisted.userDelete).not.toHaveBeenCalled();
+  });
+
+  it('rolls back junction links when student deactivation fails after link deletion', async () => {
+    const rawError = new Error('student update failed');
+    hoisted.studentFatherGetFullList.mockResolvedValueOnce([
+      {
+        id: 'sf1',
+        father_id: 'f1',
+        relationship: 'mother',
+        expand: {
+          father_id: {
+            is_active: true,
+            user_id: null,
+          },
+        },
+      },
+    ]);
+    hoisted.update.mockRejectedValueOnce(rawError);
+
+    await expect(deactivateStudent('s1')).rejects.toBe(rawError);
+
+    expect(hoisted.studentFatherDelete).toHaveBeenCalledWith('sf1');
+    expect(hoisted.studentFatherCreate).toHaveBeenCalledWith({
+      student_id: 's1',
+      father_id: 'f1',
+      relationship: 'mother',
+    });
+    expect(hoisted.update).toHaveBeenCalledTimes(1);
+    expect(hoisted.fatherUpdate).not.toHaveBeenCalled();
+  });
+
+  it('restores student and links when father deactivation fails', async () => {
+    const rawError = new Error('father update failed');
+    hoisted.studentFatherGetFullList
+      .mockResolvedValueOnce([
+        {
+          id: 'sf1',
+          father_id: 'f1',
+          relationship: 'father',
+          expand: {
+            father_id: {
+              is_active: true,
+              user_id: null,
+            },
+          },
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    hoisted.fatherUpdate.mockRejectedValueOnce(rawError);
+
+    await expect(deactivateStudent('s1')).rejects.toBe(rawError);
+
+    expect(hoisted.update).toHaveBeenNthCalledWith(1, 's1', { active: false });
+    expect(hoisted.update).toHaveBeenNthCalledWith(2, 's1', { active: true });
+    expect(hoisted.studentFatherCreate).toHaveBeenCalledWith({
+      student_id: 's1',
+      father_id: 'f1',
+      relationship: 'father',
+    });
+  });
+
+  it('logs and continues when linked user deletion fails', async () => {
+    const rawError = new Error('user delete failed');
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    hoisted.studentFatherGetFullList
+      .mockResolvedValueOnce([
+        {
+          id: 'sf1',
+          father_id: 'f1',
+          relationship: 'father',
+          expand: {
+            father_id: {
+              is_active: true,
+              user_id: 'u1',
+            },
+          },
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    hoisted.userDelete.mockRejectedValueOnce(rawError);
+
+    await expect(deactivateStudent('s1')).resolves.toBeUndefined();
+
+    expect(hoisted.fatherUpdate).toHaveBeenCalledWith('f1', { is_active: false });
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Failed to delete linked father user during student deactivation.',
+      expect.objectContaining({
+        studentId: 's1',
+        fatherId: 'f1',
+        userId: 'u1',
+        error: rawError,
+      }),
+    );
+
+    errorSpy.mockRestore();
   });
 
   it('returns empty array for empty grade ids list', async () => {

@@ -1,7 +1,7 @@
 import { getAuthenticatedPb } from '../server/get-authenticated-pb';
 import { normalizePocketBaseError } from './errors';
 import type { PaginatedListResult } from '../table/pagination';
-import { listFatherNamesByStudentIds } from './students-fathers';
+import { listFatherNamesByStudentIds, type StudentFatherRelationship } from './students-fathers';
 
 export type StudentRecord = {
   id: string;
@@ -77,6 +77,14 @@ type PbStudentPayload = {
   allergies: string;
 };
 
+type StudentDeactivationLink = {
+  id: string;
+  fatherId: string;
+  relationship: StudentFatherRelationship;
+  fatherActive: boolean;
+  fatherUserId: string | null;
+};
+
 function toStringValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -100,6 +108,24 @@ function toActiveValue(value: unknown): boolean {
   return value !== false;
 }
 
+function toNullableStringValue(value: unknown): string | null {
+  const normalized = toStringValue(value);
+  return normalized.length > 0 ? normalized : null;
+}
+
+function toRelationshipValue(value: unknown): StudentFatherRelationship {
+  const normalized = toStringValue(value);
+  if (normalized === 'father' || normalized === 'mother' || normalized === 'other') {
+    return normalized;
+  }
+
+  return 'other';
+}
+
+function escapeFilterValue(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
 function getExpandedGrade(
   record: Record<string, unknown> & { get?: (key: string) => unknown },
 ): Record<string, unknown> | null {
@@ -117,6 +143,83 @@ function getExpandedGrade(
   }
 
   return null;
+}
+
+function mapStudentDeactivationLink(
+  record: Record<string, unknown> & { id: string; get?: (key: string) => unknown },
+): StudentDeactivationLink {
+  const directExpand = (record as { expand?: Record<string, unknown> }).expand;
+  const fromGet = record.get?.('expand');
+  const expand = (directExpand ?? fromGet) as Record<string, unknown> | undefined;
+  const expandedFather = expand?.father_id;
+  const father = Array.isArray(expandedFather)
+    ? (expandedFather[0] as Record<string, unknown> | undefined)
+    : (expandedFather as Record<string, unknown> | undefined);
+
+  return {
+    id: record.id,
+    fatherId: toStringValue(record.get?.('father_id') ?? record.father_id),
+    relationship: toRelationshipValue(record.get?.('relationship') ?? record.relationship),
+    fatherActive: toActiveValue(father?.is_active),
+    fatherUserId: toNullableStringValue(father?.user_id),
+  };
+}
+
+async function fatherHasActiveStudents(pb: Awaited<ReturnType<typeof getAuthenticatedPb>>, fatherId: string): Promise<boolean> {
+  const records = await pb.collection('students_fathers').getFullList({
+    filter: `father_id = "${escapeFilterValue(fatherId)}"`,
+    expand: 'student_id',
+    fields: 'id,expand.student_id.active',
+    sort: 'created_at,id',
+  });
+
+  return records.some((record) => {
+    const directExpand = (record as { expand?: Record<string, unknown> }).expand;
+    const fromGet = (record as { get?: (key: string) => unknown }).get?.('expand');
+    const expand = (directExpand ?? fromGet) as Record<string, unknown> | undefined;
+    const expandedStudent = expand?.student_id;
+    const student = Array.isArray(expandedStudent)
+      ? expandedStudent[0] as Record<string, unknown> | undefined
+      : expandedStudent as Record<string, unknown> | undefined;
+
+    return toActiveValue(student?.active);
+  });
+}
+
+async function rollbackDeactivation(
+  pb: Awaited<ReturnType<typeof getAuthenticatedPb>>,
+  studentId: string,
+  deletedLinks: StudentDeactivationLink[],
+  reactivatedFatherIds: string[],
+  studentWasDeactivated: boolean,
+): Promise<void> {
+  for (let index = reactivatedFatherIds.length - 1; index >= 0; index -= 1) {
+    try {
+      await pb.collection('fathers').update(reactivatedFatherIds[index], { is_active: true });
+    } catch {
+      // Ignore rollback errors to preserve the original failure.
+    }
+  }
+
+  if (studentWasDeactivated) {
+    try {
+      await pb.collection('students').update(studentId, { active: true });
+    } catch {
+      // Ignore rollback errors to preserve the original failure.
+    }
+  }
+
+  for (const link of deletedLinks) {
+    try {
+      await pb.collection('students_fathers').create({
+        student_id: studentId,
+        father_id: link.fatherId,
+        relationship: link.relationship,
+      });
+    } catch {
+      // Ignore rollback errors to preserve the original failure.
+    }
+  }
 }
 
 function mapStudentRecord(
@@ -330,9 +433,60 @@ export async function updateStudent(id: string, payload: StudentUpdateInput): Pr
 export async function deactivateStudent(id: string): Promise<void> {
   "use server";
   const pb = await getAuthenticatedPb();
+  const normalizedId = id.trim();
+  const deletedLinks: StudentDeactivationLink[] = [];
+  const deactivatedFatherIds: string[] = [];
+  let studentWasDeactivated = false;
+
   try {
-    await pb.collection('students').update(id, { active: false });
+    const relationRecords = await pb.collection('students_fathers').getFullList({
+      filter: `student_id = "${escapeFilterValue(normalizedId)}"`,
+      expand: 'father_id',
+      fields: 'id,father_id,relationship,expand.father_id.is_active,expand.father_id.user_id',
+      sort: 'created_at,id',
+    });
+    const links = relationRecords.map((record) => mapStudentDeactivationLink(record));
+
+    for (const link of links) {
+      await pb.collection('students_fathers').delete(link.id);
+      deletedLinks.push(link);
+    }
+
+    await pb.collection('students').update(normalizedId, { active: false });
+    studentWasDeactivated = true;
+
+    for (const link of links) {
+      const hasActiveStudents = await fatherHasActiveStudents(pb, link.fatherId);
+      if (hasActiveStudents || !link.fatherActive) {
+        continue;
+      }
+
+      await pb.collection('fathers').update(link.fatherId, { is_active: false });
+      deactivatedFatherIds.push(link.fatherId);
+
+      if (!link.fatherUserId) {
+        continue;
+      }
+
+      try {
+        await pb.collection('users').delete(link.fatherUserId);
+      } catch (userDeletionError) {
+        console.error('Failed to delete linked father user during student deactivation.', {
+          studentId: normalizedId,
+          fatherId: link.fatherId,
+          userId: link.fatherUserId,
+          error: userDeletionError,
+        });
+      }
+    }
   } catch (error) {
+    await rollbackDeactivation(
+      pb,
+      normalizedId,
+      deletedLinks,
+      deactivatedFatherIds,
+      studentWasDeactivated,
+    );
     throw normalizePocketBaseError(error);
   }
 }
