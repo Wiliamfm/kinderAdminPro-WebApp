@@ -566,7 +566,7 @@ export async function listPendingEnrollmentRequests(
 
     const result = await pb.collection('students').getList(page, perPage, {
       sort: sort,
-      filter: 'active = true && accepted = false',
+      filter: 'active = true && accepted = false && rejected = ""',
       expand: 'grade_id',
     });
 
