@@ -13,9 +13,8 @@ const mocks = vi.hoisted(() => ({
   createEmployeeReport: vi.fn(),
   updateEmployeeReport: vi.fn(),
   softDeleteEmployeeReport: vi.fn(),
-  buildEmployeeReportsCsv: vi.fn(),
-  downloadBlobFile: vi.fn(),
-  formatFileTimestamp: vi.fn(),
+  exportEmployeesReport: vi.fn(),
+  downloadBase64File: vi.fn(),
   chartCtor: vi.fn(),
   chartDestroy: vi.fn(),
 }));
@@ -42,13 +41,12 @@ vi.mock('../lib/pocketbase/leaves', () => ({
   listLeaveAnalyticsRecords: mocks.listLeaveAnalyticsRecords,
 }));
 
-vi.mock('../lib/reports/employees-export', () => ({
-  buildEmployeeReportsCsv: mocks.buildEmployeeReportsCsv,
+vi.mock('../lib/server/exports/employees-export', () => ({
+  exportEmployeesReport: mocks.exportEmployeesReport,
 }));
 
 vi.mock('../lib/reports/download', () => ({
-  downloadBlobFile: mocks.downloadBlobFile,
-  formatFileTimestamp: mocks.formatFileTimestamp,
+  downloadBase64File: mocks.downloadBase64File,
 }));
 
 vi.mock('chart.js/auto', () => {
@@ -140,8 +138,11 @@ describe('ReportsEmployeesPage', () => {
     mocks.createEmployeeReport.mockResolvedValue(rowsFixture[0]);
     mocks.updateEmployeeReport.mockResolvedValue(rowsFixture[0]);
     mocks.softDeleteEmployeeReport.mockResolvedValue(undefined);
-    mocks.buildEmployeeReportsCsv.mockReturnValue('Empleado,Documento\r\nAna Pérez,9001');
-    mocks.formatFileTimestamp.mockReturnValue('20260307_1000');
+    mocks.exportEmployeesReport.mockResolvedValue({
+      fileName: 'reportes_empleados_20260307_1000.csv',
+      data: 'QW5hIFDDqXJleg==',
+      mimeType: 'text/csv;charset=utf-8',
+    });
   });
 
   it('redirects non-admin users to reports index', async () => {
@@ -706,7 +707,7 @@ describe('ReportsEmployeesPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Exportar' }));
 
     await waitFor(() => {
-      expect(mocks.listEmployeeReportsForExport).toHaveBeenCalledWith({
+      expect(mocks.exportEmployeesReport).toHaveBeenCalledWith({
         sortField: 'job_name',
         sortDirection: 'asc',
         jobId: 'j1',
@@ -715,23 +716,22 @@ describe('ReportsEmployeesPage', () => {
       });
     });
 
-    expect(mocks.buildEmployeeReportsCsv).toHaveBeenCalledWith(rowsFixture);
-    expect(mocks.downloadBlobFile).toHaveBeenCalledWith(
+    expect(mocks.downloadBase64File).toHaveBeenCalledWith(
       'reportes_empleados_20260307_1000.csv',
-      expect.any(Blob),
+      'QW5hIFDDqXJleg==',
+      'text/csv;charset=utf-8',
     );
   });
 
   it('shows message when there is no data to export', async () => {
-    mocks.listEmployeeReportsForExport.mockResolvedValueOnce([]);
+    mocks.exportEmployeesReport.mockRejectedValueOnce(new Error('No hay datos para exportar con los filtros aplicados.'));
     render(() => <ReportsEmployeesPage />);
     await screen.findByRole('cell', { name: 'Ana Pérez' });
 
     fireEvent.click(screen.getByRole('button', { name: 'Exportar' }));
 
     expect(await screen.findByText('No hay datos para exportar con los filtros aplicados.')).toBeInTheDocument();
-    expect(mocks.buildEmployeeReportsCsv).not.toHaveBeenCalled();
-    expect(mocks.downloadBlobFile).not.toHaveBeenCalled();
+    expect(mocks.downloadBase64File).not.toHaveBeenCalled();
   });
 
   it('blocks create submission for required relation fields', async () => {

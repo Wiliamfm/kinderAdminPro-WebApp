@@ -80,7 +80,7 @@ export async function exportEmployeesReport(options: EmployeeReportExportOptions
   }
 
   const csvContent = buildEmployeeReportsCsv(records);
-  const base64Data = btoa(csvContent);
+  const base64Data = btoa(unescape(encodeURIComponent(csvContent)));
 
   const generatedAt = new Date();
   const year = generatedAt.getFullYear();
