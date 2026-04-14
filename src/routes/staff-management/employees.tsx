@@ -945,7 +945,9 @@ export default function StaffEmployeesPage() {
     setInvoiceError(null);
 
     try {
-      const createdFile = await createInvoiceFile({ file });
+      const formData = new FormData();
+      formData.set('file', file);
+      const createdFile = await createInvoiceFile(formData);
       if (invoiceToEdit) {
         await updateInvoice(invoiceToEdit.id, {
           fileId: createdFile.id,

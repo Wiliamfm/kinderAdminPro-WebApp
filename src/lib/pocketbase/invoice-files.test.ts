@@ -48,8 +48,10 @@ describe('invoice_files pocketbase client', () => {
       file: 'contract.pdf',
     });
     const file = new File(['content'], 'contract.pdf', { type: 'application/pdf' });
+    const formData = new FormData();
+    formData.set('file', file);
 
-    const result = await createInvoiceFile({ file });
+    const result = await createInvoiceFile(formData);
 
     const payload = hoisted.create.mock.calls[0][0];
     expect(payload).toBeInstanceOf(FormData);
@@ -67,8 +69,10 @@ describe('invoice_files pocketbase client', () => {
     hoisted.normalizePocketBaseError.mockReturnValue(normalized);
 
     const file = new File(['content'], 'contract.pdf', { type: 'application/pdf' });
+    const formData = new FormData();
+    formData.set('file', file);
 
-    await expect(createInvoiceFile({ file })).rejects.toEqual(normalized);
+    await expect(createInvoiceFile(formData)).rejects.toEqual(normalized);
     expect(hoisted.normalizePocketBaseError).toHaveBeenCalledWith(rawError);
   });
 

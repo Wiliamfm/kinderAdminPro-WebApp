@@ -958,7 +958,9 @@ describe('StaffEmployeesPage features', () => {
     await waitFor(() => {
       expect(mocks.createInvoiceFile).toHaveBeenCalledTimes(1);
     });
-    expect(mocks.createInvoiceFile).toHaveBeenCalledWith({ file });
+    const createInvoiceFilePayload = mocks.createInvoiceFile.mock.calls[0]?.[0];
+    expect(createInvoiceFilePayload).toBeInstanceOf(FormData);
+    expect(createInvoiceFilePayload?.get('file')).toBe(file);
     expect(mocks.createInvoice).toHaveBeenCalledWith({
       employeeId: 'e1',
       fileId: 'file-1',
@@ -1029,6 +1031,9 @@ describe('StaffEmployeesPage features', () => {
     await waitFor(() => {
       expect(mocks.createInvoiceFile).toHaveBeenCalledTimes(1);
     });
+    const replaceInvoiceFilePayload = mocks.createInvoiceFile.mock.calls[0]?.[0];
+    expect(replaceInvoiceFilePayload).toBeInstanceOf(FormData);
+    expect(replaceInvoiceFilePayload?.get('file')).toBe(file);
     expect(mocks.updateInvoice).toHaveBeenCalledWith('inv-1', {
       fileId: 'file-1',
       originalFileName: 'factura nueva.pdf',
