@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   params: { id: 'e1' },
   canAccessModule: vi.fn(),
   getEmployeeById: vi.fn(),
-  updateEmployee: vi.fn(),
+  updateEmployeeWithUpload: vi.fn(),
   listEmployeeJobs: vi.fn(),
 }));
 
@@ -22,7 +22,7 @@ vi.mock('../lib/pocketbase/auth', () => ({
 
 vi.mock('../lib/pocketbase/employees', () => ({
   getEmployeeById: mocks.getEmployeeById,
-  updateEmployee: mocks.updateEmployee,
+  updateEmployeeWithUpload: mocks.updateEmployeeWithUpload,
 }));
 
 vi.mock('../lib/pocketbase/employee-jobs', () => ({
@@ -52,7 +52,7 @@ describe('StaffEmployeeEditPage', () => {
     mocks.params.id = 'e1';
     mocks.canAccessModule.mockReturnValue(true);
     mocks.getEmployeeById.mockResolvedValue(employeeFixture);
-    mocks.updateEmployee.mockResolvedValue(employeeFixture);
+    mocks.updateEmployeeWithUpload.mockResolvedValue(employeeFixture);
     mocks.listEmployeeJobs.mockResolvedValue([
       { id: 'j1', name: 'Docente', salary: 1500 },
       { id: 'j2', name: 'Coordinador', salary: 1800 },
@@ -75,7 +75,7 @@ describe('StaffEmployeeEditPage', () => {
     fireEvent.input(screen.getByLabelText('Nombre'), { target: { value: '' } });
 
     expect(await screen.findByText('Nombre es obligatorio.')).toBeInTheDocument();
-    expect(mocks.updateEmployee).not.toHaveBeenCalled();
+    expect(mocks.updateEmployeeWithUpload).not.toHaveBeenCalled();
   });
 
   it('updates employee and navigates back when form is valid', async () => {
@@ -87,14 +87,12 @@ describe('StaffEmployeeEditPage', () => {
     fireEvent.click(screen.getByText('Guardar cambios'));
 
     await waitFor(() => {
-      expect(mocks.updateEmployee).toHaveBeenCalledWith(
-        'e1',
-        expect.objectContaining({
-          name: 'Ana Maria',
-          email: 'ana.new@test.com',
-        }),
-      );
+      expect(mocks.updateEmployeeWithUpload).toHaveBeenCalledTimes(1);
     });
+    expect(mocks.updateEmployeeWithUpload).toHaveBeenCalledWith('e1', expect.any(FormData));
+    const formData = mocks.updateEmployeeWithUpload.mock.calls[0]?.[1] as FormData;
+    expect(formData.get('name')).toBe('Ana Maria');
+    expect(formData.get('email')).toBe('ana.new@test.com');
     expect(mocks.navigate).toHaveBeenCalledWith('/staff-management/employees', { replace: true });
   });
 
@@ -117,13 +115,11 @@ describe('StaffEmployeeEditPage', () => {
     fireEvent.click(screen.getByText('Guardar cambios'));
 
     await waitFor(() => {
-      expect(mocks.updateEmployee).toHaveBeenCalledWith(
-        'e1',
-        expect.objectContaining({
-          cv: cvFile,
-        }),
-      );
+      expect(mocks.updateEmployeeWithUpload).toHaveBeenCalledTimes(1);
     });
+    expect(mocks.updateEmployeeWithUpload).toHaveBeenCalledWith('e1', expect.any(FormData));
+    const formData = mocks.updateEmployeeWithUpload.mock.calls[0]?.[1] as FormData;
+    expect(formData.get('cv')).toBe(cvFile);
   });
 
   it('blocks save when cv replacement is not a pdf', async () => {
@@ -136,7 +132,7 @@ describe('StaffEmployeeEditPage', () => {
     fireEvent.click(screen.getByText('Guardar cambios'));
 
     expect(await screen.findByText('Solo se permiten archivos PDF.')).toBeInTheDocument();
-    expect(mocks.updateEmployee).not.toHaveBeenCalled();
+    expect(mocks.updateEmployeeWithUpload).not.toHaveBeenCalled();
   });
 
   it('blocks save when cv replacement exceeds max size', async () => {
@@ -151,6 +147,6 @@ describe('StaffEmployeeEditPage', () => {
     fireEvent.click(screen.getByText('Guardar cambios'));
 
     expect(await screen.findByText('El archivo PDF debe pesar máximo 10 MB.')).toBeInTheDocument();
-    expect(mocks.updateEmployee).not.toHaveBeenCalled();
+    expect(mocks.updateEmployeeWithUpload).not.toHaveBeenCalled();
   });
 });

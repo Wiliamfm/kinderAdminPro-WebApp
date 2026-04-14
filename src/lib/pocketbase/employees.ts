@@ -40,6 +40,17 @@ export type EmployeeCreateInput = EmployeeUpdateInput & {
   userId: string;
 };
 
+type EmployeeUploadInput = {
+  name: string;
+  documentId: string;
+  email: string;
+  phone: string;
+  address: string;
+  emergency_contact: string;
+  jobId: string;
+  cv?: Blob;
+};
+
 export type EmployeeListSortField =
   | 'name'
   | 'jobSalary'
@@ -188,14 +199,54 @@ function mapEmployeeUpdatePayload(payload: EmployeeUpdateInput): PbEmployeeUpdat
 
 function buildFormDataPayload(
   payload: PbEmployeeCreatePayload | PbEmployeeUpdatePayload,
-  cvFile: File,
+  cvFile?: Blob,
 ): FormData {
   const formData = new FormData();
   for (const [key, value] of Object.entries(payload)) {
     formData.set(key, String(value));
   }
-  formData.set('cv', cvFile);
+  if (cvFile) {
+    formData.set('cv', cvFile);
+  }
   return formData;
+}
+
+function toStringFormValue(formData: FormData, key: string): string {
+  const value = formData.get(key);
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function toFileFormValue(formData: FormData, key: string): Blob | undefined {
+  const value = formData.get(key);
+  return value instanceof Blob ? value : undefined;
+}
+
+function parseEmployeeUploadFormData(formData: FormData): EmployeeUploadInput {
+  return {
+    name: toStringFormValue(formData, 'name'),
+    documentId: toStringFormValue(formData, 'document_id'),
+    email: toStringFormValue(formData, 'email'),
+    phone: toStringFormValue(formData, 'phone'),
+    address: toStringFormValue(formData, 'address'),
+    emergency_contact: toStringFormValue(formData, 'emergency_contact'),
+    jobId: toStringFormValue(formData, 'job_id'),
+    cv: toFileFormValue(formData, 'cv'),
+  };
+}
+
+function buildEmployeeUploadFormData(payload: EmployeeUploadInput): FormData {
+  return buildFormDataPayload(
+    {
+      name: payload.name,
+      document_id: payload.documentId.trim(),
+      email: payload.email,
+      phone: payload.phone,
+      address: payload.address,
+      emergency_contact: payload.emergency_contact,
+      job_id: payload.jobId,
+    },
+    payload.cv,
+  );
 }
 
 const EMPLOYEE_SORT_FIELD_MAP: Record<EmployeeListSortField, string> = {
@@ -323,6 +374,27 @@ export async function updateEmployee(id: string, payload: EmployeeUpdateInput): 
     const record = await pb.collection('employees').update(
       id,
       updatePayload,
+      {
+        expand: 'job_id',
+      },
+    );
+    return mapEmployeeRecord(record, pb);
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
+export async function updateEmployeeWithUpload(
+  id: string,
+  formData: FormData,
+): Promise<EmployeeRecord> {
+  "use server";
+  const pb = await getAuthenticatedPb();
+  try {
+    const payload = parseEmployeeUploadFormData(formData);
+    const record = await pb.collection('employees').update(
+      id,
+      buildEmployeeUploadFormData(payload),
       {
         expand: 'job_id',
       },

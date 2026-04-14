@@ -8,6 +8,7 @@ import {
   listActiveEmployees,
   listActiveEmployeesPage,
   updateEmployee,
+  updateEmployeeWithUpload,
 } from './employees';
 
 
@@ -444,6 +445,49 @@ describe('employees pocketbase client', () => {
     const payload = hoisted.update.mock.calls[0][1];
     expect(payload).toBeInstanceOf(FormData);
     expect(payload.get('name')).toBe('Ana');
+    expect(payload.get('job_id')).toBe('j2');
+    expect(payload.get('cv')).toBe(cv);
+  });
+
+  it('updates employee from raw form data without serializing File through the route payload', async () => {
+    hoisted.update.mockResolvedValue({
+      id: 'e1',
+      name: 'Ana',
+      document_id: '123456',
+      email: 'ana@test.com',
+      phone: '300',
+      address: 'Calle 1',
+      emergency_contact: 'Luis',
+      active: true,
+      user_id: 'u1',
+      job_id: 'j2',
+      cv: 'ana_cv_new.pdf',
+      expand: {
+        job_id: {
+          id: 'j2',
+          name: 'Coordinador',
+          salary: 1300,
+        },
+      },
+    });
+
+    const cv = new File(['pdf-content'], 'ana_cv_new.pdf', { type: 'application/pdf' });
+    const formData = new FormData();
+    formData.set('name', 'Ana');
+    formData.set('document_id', '123456');
+    formData.set('email', 'ana@test.com');
+    formData.set('phone', '300');
+    formData.set('address', 'Calle 1');
+    formData.set('emergency_contact', 'Luis');
+    formData.set('job_id', 'j2');
+    formData.set('cv', cv);
+
+    const updated = await updateEmployeeWithUpload('e1', formData);
+
+    expect(updated.jobId).toBe('j2');
+    const payload = hoisted.update.mock.calls[0][1];
+    expect(payload).toBeInstanceOf(FormData);
+    expect(payload.get('document_id')).toBe('123456');
     expect(payload.get('job_id')).toBe('j2');
     expect(payload.get('cv')).toBe(cv);
   });

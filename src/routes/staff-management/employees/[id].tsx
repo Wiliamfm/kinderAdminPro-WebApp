@@ -13,7 +13,7 @@ import type { PocketBaseRequestError } from '../../../lib/pocketbase/errors';
 import { listEmployeeJobs } from '../../../lib/pocketbase/employee-jobs';
 import {
   getEmployeeById,
-  updateEmployee,
+  updateEmployeeWithUpload,
   type EmployeeUpdateInput,
 } from '../../../lib/pocketbase/employees';
 
@@ -191,11 +191,22 @@ export default function StaffEmployeeEditPage() {
 
     setSaveBusy(true);
     try {
-      await updateEmployee(params.id, {
-        ...form(),
-        email: form().email.trim(),
-        cv: cvFile() ?? undefined,
-      });
+      const currentForm = form();
+      const formData = new FormData();
+      formData.set('name', currentForm.name);
+      formData.set('document_id', currentForm.documentId);
+      formData.set('job_id', currentForm.jobId);
+      formData.set('email', currentForm.email.trim());
+      formData.set('phone', currentForm.phone);
+      formData.set('address', currentForm.address);
+      formData.set('emergency_contact', currentForm.emergency_contact);
+
+      const nextCvFile = cvFile();
+      if (nextCvFile) {
+        formData.set('cv', nextCvFile);
+      }
+
+      await updateEmployeeWithUpload(params.id, formData);
       navigate('/staff-management/employees', { replace: true });
     } catch (error) {
       setFormError(getErrorMessage(error));
