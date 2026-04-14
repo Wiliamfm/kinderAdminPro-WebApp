@@ -1,10 +1,31 @@
 import { useNavigate } from '@solidjs/router';
-import { createEffect, createResource, createSignal, For, Show } from 'solid-js';
+import { createEffect, createMemo, createResource, createSignal, For, Show } from 'solid-js';
+import FatherStudentRegistrationModal from '../components/FatherStudentRegistrationModal';
+import {
+  createInitialTouchedMap,
+  hasAnyError,
+  touchAllFields,
+  touchField,
+} from '../lib/forms/realtime-validation';
+import {
+  DUPLICATE_STUDENT_DOCUMENT_MESSAGE,
+  emptyStudentRegistrationForm,
+  isStudentRegistrationValidatedField,
+  sanitizeNumericValue,
+  STUDENT_REGISTRATION_VALIDATED_FIELDS,
+  toStudentCreateInput,
+  validateStudentRegistrationForm,
+  type StudentRegistrationFormValues,
+  type StudentRegistrationValidatedField,
+} from '../lib/forms/student-registration';
 import { type BulletinStudentRecord } from '../lib/pocketbase/bulletins-students';
 import type { PocketBaseRequestError } from '../lib/pocketbase/errors';
+import { listPublicGrades } from '../lib/pocketbase/public-grades';
 import {
+  checkFatherStudentDocumentIdAvailable,
   listFatherBulletin,
   listFatherStudents,
+  submitFatherStudentRegistration,
   type FatherStudentRecord,
   type FatherStudentStatus,
 } from '../lib/pocketbase/father-portal';
@@ -99,6 +120,18 @@ export default function FatherPortalPage() {
   const [loadingStudentIds, setLoadingStudentIds] = createSignal<string[]>([]);
   const [exportingStudentIds, setExportingStudentIds] = createSignal<string[]>([]);
   const [actionError, setActionError] = createSignal<string | null>(null);
+  const [successMessage, setSuccessMessage] = createSignal<string | null>(null);
+  const [registrationOpen, setRegistrationOpen] = createSignal(false);
+  const [registrationForm, setRegistrationForm] = createSignal<StudentRegistrationFormValues>(emptyStudentRegistrationForm);
+  const [registrationRelationship, setRegistrationRelationship] = createSignal<'father' | 'mother' | 'other'>('father');
+  const [registrationTouched, setRegistrationTouched] = createSignal(
+    createInitialTouchedMap(STUDENT_REGISTRATION_VALIDATED_FIELDS),
+  );
+  const [registrationBusy, setRegistrationBusy] = createSignal(false);
+  const [registrationSubmitError, setRegistrationSubmitError] = createSignal<string | null>(null);
+  const [duplicateDocumentMessage, setDuplicateDocumentMessage] = createSignal<string | null>(null);
+  const [lastValidatedDocumentId, setLastValidatedDocumentId] = createSignal('');
+  const [documentValidationBusy, setDocumentValidationBusy] = createSignal(false);
 
   createEffect(() => {
     if (!canAccessModule('father-portal')) {
@@ -106,20 +139,47 @@ export default function FatherPortalPage() {
     }
   });
 
-  const [students] = createResource(
+  const [students, { refetch: refetchStudents }] = createResource(
     () => (canAccessModule('father-portal') ? true : undefined),
     () => listFatherStudents(),
+  );
+  const [grades] = createResource(
+    () => (registrationOpen() ? true : undefined),
+    () => listPublicGrades(),
   );
 
   const isExpanded = (studentId: string) => expandedIds().includes(studentId);
   const isLoadingBulletins = (studentId: string) => loadingStudentIds().includes(studentId);
   const isExporting = (studentId: string) => exportingStudentIds().includes(studentId);
   const hasBulletinsLoaded = (studentId: string) => Object.hasOwn(bulletinsByStudentId(), studentId);
+  const availableGradeIds = createMemo(() => new Set((grades() ?? []).map((grade) => grade.id)));
+  const registrationFieldErrors = createMemo(() => (
+    validateStudentRegistrationForm(registrationForm(), availableGradeIds())
+  ));
+  const gradeLoadError = createMemo(() => (
+    grades.error ? getErrorMessage(grades.error) : null
+  ));
 
   const addStudentId = (current: string[], studentId: string) => (
     current.includes(studentId) ? current : [...current, studentId]
   );
   const removeStudentId = (current: string[], studentId: string) => current.filter((value) => value !== studentId);
+  const resetRegistrationState = () => {
+    setRegistrationForm(emptyStudentRegistrationForm);
+    setRegistrationRelationship('father');
+    setRegistrationTouched(createInitialTouchedMap(STUDENT_REGISTRATION_VALIDATED_FIELDS));
+    setRegistrationSubmitError(null);
+    setDuplicateDocumentMessage(null);
+    setLastValidatedDocumentId('');
+    setDocumentValidationBusy(false);
+  };
+  const registrationFieldError = (field: StudentRegistrationValidatedField) => {
+    if (field === 'document_id' && duplicateDocumentMessage()) {
+      return duplicateDocumentMessage() ?? undefined;
+    }
+
+    return registrationTouched()[field] ? registrationFieldErrors()[field] : undefined;
+  };
 
   const loadBulletins = async (studentId: string) => {
     if (isLoadingBulletins(studentId) || hasBulletinsLoaded(studentId)) {
@@ -167,6 +227,132 @@ export default function FatherPortalPage() {
     }
   };
 
+  const openRegistrationModal = () => {
+    setRegistrationOpen(true);
+    setRegistrationSubmitError(null);
+    setDuplicateDocumentMessage(null);
+  };
+
+  const closeRegistrationModal = () => {
+    if (registrationBusy()) return;
+
+    setRegistrationOpen(false);
+    resetRegistrationState();
+  };
+
+  const setRegistrationField = (field: keyof StudentRegistrationFormValues, value: string) => {
+    const normalizedValue = field === 'document_id' ? sanitizeNumericValue(value) : value;
+
+    setRegistrationForm((current) => ({
+      ...current,
+      [field]: normalizedValue,
+    }));
+    if (isStudentRegistrationValidatedField(field)) {
+      setRegistrationTouched((current) => touchField(current, field));
+    }
+    setRegistrationSubmitError(null);
+    setSuccessMessage(null);
+
+    if (field === 'document_id') {
+      setDuplicateDocumentMessage(null);
+      setLastValidatedDocumentId('');
+    }
+  };
+
+  const validateDocumentId = async () => {
+    const normalizedDocumentId = registrationForm().document_id.trim();
+    setRegistrationTouched((current) => touchField(current, 'document_id'));
+
+    if (!normalizedDocumentId) {
+      setDuplicateDocumentMessage(null);
+      setLastValidatedDocumentId('');
+      return;
+    }
+
+    if (registrationFieldErrors().document_id) {
+      setDuplicateDocumentMessage(null);
+      setLastValidatedDocumentId('');
+      return;
+    }
+
+    if (lastValidatedDocumentId() === normalizedDocumentId) {
+      return;
+    }
+
+    setDocumentValidationBusy(true);
+    setRegistrationSubmitError(null);
+    setDuplicateDocumentMessage(null);
+
+    try {
+      const available = await checkFatherStudentDocumentIdAvailable(normalizedDocumentId);
+      if (registrationForm().document_id.trim() !== normalizedDocumentId) {
+        return;
+      }
+
+      setLastValidatedDocumentId(normalizedDocumentId);
+      setDuplicateDocumentMessage(available ? null : DUPLICATE_STUDENT_DOCUMENT_MESSAGE);
+    } catch (error) {
+      setRegistrationSubmitError(getErrorMessage(error));
+    } finally {
+      setDocumentValidationBusy(false);
+    }
+  };
+
+  const submitRegistration = async () => {
+    setRegistrationTouched((current) => touchAllFields(current));
+    setRegistrationSubmitError(null);
+    setSuccessMessage(null);
+
+    if (documentValidationBusy()) {
+      return;
+    }
+
+    if (grades.loading) {
+      setRegistrationSubmitError('Los grados todavía se están cargando. Intenta de nuevo en un momento.');
+      return;
+    }
+
+    if (gradeLoadError()) {
+      setRegistrationSubmitError(gradeLoadError());
+      return;
+    }
+
+    if ((grades()?.length ?? 0) === 0) {
+      setRegistrationSubmitError('No hay grados disponibles en este momento.');
+      return;
+    }
+
+    if (hasAnyError(registrationFieldErrors()) || Boolean(duplicateDocumentMessage())) {
+      return;
+    }
+
+    setRegistrationBusy(true);
+
+    try {
+      await submitFatherStudentRegistration({
+        student: toStudentCreateInput(registrationForm()),
+        relationship: registrationRelationship(),
+      });
+
+      setActionError(null);
+      setRegistrationOpen(false);
+      resetRegistrationState();
+      setSuccessMessage('Tu solicitud está pendiente de aprobación');
+      await refetchStudents();
+    } catch (error) {
+      const message = getErrorMessage(error);
+      if (message === DUPLICATE_STUDENT_DOCUMENT_MESSAGE) {
+        setDuplicateDocumentMessage(message);
+        setRegistrationTouched((current) => touchField(current, 'document_id'));
+        return;
+      }
+
+      setRegistrationSubmitError(message);
+    } finally {
+      setRegistrationBusy(false);
+    }
+  };
+
   return (
     <section class="min-h-screen bg-yellow-50 p-4 sm:p-6 lg:p-8 text-gray-800">
       <div class="mx-auto max-w-6xl space-y-6">
@@ -197,6 +383,14 @@ export default function FatherPortalPage() {
           )}
         </Show>
 
+        <Show when={successMessage()}>
+          {(message) => (
+            <div class="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              {message()}
+            </div>
+          )}
+        </Show>
+
         <div class="rounded-2xl border border-yellow-300 bg-white p-5 shadow-sm sm:p-6">
           <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -205,6 +399,14 @@ export default function FatherPortalPage() {
                 Abre cada estudiante para ver sus boletines y exportar el reporte en PDF.
               </p>
             </div>
+
+            <button
+              type="button"
+              class="inline-flex items-center justify-center rounded-lg border border-yellow-500 bg-yellow-300 px-4 py-2 text-sm font-medium text-gray-900 transition-colors hover:bg-yellow-400"
+              onClick={openRegistrationModal}
+            >
+              Registrar nuevo estudiante
+            </button>
           </div>
 
           <Show
@@ -396,6 +598,24 @@ export default function FatherPortalPage() {
           </Show>
         </div>
       </div>
+
+      <FatherStudentRegistrationModal
+        open={registrationOpen()}
+        busy={registrationBusy()}
+        documentValidationBusy={documentValidationBusy()}
+        form={registrationForm()}
+        relationship={registrationRelationship()}
+        grades={grades() ?? []}
+        gradesLoading={grades.loading}
+        gradesError={gradeLoadError()}
+        submitError={registrationSubmitError()}
+        fieldError={registrationFieldError}
+        onFieldChange={setRegistrationField}
+        onRelationshipChange={setRegistrationRelationship}
+        onDocumentBlur={validateDocumentId}
+        onClose={closeRegistrationModal}
+        onSubmit={submitRegistration}
+      />
     </section>
   );
 }

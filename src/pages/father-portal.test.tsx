@@ -7,6 +7,9 @@ const mocks = vi.hoisted(() => ({
   canAccessModule: vi.fn(),
   listFatherStudents: vi.fn(),
   listFatherBulletin: vi.fn(),
+  listPublicGrades: vi.fn(),
+  checkFatherStudentDocumentIdAvailable: vi.fn(),
+  submitFatherStudentRegistration: vi.fn(),
   exportFatherStudentReport: vi.fn(),
   downloadBase64File: vi.fn(),
 }));
@@ -20,8 +23,14 @@ vi.mock('../lib/pocketbase/auth', () => ({
 }));
 
 vi.mock('../lib/pocketbase/father-portal', () => ({
+  checkFatherStudentDocumentIdAvailable: mocks.checkFatherStudentDocumentIdAvailable,
   listFatherStudents: mocks.listFatherStudents,
   listFatherBulletin: mocks.listFatherBulletin,
+  submitFatherStudentRegistration: mocks.submitFatherStudentRegistration,
+}));
+
+vi.mock('../lib/pocketbase/public-grades', () => ({
+  listPublicGrades: mocks.listPublicGrades,
 }));
 
 vi.mock('../lib/server/exports/father-student-report', () => ({
@@ -84,6 +93,12 @@ describe('FatherPortalPage', () => {
     mocks.canAccessModule.mockReturnValue(true);
     mocks.listFatherStudents.mockResolvedValue(studentsFixture);
     mocks.listFatherBulletin.mockResolvedValue(bulletinsFixture);
+    mocks.listPublicGrades.mockResolvedValue([
+      { id: 'g1', name: 'Primero A' },
+      { id: 'g2', name: 'Segundo A' },
+    ]);
+    mocks.checkFatherStudentDocumentIdAvailable.mockResolvedValue(true);
+    mocks.submitFatherStudentRegistration.mockResolvedValue(undefined);
     mocks.exportFatherStudentReport.mockResolvedValue({
       fileName: 'boletines_ana_perez_20260410_1200.pdf',
       data: 'ZmFrZQ==',
@@ -140,5 +155,79 @@ describe('FatherPortalPage', () => {
       'ZmFrZQ==',
       'application/pdf',
     );
+  });
+
+  it('registers a new student from the modal and refreshes the list', async () => {
+    mocks.listFatherStudents
+      .mockResolvedValueOnce(studentsFixture)
+      .mockResolvedValueOnce([
+        ...studentsFixture,
+        {
+          id: 's3',
+          name: 'Carlos Ruiz',
+          documentId: '3003',
+          gradeId: 'g1',
+          gradeName: 'Primero A',
+          status: 'Pendiente',
+          active: true,
+          accepted: false,
+          rejectedAt: '',
+        },
+      ]);
+
+    render(() => <FatherPortalPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Registrar nuevo estudiante' }));
+
+    fireEvent.input(await screen.findByLabelText('Nombre'), { target: { value: 'Carlos Ruiz' } });
+    fireEvent.change(screen.getByLabelText('Grado'), { target: { value: 'g1' } });
+    fireEvent.input(screen.getByLabelText('Fecha de nacimiento'), { target: { value: '2016-01-10T08:30' } });
+    fireEvent.input(screen.getByLabelText('Lugar de nacimiento'), { target: { value: 'Bogotá' } });
+    fireEvent.input(screen.getByLabelText('Departamento'), { target: { value: 'Cundinamarca' } });
+    fireEvent.input(screen.getByLabelText('Documento'), { target: { value: '3003' } });
+    fireEvent.change(screen.getByLabelText('Tipo de sangre'), { target: { value: 'O+' } });
+    fireEvent.blur(screen.getByLabelText('Documento'));
+
+    await waitFor(() => {
+      expect(mocks.checkFatherStudentDocumentIdAvailable).toHaveBeenCalledWith('3003');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar estudiante' }));
+
+    await waitFor(() => {
+      expect(mocks.submitFatherStudentRegistration).toHaveBeenCalledWith(expect.objectContaining({
+        relationship: 'father',
+        student: expect.objectContaining({
+          name: 'Carlos Ruiz',
+          grade_id: 'g1',
+          document_id: '3003',
+          birth_place: 'Bogotá',
+          department: 'Cundinamarca',
+          blood_type: 'O+',
+        }),
+      }));
+    });
+
+    expect(await screen.findByText('Tu solicitud está pendiente de aprobación')).toBeInTheDocument();
+    expect(await screen.findByText('Carlos Ruiz')).toBeInTheDocument();
+  });
+
+  it('shows duplicate document validation on blur', async () => {
+    mocks.checkFatherStudentDocumentIdAvailable.mockResolvedValue(false);
+
+    render(() => <FatherPortalPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Registrar nuevo estudiante' }));
+
+    const documentInput = await screen.findByLabelText('Documento');
+    fireEvent.input(documentInput, { target: { value: '1001' } });
+    fireEvent.blur(documentInput);
+
+    await waitFor(() => {
+      expect(mocks.checkFatherStudentDocumentIdAvailable).toHaveBeenCalledWith('1001');
+    });
+
+    expect(await screen.findByText('Ya existe un estudiante con este documento')).toBeInTheDocument();
+    expect(mocks.submitFatherStudentRegistration).not.toHaveBeenCalled();
   });
 });

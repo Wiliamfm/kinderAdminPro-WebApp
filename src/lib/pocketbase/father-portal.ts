@@ -2,6 +2,10 @@ import { getAuthenticatedPbWithUserId } from '../server/get-authenticated-pb';
 import { requireModuleAccess } from '../server/require-module-access';
 import { type BulletinStudentRecord, listBulletinsStudentsForExport } from './bulletins-students';
 import { normalizePocketBaseError, PocketBaseError } from './errors';
+export {
+  checkFatherStudentDocumentIdAvailable,
+  registerFatherStudent as submitFatherStudentRegistration,
+} from './father-register-student';
 
 export type FatherStudentStatus = 'Activo' | 'Pendiente' | 'Rechazado' | 'Desactivado';
 

@@ -7,6 +7,13 @@ import {
   touchField,
   type FieldErrorMap,
 } from '../lib/forms/realtime-validation';
+import {
+  BLOOD_TYPE_OPTIONS,
+  sanitizeNumericValue,
+  toStudentCreateInput,
+  validateStudentRegistrationForm,
+  type StudentRegistrationFormValues,
+} from '../lib/forms/student-registration';
 import type { PocketBaseRequestError } from '../lib/pocketbase/errors';
 import {
   listPublicGrades,
@@ -42,8 +49,6 @@ type RegistrationForm = {
   relationship: StudentFatherRelationship | '';
 };
 
-const BLOOD_TYPE_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
-const DOCUMENT_ID_REGEX = /^\d+$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -95,6 +100,7 @@ const emptyForm: RegistrationForm = {
 };
 
 function getErrorMessage(error: unknown): string {
+  console.error(error);
   const normalized = error as PocketBaseRequestError | undefined;
   if (normalized && typeof normalized.message === 'string') {
     return normalized.message;
@@ -107,24 +113,20 @@ function getErrorMessage(error: unknown): string {
   return 'No se pudo completar la solicitud.';
 }
 
-function parseOptionalNumber(value: string): number | null {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) return null;
-
-  const numeric = Number(trimmed);
-  if (!Number.isFinite(numeric) || numeric < 0) return Number.NaN;
-
-  return numeric;
-}
-
-function sanitizeNumericValue(value: string): string {
-  return value.replace(/\D+/g, '');
-}
-
-function isAtLeastYearsOld(date: Date, minimumYears: number): boolean {
-  const threshold = new Date();
-  threshold.setFullYear(threshold.getFullYear() - minimumYears);
-  return date.getTime() <= threshold.getTime();
+function toStudentFormValues(form: RegistrationForm): StudentRegistrationFormValues {
+  return {
+    name: form.student_name,
+    grade_id: form.grade_id,
+    date_of_birth: form.date_of_birth,
+    birth_place: form.birth_place,
+    department: form.department,
+    document_id: form.student_document_id,
+    weight: form.weight,
+    height: form.height,
+    blood_type: form.blood_type,
+    social_security: form.social_security,
+    allergies: form.allergies,
+  };
 }
 
 function isValidatedField(field: keyof RegistrationForm): field is RegistrationValidatedField {
@@ -136,50 +138,22 @@ function validateRegistrationForm(
   availableGradeIds: Set<string>,
 ): FieldErrorMap<RegistrationValidatedField> {
   const errors: FieldErrorMap<RegistrationValidatedField> = {};
+  const studentErrors = validateStudentRegistrationForm(toStudentFormValues(form), availableGradeIds);
 
-  if (form.student_name.trim().length === 0) errors.student_name = 'Nombre es obligatorio.';
-  if (form.grade_id.trim().length === 0) {
-    errors.grade_id = 'Grado es obligatorio.';
-  } else if (availableGradeIds.size > 0 && !availableGradeIds.has(form.grade_id.trim())) {
-    errors.grade_id = 'Selecciona un grado válido.';
-  }
-  if (form.date_of_birth.trim().length === 0) errors.date_of_birth = 'Fecha de nacimiento es obligatorio.';
-  if (form.birth_place.trim().length === 0) errors.birth_place = 'Lugar de nacimiento es obligatorio.';
-  if (form.department.trim().length === 0) errors.department = 'Departamento es obligatorio.';
-  if (form.student_document_id.trim().length === 0) {
-    errors.student_document_id = 'Documento es obligatorio.';
-  } else if (!DOCUMENT_ID_REGEX.test(form.student_document_id.trim())) {
-    errors.student_document_id = 'Documento debe contener solo números.';
-  }
-  if (form.blood_type.trim().length === 0) {
-    errors.blood_type = 'Tipo de sangre es obligatorio.';
-  } else if (!BLOOD_TYPE_OPTIONS.includes(form.blood_type.trim() as (typeof BLOOD_TYPE_OPTIONS)[number])) {
-    errors.blood_type = 'Selecciona un tipo de sangre válido.';
-  }
-
-  if (!errors.date_of_birth) {
-    const dateOfBirth = new Date(form.date_of_birth.trim());
-    if (Number.isNaN(dateOfBirth.getTime())) {
-      errors.date_of_birth = 'La fecha de nacimiento no es válida.';
-    } else if (!isAtLeastYearsOld(dateOfBirth, 2)) {
-      errors.date_of_birth = 'El estudiante debe tener al menos 2 años.';
-    }
-  }
-
-  const weight = parseOptionalNumber(form.weight);
-  if (Number.isNaN(weight)) {
-    errors.weight = 'El peso debe ser un número válido mayor o igual a 0.';
-  }
-
-  const height = parseOptionalNumber(form.height);
-  if (Number.isNaN(height)) {
-    errors.height = 'La altura debe ser un número válido mayor o igual a 0.';
-  }
+  if (studentErrors.name) errors.student_name = studentErrors.name;
+  if (studentErrors.grade_id) errors.grade_id = studentErrors.grade_id;
+  if (studentErrors.date_of_birth) errors.date_of_birth = studentErrors.date_of_birth;
+  if (studentErrors.birth_place) errors.birth_place = studentErrors.birth_place;
+  if (studentErrors.department) errors.department = studentErrors.department;
+  if (studentErrors.document_id) errors.student_document_id = studentErrors.document_id;
+  if (studentErrors.weight) errors.weight = studentErrors.weight;
+  if (studentErrors.height) errors.height = studentErrors.height;
+  if (studentErrors.blood_type) errors.blood_type = studentErrors.blood_type;
 
   if (form.father_full_name.trim().length === 0) errors.father_full_name = 'Nombre completo es obligatorio.';
   if (form.father_document_id.trim().length === 0) {
     errors.father_document_id = 'Documento es obligatorio.';
-  } else if (!DOCUMENT_ID_REGEX.test(form.father_document_id.trim())) {
+  } else if (!/^\d+$/.test(form.father_document_id.trim())) {
     errors.father_document_id = 'Documento debe contener solo números.';
   }
   if (form.phone_number.trim().length === 0) errors.phone_number = 'Teléfono es obligatorio.';
@@ -272,9 +246,6 @@ export default function RegisterPage() {
     setSubmitBusy(true);
 
     try {
-      const weight = parseOptionalNumber(form().weight);
-      const height = parseOptionalNumber(form().height);
-
       await submitPublicRegistration({
         father: {
           full_name: form().father_full_name,
@@ -285,19 +256,7 @@ export default function RegisterPage() {
           email: form().email,
           address: form().address,
         },
-        student: {
-          name: form().student_name,
-          grade_id: form().grade_id,
-          date_of_birth: new Date(form().date_of_birth.trim()).toISOString(),
-          birth_place: form().birth_place,
-          department: form().department,
-          document_id: form().student_document_id,
-          weight: typeof weight === 'number' && Number.isFinite(weight) ? weight : null,
-          height: typeof height === 'number' && Number.isFinite(height) ? height : null,
-          blood_type: form().blood_type,
-          social_security: form().social_security,
-          allergies: form().allergies,
-        },
+        student: toStudentCreateInput(toStudentFormValues(form())),
         relationship: form().relationship as StudentFatherRelationship,
         password: form().password,
         passwordConfirm: form().passwordConfirm,
