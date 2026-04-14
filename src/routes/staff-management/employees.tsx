@@ -44,7 +44,7 @@ import {
   type InvoiceRecord,
   type InvoiceSortField,
 } from '../../lib/pocketbase/invoices';
-import { createInvoiceFile } from '../../lib/pocketbase/invoice-files';
+import { createInvoiceFile, getInvoiceFileUrl } from '../../lib/pocketbase/invoice-files';
 import { downloadBlobFile } from '../../lib/reports/download';
 import { getCurrentSemester, listSemesterOptions } from '../../lib/pocketbase/semesters';
 import { createEmployeeUser } from '../../lib/pocketbase/users';
@@ -624,6 +624,28 @@ export default function StaffEmployeesPage() {
       setLeavePreviewDownloadError(getErrorMessage(error));
     } finally {
       setLeavePreviewDownloadBusy(false);
+    }
+  };
+
+  const openInvoicePreview = async (invoice: InvoiceRecord) => {
+    setInvoiceError(null);
+
+    const previewWindow = window.open('', '_blank');
+    if (!previewWindow) {
+      setInvoiceError('Tu navegador bloqueó la apertura de la factura en una nueva pestaña.');
+      return;
+    }
+
+    previewWindow.opener = null;
+    previewWindow.document.title = 'Abriendo factura...';
+    previewWindow.document.body.innerHTML = '<p style="font-family: sans-serif; padding: 16px;">Abriendo factura...</p>';
+
+    try {
+      const fileUrl = await getInvoiceFileUrl(invoice.fileId);
+      previewWindow.location.href = fileUrl;
+    } catch (error) {
+      previewWindow.close();
+      setInvoiceError(getErrorMessage(error));
     }
   };
 
@@ -1820,7 +1842,7 @@ export default function StaffEmployeesPage() {
                       sort={invoiceSort()}
                       onSort={handleInvoiceSort}
                     />
-                    <th class="px-4 py-3 font-semibold">Acción</th>
+                    <th class="px-4 py-3 font-semibold">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1861,15 +1883,27 @@ export default function StaffEmployeesPage() {
                                   : 'No disponible'}
                               </td>
                               <td class="px-4 py-3">
-                                <button
-                                  type="button"
-                                  class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-yellow-300 bg-yellow-100 text-gray-700 transition-colors hover:bg-yellow-200"
-                                  aria-label={`Reemplazar archivo ${invoice.name || invoice.id}`}
-                                  onClick={() => startEditInvoice(invoice)}
-                                  disabled={invoiceBusy()}
-                                >
-                                  <i class="bi bi-pencil-square" aria-hidden="true"></i>
-                                </button>
+                                <div class="flex flex-wrap items-center gap-2">
+                                  <button
+                                    type="button"
+                                    class="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-yellow-300 bg-yellow-100 px-3 text-xs text-gray-700 transition-colors hover:bg-yellow-200"
+                                    aria-label={`Ver archivo de la factura ${invoice.name || invoice.id}`}
+                                    onClick={() => void openInvoicePreview(invoice)}
+                                    disabled={invoiceBusy()}
+                                  >
+                                    <i class="bi bi-paperclip" aria-hidden="true"></i>
+                                    Ver archivo
+                                  </button>
+                                  <button
+                                    type="button"
+                                    class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-yellow-300 bg-yellow-100 text-gray-700 transition-colors hover:bg-yellow-200"
+                                    aria-label={`Reemplazar archivo ${invoice.name || invoice.id}`}
+                                    onClick={() => startEditInvoice(invoice)}
+                                    disabled={invoiceBusy()}
+                                  >
+                                    <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           )}

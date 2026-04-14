@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => {
     createInvoice: vi.fn(),
     updateInvoice: vi.fn(),
     createInvoiceFile: vi.fn(),
+    getInvoiceFileUrl: vi.fn(),
     getCurrentSemester: vi.fn(),
     listSemesterOptions: vi.fn(),
     downloadBlobFile: vi.fn(),
@@ -70,6 +71,7 @@ vi.mock('../lib/pocketbase/invoices', () => ({
 
 vi.mock('../lib/pocketbase/invoice-files', () => ({
   createInvoiceFile: mocks.createInvoiceFile,
+  getInvoiceFileUrl: mocks.getInvoiceFileUrl,
 }));
 
 vi.mock('../lib/reports/download', () => ({
@@ -156,6 +158,19 @@ describe('StaffEmployeesPage features', () => {
       ok: true,
       blob: async () => new Blob(['pdf-content'], { type: 'application/pdf' }),
     }));
+    window.open = vi.fn(() => ({
+      opener: null,
+      document: {
+        title: '',
+        body: {
+          innerHTML: '',
+        },
+      },
+      location: {
+        href: '',
+      },
+      close: vi.fn(),
+    })) as typeof window.open;
     mocks.canAccessModule.mockReturnValue(true);
     mocks.listActiveEmployeesPage.mockResolvedValue(employeePageFixture);
     mocks.listEmployeeJobs.mockResolvedValue([
@@ -258,6 +273,7 @@ describe('StaffEmployeesPage features', () => {
       created: '2026-02-23T10:00:00.000Z',
       updated: '2026-02-23T11:00:00.000Z',
     });
+    mocks.getInvoiceFileUrl.mockResolvedValue('https://files.test/invoice-1.pdf');
   });
 
   const openLeavesModal = async () => {
@@ -993,10 +1009,52 @@ describe('StaffEmployeesPage features', () => {
 
     expect(screen.getByText('Nombre de archivo')).toBeInTheDocument();
     expect(screen.getByText('Trimestre')).toBeInTheDocument();
-    expect(screen.getByText('Acción')).toBeInTheDocument();
+    expect(screen.getAllByText('Acciones').length).toBeGreaterThan(0);
     expect(screen.getByText('factura_demo_20260223_1000.pdf')).toBeInTheDocument();
     expect(screen.getByText('2026-A')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: /ver archivo de la factura factura_demo_20260223_1000\.pdf/i,
+      }),
+    ).toBeInTheDocument();
     expect(screen.queryByText('file-1')).not.toBeInTheDocument();
+  });
+
+  it('opens the invoice file in a new browser tab', async () => {
+    mocks.listEmployeeInvoices.mockResolvedValue({
+      items: [
+        {
+          id: 'inv-1',
+          employeeId: 'e1',
+          fileId: 'file-1',
+          semesterId: 'sem-current',
+          semesterName: '2026-A',
+          name: 'factura_demo_20260223_1000.pdf',
+          created: '2026-02-23T10:00:00.000Z',
+          updated: '2026-02-23T10:00:00.000Z',
+        },
+      ],
+      page: 1,
+      perPage: 10,
+      totalItems: 1,
+      totalPages: 1,
+    });
+
+    await openInvoiceModal();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /ver archivo de la factura factura_demo_20260223_1000\.pdf/i,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mocks.getInvoiceFileUrl).toHaveBeenCalledWith('file-1');
+      expect(window.open).toHaveBeenCalledWith('', '_blank');
+    });
+    const previewWindow = vi.mocked(window.open).mock.results[0]?.value as {
+      location: { href: string };
+    };
+    expect(previewWindow.location.href).toBe('https://files.test/invoice-1.pdf');
   });
 
   it('replaces invoice file when edit action is selected', async () => {
