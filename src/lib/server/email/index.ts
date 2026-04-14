@@ -4,7 +4,6 @@ import { getCurrentUser } from '../auth';
 import { buildBodyHtml } from './html-builder';
 import {
   normalizeRecipient,
-  normalizeSources,
   resolveRecipientSnapshot,
   type NormalizedRecipient,
   type RecipientSnapshot,
@@ -45,14 +44,19 @@ export type SendBulkEmailResult = {
   recipients: BulkEmailRecipientResponse[];
 };
 
-function getResendConfig(): { apiKey: string; from: string } {
-  const apiKey = process.env.RESEND_API_KEY?.trim() || '';
-  const fromEmail = process.env.RESEND_FROM_EMAIL?.trim() || '';
-  const fromName = process.env.RESEND_FROM_NAME?.trim() || '';
+type SmtpConfig = Pick<SendEmailOptions, 'user' | 'password' | 'host' | 'port' | 'from'>;
 
-  const from = fromName ? `${fromName} <${fromEmail}>` : fromEmail;
+function getSmtpConfig(): SmtpConfig {
+  const rawPort = process.env.SMTP_PORT?.trim() || '';
+  const port = Number.parseInt(rawPort, 10);
 
-  return { apiKey, from };
+  return {
+    user: process.env.SMTP_USER?.trim() || '',
+    password: process.env.SMTP_PASSWORD?.trim() || '',
+    host: process.env.SMTP_HOST?.trim() || '',
+    port,
+    from: process.env.SMTP_FROM?.trim() || '',
+  };
 }
 
 function toStringValue(value: unknown): string {
@@ -106,18 +110,18 @@ export async function sendBulkEmail(
     throw new Error('Selecciona al menos un destinatario.');
   }
 
-  const { apiKey, from } = getResendConfig();
+  const { user, password, host, port, from } = getSmtpConfig();
 
-  if (!apiKey || !from) {
+  if (!user || !password || !host || !from || !Number.isInteger(port) || port <= 0) {
     throw new Error('La integración de correo no está configurada.');
   }
 
-  const user = await getCurrentUser();
-  if (!user) {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
     throw new Error('Debes iniciar sesión para enviar correos.');
   }
 
-  const userId = user.id;
+  const userId = currentUser.id;
 
   const message = await createEmailMessage({
     subject: normalizedSubject,
@@ -134,8 +138,11 @@ export async function sendBulkEmail(
   let totalSkipped = 0;
   const responseRecipients: BulkEmailRecipientResponse[] = [];
 
-  const sendOptions: SendEmailOptions = {
-    apiKey,
+  const sendOptions: Omit<SendEmailOptions, 'to'> = {
+    user,
+    password,
+    host,
+    port,
     from,
     subject: normalizedSubject,
     text: normalizedBodyText,

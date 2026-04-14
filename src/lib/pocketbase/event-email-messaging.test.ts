@@ -11,7 +11,7 @@ const hoisted = vi.hoisted(() => {
   const studentsFathersGetFullList = vi.fn();
   const emailMessagesGetList = vi.fn();
   const emailRecipientsGetFullList = vi.fn();
-  const send = vi.fn();
+  const sendBulkEmail = vi.fn();
   const normalizePocketBaseError = vi.fn();
   const listActiveEmployees = vi.fn();
   const listActiveStudents = vi.fn();
@@ -19,7 +19,6 @@ const hoisted = vi.hoisted(() => {
   const getAuthenticatedPb = vi.fn();
 
   const pb = {
-    send,
     collection: vi.fn((name: string) => {
       if (name === 'students_fathers') {
         return {
@@ -50,7 +49,7 @@ const hoisted = vi.hoisted(() => {
     studentsFathersGetFullList,
     emailMessagesGetList,
     emailRecipientsGetFullList,
-    send,
+    sendBulkEmail,
     normalizePocketBaseError,
     listActiveEmployees,
     listActiveStudents,
@@ -78,6 +77,10 @@ vi.mock('./students', () => ({
 
 vi.mock('./grades', () => ({
   listGrades: hoisted.listGrades,
+}));
+
+vi.mock('../server/email', () => ({
+  sendBulkEmail: hoisted.sendBulkEmail,
 }));
 
 describe('event-email-messaging pocketbase client', () => {
@@ -276,8 +279,8 @@ describe('event-email-messaging pocketbase client', () => {
     }));
   });
 
-  it('sends event emails through the PocketBase route', async () => {
-    hoisted.send.mockResolvedValue({
+  it('sends event emails through the server email workflow', async () => {
+    hoisted.sendBulkEmail.mockResolvedValue({
       messageId: 'msg1',
       totalResolved: 2,
       totalSendable: 1,
@@ -314,12 +317,9 @@ describe('event-email-messaging pocketbase client', () => {
       ],
     });
 
-    expect(hoisted.send).toHaveBeenCalledWith('/api/tesis/event-email-messaging/send', {
-      method: 'POST',
-      body: {
+    expect(hoisted.sendBulkEmail).toHaveBeenCalledWith({
         subject: 'Recordatorio',
         bodyText: 'Linea 1\n\nLinea 2',
-        bodyHtml: '<p>Linea 1</p><p>Linea 2</p>',
         recipients: [
           {
             recipientType: 'employee',
@@ -329,7 +329,6 @@ describe('event-email-messaging pocketbase client', () => {
             sources: [{ kind: 'employee', id: 'emp1', label: 'Ana Gomez' }],
           },
         ],
-      },
     });
     expect(result).toEqual(expect.objectContaining({
       messageId: 'msg1',

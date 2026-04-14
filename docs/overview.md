@@ -163,8 +163,8 @@ Primary functional areas exposed through routes:
   - recipient review shows total resolved, selected, sendable, and missing-email counts,
   - `email_messages` stores the parent send history with subject, body snapshot, sender, and aggregate counts,
   - `email_message_recipients` stores one snapshot row per resolved recipient, including missing-email and failed-delivery outcomes,
-  - actual delivery runs through a PocketBase custom route in `pb_hooks/main.pb.js`,
-  - delivery uses Resend credentials from the PocketBase runtime environment (`RESEND_API_KEY`, `RESEND_FROM_EMAIL`, optional `RESEND_FROM_NAME`).
+  - actual delivery runs through server functions in `src/lib/server/email/`,
+  - delivery uses SMTP credentials from the app runtime environment (`SMTP_USER`, `SMTP_PASSWORD`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`).
 
 ## Temporal Data Standard
 - All temporal values must be modeled and exchanged as datetime with timezone offset (RFC3339/ISO 8601 style).
@@ -180,8 +180,10 @@ Primary functional areas exposed through routes:
 
 ## Environment
 - `PB_URL` (optional; defaults to `http://127.0.0.1:8090`)
-- PocketBase route runtime for event email messaging requires:
-  - `RESEND_API_KEY`
-  - `RESEND_FROM_EMAIL`
-  - optional `RESEND_FROM_NAME`
+- Server-side event email messaging requires:
+  - `SMTP_USER`
+  - `SMTP_PASSWORD`
+  - `SMTP_HOST`
+  - `SMTP_PORT`
+  - `SMTP_FROM`
 - Note: PocketBase connectivity now uses a server-only environment variable and is not bundled into client JavaScript.

@@ -513,8 +513,8 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - the page loads active employees, active students, grades, and recent message history,
   - employee recipients are resolved from selected active employee ids,
   - father recipients are resolved from active `students_fathers` links filtered by selected students and grades, with de-duplication by father id,
-  - send execution happens through the PocketBase custom route `/api/tesis/event-email-messaging/send`,
-  - the route revalidates event-module authorization and recipient eligibility, persists parent/child history rows, and calls Resend with server-side credentials,
+  - send execution happens through the server-side workflow in `src/lib/server/email/`,
+  - the server workflow revalidates event-module authorization and recipient eligibility, persists parent/child history rows, and sends via SMTP with server-side credentials,
   - users without email remain visible in the UI and history but are excluded from actual delivery.
 
 ## Testing Architecture
