@@ -14,7 +14,7 @@ export type SectionIndexEntry = {
 
 export const professorSectionIndexByPage: Record<string, SectionIndexEntry> = {
   'professor-personal': {
-    title: 'Gestión de pagos e incapacidades',
+    title: 'Gestión de pagos y ausencias',
     description: 'Accede a tus opciones personales: registra ausencias y consulta tus pagos.',
     links: [
       {
@@ -31,7 +31,7 @@ export const professorSectionIndexByPage: Record<string, SectionIndexEntry> = {
     ],
   },
   'professor-students': {
-    title: 'Gestión de Estudiantes',
+    title: 'Consulta y Calificación de Estudiantes',
     description: 'Consulta el listado de estudiantes asignados a tus grados.',
     links: [{ label: 'Volver al inicio', href: '/' }],
   },

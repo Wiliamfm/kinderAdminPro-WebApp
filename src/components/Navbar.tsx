@@ -15,8 +15,8 @@ const tabs = [
   { href: '/reports', label: 'Informes', requiredModules: ['reports'] },
   { href: '/event-management', label: 'Gestión de eventos', requiredModules: ['events'] },
   { href: '/father-portal', label: 'Portal de acudientes', requiredModules: ['father-portal'] },
-  { href: '/professor/personal', label: 'Gestión de pagos e incapacidades', requiredModules: ['professor-personal'] },
-  { href: '/professor/students', label: 'Gestión de Estudiantes', requiredModules: ['professor-students'] },
+  { href: '/professor/personal', label: 'Consulta de pagos y ausencias', requiredModules: ['professor-personal'] },
+  { href: '/professor/students', label: 'Consulta y Calificación de Estudiantes', requiredModules: ['professor-students'] },
   { href: '/professor/events', label: 'Eventos', requiredModules: ['professor-events'] },
 ] satisfies Array<{ href: string; label: string; requiredModules: ProtectedModule[] }>;
 

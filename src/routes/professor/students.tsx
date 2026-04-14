@@ -77,7 +77,7 @@ export default function ProfessorStudentsPage() {
       <div class="mx-auto max-w-5xl rounded-xl border border-yellow-300 bg-white p-4 sm:p-6">
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 class="text-2xl font-semibold">Gestión de Estudiantes</h1>
+            <h1 class="text-2xl font-semibold">Consulta y Calificación de Estudiantes</h1>
             <p class="mt-2 text-gray-600">Estudiantes asignados a tus grados.</p>
           </div>
 
