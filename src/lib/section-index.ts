@@ -54,11 +54,11 @@ export const sectionIndexByPage: Record<string, SectionIndexEntry> = {
         href: '/staff-management/jobs',
         requiredModules: ['staff'],
       },
-      {
-        label: 'Gestion de usuarios',
-        href: '/staff-management/app-users',
-        requiredModules: ['users'],
-      },
+      // {
+      //   label: 'Gestion de usuarios',
+      //   href: '/staff-management/app-users',
+      //   requiredModules: ['users'],
+      // },
       { label: 'Volver al inicio', href: '/' },
     ],
   },
