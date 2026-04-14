@@ -1,5 +1,6 @@
 import { useNavigate } from '@solidjs/router';
 import { createEffect, createMemo, createResource, createSignal, For, Show } from 'solid-js';
+import Modal from '../components/Modal';
 import FatherStudentRegistrationModal from '../components/FatherStudentRegistrationModal';
 import {
   createInitialTouchedMap,
@@ -19,6 +20,11 @@ import {
   type StudentRegistrationValidatedField,
 } from '../lib/forms/student-registration';
 import { type BulletinStudentRecord } from '../lib/pocketbase/bulletins-students';
+import {
+  resolveEmployeeRecipients,
+  sendEventEmail,
+} from '../lib/pocketbase/event-email-messaging';
+import { type EmployeeRecord, listActiveEmployees } from '../lib/pocketbase/employees';
 import type { PocketBaseRequestError } from '../lib/pocketbase/errors';
 import { listPublicGrades } from '../lib/pocketbase/public-grades';
 import {
@@ -32,12 +38,18 @@ import {
 import { canAccessModule } from '../lib/pocketbase/auth';
 import { downloadBase64File } from '../lib/reports/download';
 import { exportFatherStudentReport } from '../lib/server/exports/father-student-report';
+import { getAuthenticatedPbWithUserId } from '../lib/server/get-authenticated-pb';
 
 type BulletinGroup = {
   key: string;
   gradeName: string;
   semesterName: string;
   items: BulletinStudentRecord[];
+};
+
+type FatherContactProfile = {
+  fullName: string;
+  email: string;
 };
 
 function formatText(value: unknown, fallback = '—'): string {
@@ -96,6 +108,42 @@ function groupBulletins(records: BulletinStudentRecord[]): BulletinGroup[] {
   return groups;
 }
 
+function escapeFilterValue(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function readSelectedValues(select: HTMLSelectElement): string[] {
+  return Array.from(select.options)
+    .filter((option) => option.selected)
+    .map((option) => option.value.trim())
+    .filter((value) => value.length > 0);
+}
+
+function buildContactSubjectPrefix(profile: FatherContactProfile | undefined): string {
+  const email = profile?.email?.trim() ?? '';
+  const fullName = profile?.fullName?.trim() ?? '';
+  const base = [email, fullName].filter((value) => value.length > 0).join(' - ');
+
+  return `${base || 'Acudiente'}:`;
+}
+
+async function getFatherContactProfile(): Promise<FatherContactProfile> {
+  "use server";
+
+  const { pb, userId } = await getAuthenticatedPbWithUserId();
+  const result = await pb.collection('fathers').getList(1, 1, {
+    filter: `user_id = "${escapeFilterValue(userId)}"`,
+    fields: 'full_name,email',
+    requestKey: `father-contact-profile-${userId}`,
+  });
+  const record = result.items[0] as (Record<string, unknown> & { get?: (key: string) => unknown }) | undefined;
+
+  return {
+    fullName: formatText(record?.get?.('full_name') ?? record?.full_name, '').trim(),
+    email: formatText(record?.get?.('email') ?? record?.email, '').trim(),
+  };
+}
+
 function statusClasses(status: FatherStudentStatus): string {
   if (status === 'Activo') {
     return 'border-green-200 bg-green-50 text-green-700';
@@ -122,6 +170,11 @@ export default function FatherPortalPage() {
   const [actionError, setActionError] = createSignal<string | null>(null);
   const [successMessage, setSuccessMessage] = createSignal<string | null>(null);
   const [registrationOpen, setRegistrationOpen] = createSignal(false);
+  const [contactModalOpen, setContactModalOpen] = createSignal(false);
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = createSignal<string[]>([]);
+  const [subjectInput, setSubjectInput] = createSignal('');
+  const [bodyText, setBodyText] = createSignal('');
+  const [sendBusy, setSendBusy] = createSignal(false);
   const [registrationForm, setRegistrationForm] = createSignal<StudentRegistrationFormValues>(emptyStudentRegistrationForm);
   const [registrationRelationship, setRegistrationRelationship] = createSignal<'father' | 'mother' | 'other'>('father');
   const [registrationTouched, setRegistrationTouched] = createSignal(
@@ -147,6 +200,14 @@ export default function FatherPortalPage() {
     () => (registrationOpen() ? true : undefined),
     () => listPublicGrades(),
   );
+  const [fatherContact] = createResource(
+    () => (contactModalOpen() ? true : undefined),
+    () => getFatherContactProfile(),
+  );
+  const [contactEmployees] = createResource(
+    () => (contactModalOpen() ? true : undefined),
+    () => listActiveEmployees(),
+  );
 
   const isExpanded = (studentId: string) => expandedIds().includes(studentId);
   const isLoadingBulletins = (studentId: string) => loadingStudentIds().includes(studentId);
@@ -158,6 +219,36 @@ export default function FatherPortalPage() {
   ));
   const gradeLoadError = createMemo(() => (
     grades.error ? getErrorMessage(grades.error) : null
+  ));
+  const contactLoadError = createMemo(() => {
+    if (fatherContact.error) {
+      return getErrorMessage(fatherContact.error);
+    }
+
+    if (contactEmployees.error) {
+      return getErrorMessage(contactEmployees.error);
+    }
+
+    return null;
+  });
+  const contactSubjectPrefix = createMemo(() => buildContactSubjectPrefix(fatherContact()));
+  const selectedEmployeesError = createMemo(() => (
+    selectedEmployeeIds().length === 0 ? 'Selecciona al menos un destinatario.' : undefined
+  ));
+  const subjectInputError = createMemo(() => (
+    subjectInput().trim().length === 0 ? 'Escribe un asunto.' : undefined
+  ));
+  const bodyTextError = createMemo(() => (
+    bodyText().trim().length === 0 ? 'Escribe un mensaje.' : undefined
+  ));
+  const canSendContactMessage = createMemo(() => (
+    !sendBusy()
+    && !fatherContact.loading
+    && !contactEmployees.loading
+    && !contactLoadError()
+    && !selectedEmployeesError()
+    && !subjectInputError()
+    && !bodyTextError()
   ));
 
   const addStudentId = (current: string[], studentId: string) => (
@@ -172,6 +263,16 @@ export default function FatherPortalPage() {
     setDuplicateDocumentMessage(null);
     setLastValidatedDocumentId('');
     setDocumentValidationBusy(false);
+  };
+  const resetContactState = (options: { clearFeedback?: boolean } = {}) => {
+    setSelectedEmployeeIds([]);
+    setSubjectInput('');
+    setBodyText('');
+
+    if (options.clearFeedback ?? true) {
+      setActionError(null);
+      setSuccessMessage(null);
+    }
   };
   const registrationFieldError = (field: StudentRegistrationValidatedField) => {
     if (field === 'document_id' && duplicateDocumentMessage()) {
@@ -233,11 +334,25 @@ export default function FatherPortalPage() {
     setDuplicateDocumentMessage(null);
   };
 
+  const openContactModal = () => {
+    resetContactState();
+    setContactModalOpen(true);
+  };
+
   const closeRegistrationModal = () => {
     if (registrationBusy()) return;
 
     setRegistrationOpen(false);
     resetRegistrationState();
+  };
+
+  const closeContactModal = (options: { preserveFeedback?: boolean; force?: boolean } = {}) => {
+    if (sendBusy() && !options.force) return;
+
+    setContactModalOpen(false);
+    resetContactState({
+      clearFeedback: !options.preserveFeedback,
+    });
   };
 
   const setRegistrationField = (field: keyof StudentRegistrationFormValues, value: string) => {
@@ -353,6 +468,46 @@ export default function FatherPortalPage() {
     }
   };
 
+  const submitContactMessage = async () => {
+    setActionError(null);
+
+    if (contactLoadError()) {
+      setActionError(contactLoadError());
+      return;
+    }
+
+    if (selectedEmployeesError() || subjectInputError() || bodyTextError()) {
+      setActionError('Completa destinatarios, asunto y mensaje antes de enviar.');
+      return;
+    }
+
+    setSendBusy(true);
+
+    try {
+      const recipients = await resolveEmployeeRecipients(selectedEmployeeIds());
+
+      if (recipients.length === 0) {
+        setActionError('No se pudieron resolver los destinatarios seleccionados.');
+        return;
+      }
+
+      const summary = await sendEventEmail({
+        subject: `${contactSubjectPrefix()} ${subjectInput().trim()}`,
+        bodyText: bodyText().trim(),
+        recipients,
+      });
+
+      setSuccessMessage(
+        `Mensaje enviado. Enviados: ${summary.totalSent}, fallidos: ${summary.totalFailed}, sin correo: ${summary.totalMissingEmail}.`,
+      );
+      closeContactModal({ preserveFeedback: true, force: true });
+    } catch (error) {
+      setActionError(getErrorMessage(error));
+    } finally {
+      setSendBusy(false);
+    }
+  };
+
   return (
     <section class="min-h-screen bg-yellow-50 p-4 sm:p-6 lg:p-8 text-gray-800">
       <div class="mx-auto max-w-6xl space-y-6">
@@ -365,13 +520,22 @@ export default function FatherPortalPage() {
               </p>
             </div>
 
-            <button
-              type="button"
-              class="rounded-lg border border-yellow-300 bg-yellow-100 px-4 py-2 text-sm font-medium transition-colors hover:bg-yellow-200"
-              onClick={() => navigate('/')}
-            >
-              Ir al inicio
-            </button>
+            <div class="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                class="rounded-lg border border-yellow-500 bg-yellow-300 px-4 py-2 text-sm font-medium text-gray-900 transition-colors hover:bg-yellow-400"
+                onClick={openContactModal}
+              >
+                Contactar
+              </button>
+              <button
+                type="button"
+                class="rounded-lg border border-yellow-300 bg-yellow-100 px-4 py-2 text-sm font-medium transition-colors hover:bg-yellow-200"
+                onClick={() => navigate('/')}
+              >
+                Ir al inicio
+              </button>
+            </div>
           </div>
         </div>
 
@@ -616,6 +780,143 @@ export default function FatherPortalPage() {
         onClose={closeRegistrationModal}
         onSubmit={submitRegistration}
       />
+
+      <Modal
+        open={contactModalOpen()}
+        title="Contactar administradores y profesores"
+        description="Selecciona uno o más empleados activos y escribe el mensaje que quieres enviar."
+        confirmLabel="Enviar"
+        busy={sendBusy()}
+        size="xl"
+        onConfirm={() => void submitContactMessage()}
+        onClose={() => closeContactModal()}
+        footer={(
+          <div class="mt-6 flex shrink-0 flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={sendBusy()}
+              onClick={() => closeContactModal()}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              class="rounded-lg border border-yellow-500 bg-yellow-300 px-4 py-2 text-sm font-medium text-gray-900 transition-colors hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={!canSendContactMessage()}
+              onClick={() => void submitContactMessage()}
+            >
+              {sendBusy() ? 'Enviando...' : 'Enviar'}
+            </button>
+          </div>
+        )}
+      >
+        <div class="space-y-5">
+          <Show when={contactLoadError()}>
+            {(message) => (
+              <div class="rounded-2xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {message()}
+              </div>
+            )}
+          </Show>
+
+          <Show when={actionError()}>
+            {(message) => (
+              <div class="rounded-2xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {message()}
+              </div>
+            )}
+          </Show>
+
+          <label class="block" for="father-contact-employees">
+            <span class="text-sm font-medium text-gray-700">Empleados</span>
+            <select
+              id="father-contact-employees"
+              aria-label="Empleados"
+              multiple
+              size="8"
+              class="mt-2 w-full rounded-xl border border-yellow-300 bg-white px-4 py-3 text-sm"
+              disabled={contactEmployees.loading || Boolean(contactLoadError()) || sendBusy()}
+              onChange={(event) => {
+                setSelectedEmployeeIds(readSelectedValues(event.currentTarget));
+                setActionError(null);
+              }}
+            >
+              <For each={contactEmployees() ?? []}>
+                {(employee: EmployeeRecord) => (
+                  <option value={employee.id}>
+                    {employee.name} - {employee.email || 'Sin correo'}
+                  </option>
+                )}
+              </For>
+            </select>
+            <Show
+              when={!contactEmployees.loading}
+              fallback={<p class="mt-2 text-xs text-gray-500">Cargando empleados activos...</p>}
+            >
+              <p class="mt-2 text-xs text-gray-500">
+                Mantén presionada la tecla Ctrl o Cmd para seleccionar varios destinatarios.
+              </p>
+            </Show>
+            <Show when={selectedEmployeesError()}>
+              {(message) => (
+                <p class="mt-2 text-xs text-red-600">{message()}</p>
+              )}
+            </Show>
+          </label>
+
+          <label class="block space-y-2" for="father-contact-subject">
+            <span class="text-sm font-medium text-gray-700">Asunto</span>
+            <div class="overflow-hidden rounded-xl border border-yellow-300 bg-white">
+              <div class="border-b border-yellow-200 bg-yellow-50 px-4 py-2 text-xs font-medium uppercase tracking-wide text-yellow-800">
+                Prefijo automático
+              </div>
+              <div class="px-4 py-3 text-sm text-gray-700 break-all">
+                {contactSubjectPrefix()}
+              </div>
+              <div class="border-t border-yellow-200 px-4 py-3">
+                <input
+                  id="father-contact-subject"
+                  aria-label="Asunto"
+                  class="w-full border-none bg-transparent p-0 text-sm text-gray-900 outline-none"
+                  type="text"
+                  value={subjectInput()}
+                  placeholder="Escribe el asunto"
+                  onInput={(event) => {
+                    setSubjectInput(event.currentTarget.value);
+                    setActionError(null);
+                  }}
+                />
+              </div>
+            </div>
+            <Show when={subjectInputError()}>
+              {(message) => (
+                <p class="text-xs text-red-600">{message()}</p>
+              )}
+            </Show>
+          </label>
+
+          <label class="block" for="father-contact-body">
+            <span class="text-sm font-medium text-gray-700">Mensaje</span>
+            <textarea
+              id="father-contact-body"
+              aria-label="Mensaje"
+              class="mt-2 min-h-40 w-full rounded-xl border border-yellow-300 bg-white px-4 py-3 text-sm"
+              value={bodyText()}
+              placeholder="Escribe aquí tu mensaje"
+              onInput={(event) => {
+                setBodyText(event.currentTarget.value);
+                setActionError(null);
+              }}
+            />
+            <Show when={bodyTextError()}>
+              {(message) => (
+                <p class="mt-2 text-xs text-red-600">{message()}</p>
+              )}
+            </Show>
+          </label>
+        </div>
+      </Modal>
     </section>
   );
 }

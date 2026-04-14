@@ -249,11 +249,17 @@ Provide a stable technical reference for module responsibilities, data flow, and
 - Data sources:
   - linked students and bulletin access via `src/lib/pocketbase/father-portal.ts`,
   - authenticated student registration via `src/lib/pocketbase/father-register-student.ts`,
+  - father profile lookup via request-scoped PocketBase auth in `src/lib/server/get-authenticated-pb.ts`,
+  - employee recipient resolution and email sending via `src/lib/pocketbase/event-email-messaging.ts` and `src/lib/pocketbase/employees.ts`,
   - public grade selector options via `src/lib/pocketbase/public-grades.ts`.
 - Capabilities:
   - list linked students with `Activo` / `Pendiente` / `Rechazado` / `Desactivado` status badges,
   - expand each student to review grouped bulletins and export the PDF report,
   - open a responsive modal to register a new student with student-only fields plus a relationship selector,
+  - open a responsive contact modal from the header to send email to one or more active employees,
+  - auto-prefix outgoing email subjects with the authenticated father email and full name before the custom subject,
+  - validate recipient selection, custom subject, and body before enabling send,
+  - send the message through the existing event email persistence/delivery flow and show success or error feedback inline,
   - validate `students.document_id` uniqueness on blur and re-check it on submit server-side,
   - on successful registration create `students.active = true` and `students.accepted = false`, create the `students_fathers` link for the authenticated father, close the modal, show the pending-approval message, and refetch the student list.
 

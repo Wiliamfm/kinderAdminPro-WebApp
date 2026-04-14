@@ -2,17 +2,31 @@ import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import FatherPortalPage from './father-portal';
 
-const mocks = vi.hoisted(() => ({
-  navigate: vi.fn(),
-  canAccessModule: vi.fn(),
-  listFatherStudents: vi.fn(),
-  listFatherBulletin: vi.fn(),
-  listPublicGrades: vi.fn(),
-  checkFatherStudentDocumentIdAvailable: vi.fn(),
-  submitFatherStudentRegistration: vi.fn(),
-  exportFatherStudentReport: vi.fn(),
-  downloadBase64File: vi.fn(),
-}));
+const mocks = vi.hoisted(() => {
+  const fatherGetList = vi.fn();
+
+  return {
+    navigate: vi.fn(),
+    canAccessModule: vi.fn(),
+    listFatherStudents: vi.fn(),
+    listFatherBulletin: vi.fn(),
+    getAuthenticatedPbWithUserId: vi.fn(),
+    fatherGetList,
+    pb: {
+      collection: vi.fn(() => ({
+        getList: fatherGetList,
+      })),
+    },
+    listActiveEmployees: vi.fn(),
+    resolveEmployeeRecipients: vi.fn(),
+    sendEventEmail: vi.fn(),
+    listPublicGrades: vi.fn(),
+    checkFatherStudentDocumentIdAvailable: vi.fn(),
+    submitFatherStudentRegistration: vi.fn(),
+    exportFatherStudentReport: vi.fn(),
+    downloadBase64File: vi.fn(),
+  };
+});
 
 vi.mock('@solidjs/router', () => ({
   useNavigate: () => mocks.navigate,
@@ -27,6 +41,19 @@ vi.mock('../lib/pocketbase/father-portal', () => ({
   listFatherStudents: mocks.listFatherStudents,
   listFatherBulletin: mocks.listFatherBulletin,
   submitFatherStudentRegistration: mocks.submitFatherStudentRegistration,
+}));
+
+vi.mock('../lib/server/get-authenticated-pb', () => ({
+  getAuthenticatedPbWithUserId: mocks.getAuthenticatedPbWithUserId,
+}));
+
+vi.mock('../lib/pocketbase/employees', () => ({
+  listActiveEmployees: mocks.listActiveEmployees,
+}));
+
+vi.mock('../lib/pocketbase/event-email-messaging', () => ({
+  resolveEmployeeRecipients: mocks.resolveEmployeeRecipients,
+  sendEventEmail: mocks.sendEventEmail,
 }));
 
 vi.mock('../lib/pocketbase/public-grades', () => ({
@@ -93,6 +120,54 @@ describe('FatherPortalPage', () => {
     mocks.canAccessModule.mockReturnValue(true);
     mocks.listFatherStudents.mockResolvedValue(studentsFixture);
     mocks.listFatherBulletin.mockResolvedValue(bulletinsFixture);
+    mocks.getAuthenticatedPbWithUserId.mockResolvedValue({
+      pb: mocks.pb,
+      userId: 'user-father-1',
+    });
+    mocks.fatherGetList.mockResolvedValue({
+      items: [{ full_name: 'Laura Tutor', email: 'laura@example.com' }],
+    });
+    mocks.listActiveEmployees.mockResolvedValue([
+      {
+        id: 'emp1',
+        name: 'Ana Gómez',
+        documentId: '1001',
+        email: 'ana@example.com',
+      },
+      {
+        id: 'emp2',
+        name: 'Carlos Ruiz',
+        documentId: '1002',
+        email: 'carlos@example.com',
+      },
+    ]);
+    mocks.resolveEmployeeRecipients.mockImplementation(async (employeeIds: string[]) => (
+      employeeIds
+        .filter((employeeId) => employeeId === 'emp1' || employeeId === 'emp2')
+        .map((employeeId) => ({
+          key: `employee:${employeeId}`,
+          recipientType: 'employee',
+          recipientId: employeeId,
+          recipientName: employeeId === 'emp1' ? 'Ana Gómez' : 'Carlos Ruiz',
+          recipientEmail: employeeId === 'emp1' ? 'ana@example.com' : 'carlos@example.com',
+          hasEmail: true,
+          sources: [{
+            kind: 'employee',
+            id: employeeId,
+            label: employeeId === 'emp1' ? 'Ana Gómez' : 'Carlos Ruiz',
+          }],
+        }))
+    ));
+    mocks.sendEventEmail.mockResolvedValue({
+      messageId: 'msg-1',
+      totalResolved: 1,
+      totalSendable: 1,
+      totalMissingEmail: 0,
+      totalSent: 1,
+      totalFailed: 0,
+      totalSkipped: 0,
+      recipients: [],
+    });
     mocks.listPublicGrades.mockResolvedValue([
       { id: 'g1', name: 'Primero A' },
       { id: 'g2', name: 'Segundo A' },
@@ -229,5 +304,122 @@ describe('FatherPortalPage', () => {
 
     expect(await screen.findByText('Ya existe un estudiante con este documento')).toBeInTheDocument();
     expect(mocks.submitFatherStudentRegistration).not.toHaveBeenCalled();
+  });
+
+  it('opens the contact modal and loads father data plus employees', async () => {
+    render(() => <FatherPortalPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Contactar' }));
+
+    expect(await screen.findByRole('heading', { name: 'Contactar administradores y profesores' })).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(mocks.getAuthenticatedPbWithUserId).toHaveBeenCalled();
+      expect(mocks.listActiveEmployees).toHaveBeenCalled();
+    });
+
+    expect(await screen.findByText('laura@example.com - Laura Tutor:')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Ana Gómez - ana@example.com' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Carlos Ruiz - carlos@example.com' })).toBeInTheDocument();
+  });
+
+  it('keeps contact send disabled until recipients, subject, and body are provided', async () => {
+    render(() => <FatherPortalPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Contactar' }));
+
+    const sendButton = await screen.findByRole('button', { name: 'Enviar' });
+    const employeesSelect = screen.getByLabelText('Empleados') as HTMLSelectElement;
+    const subjectInput = screen.getByLabelText('Asunto');
+    const bodyInput = screen.getByLabelText('Mensaje');
+
+    expect(sendButton).toBeDisabled();
+
+    employeesSelect.options[0]!.selected = true;
+    fireEvent.change(employeesSelect);
+    expect(sendButton).toBeDisabled();
+
+    fireEvent.input(subjectInput, { target: { value: 'Necesito información' } });
+    expect(sendButton).toBeDisabled();
+
+    fireEvent.input(bodyInput, { target: { value: 'Quiero hablar con el área administrativa.' } });
+    await waitFor(() => {
+      expect(sendButton).toBeEnabled();
+    });
+
+    fireEvent.input(subjectInput, { target: { value: '' } });
+    await waitFor(() => {
+      expect(sendButton).toBeDisabled();
+    });
+
+    expect(mocks.sendEventEmail).not.toHaveBeenCalled();
+  });
+
+  it('sends the contact email with the father prefix and selected recipients', async () => {
+    render(() => <FatherPortalPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Contactar' }));
+
+    const employeesSelect = await screen.findByLabelText('Empleados') as HTMLSelectElement;
+    employeesSelect.options[0]!.selected = true;
+    fireEvent.change(employeesSelect);
+    fireEvent.input(screen.getByLabelText('Asunto'), { target: { value: 'Solicitud de reunión' } });
+    fireEvent.input(screen.getByLabelText('Mensaje'), { target: { value: 'Necesito una reunión esta semana.' } });
+
+    const sendButton = screen.getByRole('button', { name: 'Enviar' });
+    await waitFor(() => {
+      expect(sendButton).toBeEnabled();
+    });
+
+    fireEvent.click(sendButton);
+
+    await waitFor(() => {
+      expect(mocks.resolveEmployeeRecipients).toHaveBeenCalledWith(['emp1']);
+      expect(mocks.sendEventEmail).toHaveBeenCalledWith({
+        subject: 'laura@example.com - Laura Tutor: Solicitud de reunión',
+        bodyText: 'Necesito una reunión esta semana.',
+        recipients: [
+          {
+            key: 'employee:emp1',
+            recipientType: 'employee',
+            recipientId: 'emp1',
+            recipientName: 'Ana Gómez',
+            recipientEmail: 'ana@example.com',
+            hasEmail: true,
+            sources: [{ kind: 'employee', id: 'emp1', label: 'Ana Gómez' }],
+          },
+        ],
+      });
+    });
+
+    expect(await screen.findByText('Mensaje enviado. Enviados: 1, fallidos: 0, sin correo: 0.')).toBeInTheDocument();
+  });
+
+  it('shows contact send errors without closing the modal', async () => {
+    mocks.sendEventEmail.mockRejectedValue({
+      message: 'No se pudo enviar el correo.',
+      status: 500,
+      isAbort: false,
+    });
+
+    render(() => <FatherPortalPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Contactar' }));
+
+    const employeesSelect = await screen.findByLabelText('Empleados') as HTMLSelectElement;
+    employeesSelect.options[0]!.selected = true;
+    fireEvent.change(employeesSelect);
+    fireEvent.input(screen.getByLabelText('Asunto'), { target: { value: 'Seguimiento' } });
+    fireEvent.input(screen.getByLabelText('Mensaje'), { target: { value: 'Necesito un seguimiento del caso.' } });
+
+    const sendButton = screen.getByRole('button', { name: 'Enviar' });
+    await waitFor(() => {
+      expect(sendButton).toBeEnabled();
+    });
+
+    fireEvent.click(sendButton);
+
+    expect((await screen.findAllByText('No se pudo enviar el correo.')).length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { name: 'Contactar administradores y profesores' })).toBeInTheDocument();
   });
 });
