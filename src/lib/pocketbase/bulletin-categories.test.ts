@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   countBulletinsByCategoryId,
   createBulletinCategory,
+  deleteBulletinsByCategoryId,
   deleteBulletinCategory,
   listBulletinCategories,
   listBulletinCategoriesPage,
@@ -10,12 +11,14 @@ import {
 } from './bulletin-categories';
 
 const hoisted = vi.hoisted(() => {
-  const getFullList = vi.fn();
+  const getFullListCategories = vi.fn();
   const getListRecords = vi.fn();
   const create = vi.fn();
   const update = vi.fn();
-  const del = vi.fn();
+  const deleteCategory = vi.fn();
   const getListBulletins = vi.fn();
+  const getFullListBulletins = vi.fn();
+  const deleteBulletin = vi.fn();
   const normalizePocketBaseError = vi.fn();
   const getAuthenticatedPb = vi.fn();
 
@@ -23,27 +26,31 @@ const hoisted = vi.hoisted(() => {
     collection: vi.fn((name: string) => {
       if (name === 'bulletin_categories') {
         return {
-          getFullList,
+          getFullList: getFullListCategories,
           getList: getListRecords,
           create,
           update,
-          delete: del,
+          delete: deleteCategory,
         };
       }
 
       return {
         getList: getListBulletins,
+        getFullList: getFullListBulletins,
+        delete: deleteBulletin,
       };
     }),
   };
 
   return {
-    getFullList,
+    getFullListCategories,
     getListRecords,
     create,
     update,
-    del,
+    deleteCategory,
     getListBulletins,
+    getFullListBulletins,
+    deleteBulletin,
     normalizePocketBaseError,
     getAuthenticatedPb,
     pb,
@@ -69,7 +76,7 @@ describe('bulletin categories pocketbase client', () => {
   });
 
   it('lists categories', async () => {
-    hoisted.getFullList.mockResolvedValue([
+    hoisted.getFullListCategories.mockResolvedValue([
       {
         id: 'c1',
         name: 'Académico',
@@ -81,7 +88,7 @@ describe('bulletin categories pocketbase client', () => {
 
     const result = await listBulletinCategories();
 
-    expect(hoisted.getFullList).toHaveBeenCalledWith({ sort: 'name' });
+    expect(hoisted.getFullListCategories).toHaveBeenCalledWith({ sort: 'name' });
     expect(result).toEqual([
       {
         id: 'c1',
@@ -219,20 +226,42 @@ describe('bulletin categories pocketbase client', () => {
     });
   });
 
-  it('deletes category', async () => {
+  it('deletes category after cascading linked bulletins', async () => {
+    hoisted.getFullListBulletins.mockResolvedValue([]);
+
     await deleteBulletinCategory('c1');
-    expect(hoisted.del).toHaveBeenCalledWith('c1');
+
+    expect(hoisted.getFullListBulletins).toHaveBeenCalledWith({
+      filter: 'category_id = "c1"',
+    });
+    expect(hoisted.deleteCategory).toHaveBeenCalledWith('c1');
   });
 
-  it('counts linked bulletins by category', async () => {
+  it('counts linked active bulletins by category', async () => {
     hoisted.getListBulletins.mockResolvedValue({ totalItems: 4 });
 
     const total = await countBulletinsByCategoryId('c-1');
 
     expect(total).toBe(4);
     expect(hoisted.getListBulletins).toHaveBeenCalledWith(1, 1, {
+      filter: 'category_id = "c-1" && is_deleted = false',
+    });
+  });
+
+  it('hard deletes all bulletins for a category', async () => {
+    hoisted.getFullListBulletins.mockResolvedValue([
+      { id: 'b1' },
+      { id: 'b2' },
+    ]);
+
+    await deleteBulletinsByCategoryId('c-1');
+
+    expect(hoisted.getFullListBulletins).toHaveBeenCalledWith({
       filter: 'category_id = "c-1"',
     });
+    expect(hoisted.deleteBulletin).toHaveBeenCalledTimes(2);
+    expect(hoisted.deleteBulletin).toHaveBeenNthCalledWith(1, 'b1');
+    expect(hoisted.deleteBulletin).toHaveBeenNthCalledWith(2, 'b2');
   });
 
   it('normalizes and rethrows errors', async () => {

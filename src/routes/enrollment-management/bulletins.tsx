@@ -381,7 +381,7 @@ export default function EnrollmentBulletinsPage() {
       const linked = await countBulletinsByCategoryId(target.id);
       if (linked > 0) {
         setCategoryActionError(
-          `No se puede eliminar la categoría ${target.name} porque tiene ${linked} boletín(es) asociado(s).`,
+          `No se puede eliminar la categoría ${target.name} porque tiene ${linked} boletín(es) activo(s) asociado(s).`,
         );
         setDeleteCategoryTarget(null);
         return;
@@ -389,6 +389,9 @@ export default function EnrollmentBulletinsPage() {
 
       await deleteBulletinCategory(target.id);
       await refetchCategories();
+      if (categoryOptionsLoaded()) {
+        await loadCategoryOptions(true);
+      }
       const totalPages = categories()?.totalPages ?? 1;
       if (categoryPage() > totalPages) {
         setCategoryPage(clampPage(categoryPage(), totalPages));

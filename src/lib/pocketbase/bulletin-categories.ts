@@ -157,6 +157,7 @@ export async function deleteBulletinCategory(id: string): Promise<void> {
   "use server";
   const pb = await getAuthenticatedPb();
   try {
+    await deleteBulletinsByCategoryIdWithPb(pb, id);
     await pb.collection('bulletin_categories').delete(id);
   } catch (error) {
     throw normalizePocketBaseError(error);
@@ -167,12 +168,35 @@ function escapeFilterValue(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
+async function deleteBulletinsByCategoryIdWithPb(
+  pb: Awaited<ReturnType<typeof getAuthenticatedPb>>,
+  categoryId: string,
+): Promise<void> {
+  const bulletins = await pb.collection('bulletins').getFullList({
+    filter: `category_id = "${escapeFilterValue(categoryId)}"`,
+  });
+
+  await Promise.all(
+    bulletins.map((bulletin) => pb.collection('bulletins').delete(bulletin.id)),
+  );
+}
+
+export async function deleteBulletinsByCategoryId(categoryId: string): Promise<void> {
+  "use server";
+  const pb = await getAuthenticatedPb();
+  try {
+    await deleteBulletinsByCategoryIdWithPb(pb, categoryId);
+  } catch (error) {
+    throw normalizePocketBaseError(error);
+  }
+}
+
 export async function countBulletinsByCategoryId(categoryId: string): Promise<number> {
   "use server";
   const pb = await getAuthenticatedPb();
   try {
     const result = await pb.collection('bulletins').getList(1, 1, {
-      filter: `category_id = "${escapeFilterValue(categoryId)}"`,
+      filter: `category_id = "${escapeFilterValue(categoryId)}" && is_deleted = false`,
     });
 
     return result.totalItems;
