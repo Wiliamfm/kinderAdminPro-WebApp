@@ -253,6 +253,114 @@ describe('ReportsStudentsPage', () => {
     });
   });
 
+  it('filters the grade chart semester dropdown by the chart year selector and renders matching data', async () => {
+    mocks.listBulletinStudentFormOptions.mockResolvedValue({
+      bulletins: [{ id: 'b1', label: 'Académico: Notas de periodo' }],
+      students: [{ id: 's1', label: '1001 (Ana Pérez)', documentId: '1001' }],
+      grades: [
+        { id: 'g1', label: 'Grado 1' },
+        { id: 'g2', label: 'Grado 2' },
+      ],
+      semesters: [
+        { id: 'sem2025', label: '2025-4', years: [2025] },
+        { id: 'sem-cross', label: '2025-2026', years: [2025, 2026] },
+        { id: 'sem2026', label: '2026-1', years: [2026] },
+      ],
+      years: [
+        { id: '2026', label: '2026' },
+        { id: '2025', label: '2025' },
+      ],
+    });
+    mocks.listBulletinStudentsAnalyticsRecords.mockResolvedValue([
+      { student_id: 's2025', grade_id: 'g1', semester_id: 'sem2025' },
+      { student_id: 'sCross', grade_id: 'g1', semester_id: 'sem-cross' },
+      { student_id: 's2026a', grade_id: 'g2', semester_id: 'sem2026' },
+      { student_id: 's2026b', grade_id: 'g2', semester_id: 'sem2026' },
+    ]);
+
+    render(() => <ReportsStudentsPage />);
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
+
+    const chartYearSelect = screen.getByLabelText('Año (gráfico)');
+    const chartSemesterSelect = screen.getByLabelText('Trimestre (para gráfico por grado)');
+
+    expect(within(chartSemesterSelect).getByRole('option', { name: '2025-4' })).toBeInTheDocument();
+    expect(within(chartSemesterSelect).getByRole('option', { name: '2026-1' })).toBeInTheDocument();
+
+    fireEvent.change(chartYearSelect, { target: { value: '2026' } });
+
+    await waitFor(() => {
+      expect((chartYearSelect as HTMLSelectElement).value).toBe('2026');
+      expect(within(chartSemesterSelect).queryByRole('option', { name: '2025-4' })).not.toBeInTheDocument();
+      expect(within(chartSemesterSelect).getByRole('option', { name: '2025-2026' })).toBeInTheDocument();
+      expect(within(chartSemesterSelect).getByRole('option', { name: '2026-1' })).toBeInTheDocument();
+    });
+
+    fireEvent.change(chartSemesterSelect, { target: { value: 'sem2026' } });
+
+    await waitFor(() => {
+      const byGradeForSemester = findChartConfigByLabel('Estudiantes (2026-1)') as {
+        data: { labels: string[]; datasets: Array<{ data: number[] }> };
+      };
+      expect(byGradeForSemester).toBeDefined();
+      expect(byGradeForSemester.data.labels).toEqual(['Grado 1', 'Grado 2']);
+      expect(byGradeForSemester.data.datasets[0]?.data).toEqual([0, 2]);
+    });
+  });
+
+  it('keeps chart and table year selections independent', async () => {
+    mocks.listBulletinStudentFormOptions.mockResolvedValue({
+      bulletins: [{ id: 'b1', label: 'Académico: Notas de periodo' }],
+      students: [{ id: 's1', label: '1001 (Ana Pérez)', documentId: '1001' }],
+      grades: [{ id: 'g1', label: 'Grado 1' }],
+      semesters: [
+        { id: 'sem2025', label: '2025-4', years: [2025] },
+        { id: 'sem-cross', label: '2025-2026', years: [2025, 2026] },
+        { id: 'sem2026', label: '2026-1', years: [2026] },
+      ],
+      years: [
+        { id: '2026', label: '2026' },
+        { id: '2025', label: '2025' },
+      ],
+    });
+    mocks.listBulletinStudentsAnalyticsRecords.mockResolvedValue([
+      { student_id: 's2025', grade_id: 'g1', semester_id: 'sem2025' },
+      { student_id: 's2026', grade_id: 'g1', semester_id: 'sem2026' },
+    ]);
+
+    render(() => <ReportsStudentsPage />);
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
+
+    fireEvent.change(screen.getByLabelText('Año'), { target: { value: '2025' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
+
+    await waitFor(() => {
+      expect(mocks.listBulletinsStudentsPage).toHaveBeenLastCalledWith(1, 10, {
+        sortField: 'created_at',
+        sortDirection: 'desc',
+        gradeId: '',
+        semesterId: '',
+        semesterIds: ['sem2025', 'sem-cross'],
+        studentIds: [],
+      });
+    });
+
+    const callsBeforeChartChange = mocks.listBulletinsStudentsPage.mock.calls.length;
+    const chartYearSelect = screen.getByLabelText('Año (gráfico)');
+    const chartSemesterSelect = screen.getByLabelText('Trimestre (para gráfico por grado)');
+
+    fireEvent.change(chartYearSelect, { target: { value: '2026' } });
+
+    await waitFor(() => {
+      expect((screen.getByLabelText('Año') as HTMLSelectElement).value).toBe('2025');
+      expect((chartYearSelect as HTMLSelectElement).value).toBe('2026');
+      expect(within(chartSemesterSelect).queryByRole('option', { name: '2025-4' })).not.toBeInTheDocument();
+      expect(within(chartSemesterSelect).getByRole('option', { name: '2026-1' })).toBeInTheDocument();
+    });
+
+    expect(mocks.listBulletinsStudentsPage).toHaveBeenCalledTimes(callsBeforeChartChange);
+  });
+
   it('updates charts when cross-filters change', async () => {
     mocks.listBulletinStudentFormOptions.mockResolvedValue({
       bulletins: [{ id: 'b1', label: 'Académico: Notas de periodo' }],

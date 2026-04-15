@@ -309,6 +309,7 @@ export default function ReportsStudentsPage() {
     () => listBulletinStudentsAnalyticsRecords(),
   );
 
+  const [gradeChartYearId, setGradeChartYearId] = createSignal('');
   const [gradeChartSemesterId, setGradeChartSemesterId] = createSignal('');
   const [semesterChartGradeId, setSemesterChartGradeId] = createSignal('');
   const [semesterChartGrouping, setSemesterChartGrouping] = createSignal<SemesterChartGrouping>('semester');
@@ -487,6 +488,15 @@ export default function ReportsStudentsPage() {
 
     return formOptions().semesters.filter((semester) => semester.years.includes(selectedYear));
   });
+  const gradeChartFilteredSemesters = createMemo(() => {
+    const selectedYearId = gradeChartYearId().trim();
+    if (selectedYearId.length === 0) return formOptions().semesters;
+
+    const selectedYear = Number(selectedYearId);
+    if (!Number.isInteger(selectedYear)) return [];
+
+    return formOptions().semesters.filter((semester) => semester.years.includes(selectedYear));
+  });
 
   const availableStudentLookupOptions = createMemo<StudentLookupOption[]>(() => {
     const selectedIds = new Set(filterDraft().studentIds);
@@ -554,7 +564,7 @@ export default function ReportsStudentsPage() {
       .map((year) => year.id.trim())
       .filter((id) => id.length > 0)
   ));
-  const chartSemesterIdsOrdered = createMemo(() => {
+  const appliedChartSemesterIdsOrdered = createMemo(() => {
     const semesterIds = resolvedAppliedSemesterIds();
     if (!Array.isArray(semesterIds)) {
       return semesterIdsOrdered();
@@ -562,8 +572,19 @@ export default function ReportsStudentsPage() {
 
     return semesterIds;
   });
-  const analyticsRowsForCharts = createMemo<BulletinStudentAnalyticsRecord[]>(() => {
+  const chartSemesterIdsOrdered = createMemo(() => (
+    gradeChartFilteredSemesters()
+      .map((semester) => semester.id.trim())
+      .filter((id) => id.length > 0)
+  ));
+  const analyticsRowsForGradeChart = createMemo<BulletinStudentAnalyticsRecord[]>(() => {
     const visibleSemesterIds = new Set(chartSemesterIdsOrdered());
+    if (visibleSemesterIds.size === 0) return [];
+
+    return analyticsRows().filter((row) => visibleSemesterIds.has(row.semester_id));
+  });
+  const analyticsRowsForCharts = createMemo<BulletinStudentAnalyticsRecord[]>(() => {
+    const visibleSemesterIds = new Set(appliedChartSemesterIdsOrdered());
     if (visibleSemesterIds.size === 0) return [];
 
     return analyticsRows().filter((row) => visibleSemesterIds.has(row.semester_id));
@@ -580,7 +601,7 @@ export default function ReportsStudentsPage() {
   createEffect(() => {
     const selectedSemesterId = gradeChartSemesterId().trim();
     if (selectedSemesterId.length === 0) return;
-    if (!chartSemesterIdsOrdered().includes(selectedSemesterId)) {
+    if (!gradeChartFilteredSemesters().some((semester) => semester.id === selectedSemesterId)) {
       setGradeChartSemesterId('');
     }
   });
@@ -595,7 +616,7 @@ export default function ReportsStudentsPage() {
 
   const gradeChartPoints = createMemo<BarChartPoint[]>(() => {
     const selectedSemesterId = gradeChartSemesterId().trim();
-    const filteredRows = analyticsRowsForCharts().filter((row) => (
+    const filteredRows = analyticsRowsForGradeChart().filter((row) => (
       selectedSemesterId.length === 0 || row.semester_id === selectedSemesterId
     ));
 
@@ -629,8 +650,8 @@ export default function ReportsStudentsPage() {
     ));
 
     const visibleSemesterIds = selectedGradeId.length === 0
-      ? getLastItems(chartSemesterIdsOrdered(), 5)
-      : chartSemesterIdsOrdered();
+      ? getLastItems(appliedChartSemesterIdsOrdered(), 5)
+      : appliedChartSemesterIdsOrdered();
 
     if (filteredRows.length === 0 || visibleSemesterIds.length === 0) return [];
 
@@ -1269,6 +1290,21 @@ export default function ReportsStudentsPage() {
                     <div class="rounded-lg border border-yellow-200 bg-white p-4">
                       <h4 class="text-sm font-semibold text-gray-700">Estudiantes por grado</h4>
                       <label class="mt-3 block">
+                        <span class="text-sm text-gray-700">Año (gráfico)</span>
+                        <select
+                          aria-label="Año (gráfico)"
+                          class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                          value={gradeChartYearId()}
+                          onChange={(event) => setGradeChartYearId(event.currentTarget.value)}
+                          disabled={formOptionsLoading() || bulletinsStudentsAnalytics.loading}
+                        >
+                          <option value="">Todos los años</option>
+                          <For each={formOptions().years}>
+                            {(year) => <option value={year.id}>{year.label}</option>}
+                          </For>
+                        </select>
+                      </label>
+                      <label class="mt-3 block">
                         <span class="text-sm text-gray-700">Filtro por trimestre</span>
                         <select
                           aria-label="Trimestre (para gráfico por grado)"
@@ -1278,9 +1314,7 @@ export default function ReportsStudentsPage() {
                           disabled={formOptionsLoading() || bulletinsStudentsAnalytics.loading}
                         >
                           <option value="">Todos los trimestres</option>
-                          <For each={formOptions().semesters.filter((semester) => (
-                            chartSemesterIdsOrdered().includes(semester.id)
-                          ))}>
+                          <For each={gradeChartFilteredSemesters()}>
                             {(semester) => <option value={semester.id}>{semester.label}</option>}
                           </For>
                         </select>
