@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createBulletinStudent,
+  deriveYearsFromDateRange,
   listBulletinStudentFormOptions,
   listBulletinStudentsAnalyticsRecords,
   listBulletinStudentsByStudentAndGrade,
@@ -197,6 +198,27 @@ describe('bulletins-students pocketbase client', () => {
     }));
   });
 
+  it('filters by multiple semester ids when provided', async () => {
+    hoisted.getList.mockResolvedValue({
+      items: [],
+      page: 1,
+      perPage: 10,
+      totalItems: 0,
+      totalPages: 1,
+    });
+
+    await listBulletinsStudentsPage(1, 10, {
+      semesterIds: [' sem1 ', 'sem2', 'sem1'],
+    });
+
+    expect(hoisted.getList).toHaveBeenCalledWith(1, 10, {
+      sort: '-created_at',
+      filter: 'is_deleted != true && (semester_id = "sem1" || semester_id = "sem2")',
+      expand: 'bulletin_id,bulletin_id.category_id,student_id,grade_id,semester_id,created_by,updated_by',
+      requestKey: 'reports-students-table-list',
+    });
+  });
+
   it('builds filter clauses for grade, semester and student query', async () => {
     hoisted.getList.mockResolvedValue({
       items: [],
@@ -215,6 +237,27 @@ describe('bulletins-students pocketbase client', () => {
     expect(hoisted.getList).toHaveBeenCalledWith(1, 10, {
       sort: '-created_at',
       filter: 'is_deleted != true && grade_id = "g1" && semester_id = "sem1" && student_id.document_id ~ "Ana \\"123\\" \\\\ doc"',
+      expand: 'bulletin_id,bulletin_id.category_id,student_id,grade_id,semester_id,created_by,updated_by',
+      requestKey: 'reports-students-table-list',
+    });
+  });
+
+  it('returns no matches when year resolves to an empty semester list', async () => {
+    hoisted.getList.mockResolvedValue({
+      items: [],
+      page: 1,
+      perPage: 10,
+      totalItems: 0,
+      totalPages: 1,
+    });
+
+    await listBulletinsStudentsPage(1, 10, {
+      semesterIds: [],
+    });
+
+    expect(hoisted.getList).toHaveBeenCalledWith(1, 10, {
+      sort: '-created_at',
+      filter: 'is_deleted != true && id = ""',
       expand: 'bulletin_id,bulletin_id.category_id,student_id,grade_id,semester_id,created_by,updated_by',
       requestKey: 'reports-students-table-list',
     });
@@ -288,6 +331,54 @@ describe('bulletins-students pocketbase client', () => {
         comments: 'Buen trabajo',
         semester_name: '2026-1',
       }),
+    ]);
+  });
+
+  it('derives years from semester ranges including cross-year spans', () => {
+    expect(deriveYearsFromDateRange('2026-01-15T00:00:00.000Z', '2026-04-15T00:00:00.000Z')).toEqual([2026]);
+    expect(deriveYearsFromDateRange('2025-11-01T00:00:00.000Z', '2026-03-15T00:00:00.000Z')).toEqual([2026, 2025]);
+  });
+
+  it('includes derived years in form options and sorts them descending', async () => {
+    hoisted.getFullList
+      .mockResolvedValueOnce([
+        {
+          id: 'b1',
+          description: 'Notas finales',
+          expand: { category_id: { name: 'Académico' } },
+        },
+      ])
+      .mockResolvedValueOnce([
+        { id: 's1', name: 'Ana Pérez', document_id: '1001' },
+      ])
+      .mockResolvedValueOnce([
+        { id: 'g1', name: 'Primero A' },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 'sem1',
+          name: '2025-4',
+          start_date: '2025-11-01T00:00:00.000Z',
+          end_date: '2026-03-15T00:00:00.000Z',
+        },
+        {
+          id: 'sem2',
+          name: '2024-2',
+          start_date: '2024-04-01T00:00:00.000Z',
+          end_date: '2024-08-01T00:00:00.000Z',
+        },
+      ]);
+
+    const result = await listBulletinStudentFormOptions();
+
+    expect(result.semesters).toEqual([
+      { id: 'sem1', label: '2025-4', years: [2026, 2025] },
+      { id: 'sem2', label: '2024-2', years: [2024] },
+    ]);
+    expect(result.years).toEqual([
+      { id: '2026', label: '2026' },
+      { id: '2025', label: '2025' },
+      { id: '2024', label: '2024' },
     ]);
   });
 
@@ -458,7 +549,8 @@ describe('bulletins-students pocketbase client', () => {
       bulletins: [{ id: 'b1', label: 'Académico: Notas de periodo' }],
       students: [{ id: 's1', label: '1001 (Ana Pérez)', documentId: '1001' }],
       grades: [{ id: 'g1', label: 'Primero A' }],
-      semesters: [{ id: 'sem1', label: '2026-1' }],
+      semesters: [{ id: 'sem1', label: '2026-1', years: [] }],
+      years: [],
     });
   });
 

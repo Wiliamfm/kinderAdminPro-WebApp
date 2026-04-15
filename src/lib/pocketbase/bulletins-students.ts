@@ -56,6 +56,7 @@ export type BulletinStudentListOptions = {
   sortDirection?: BulletinStudentListSortDirection;
   gradeId?: string;
   semesterId?: string;
+  semesterIds?: string[];
   studentQuery?: string;
   studentIds?: string[];
 };
@@ -70,11 +71,23 @@ export type BulletinStudentOption = {
   documentId?: string;
 };
 
+export type SemesterOption = {
+  id: string;
+  label: string;
+  years: number[];
+};
+
+export type YearOption = {
+  id: string;
+  label: string;
+};
+
 export type BulletinStudentFormOptions = {
   bulletins: BulletinStudentOption[];
   students: BulletinStudentOption[];
   grades: BulletinStudentOption[];
-  semesters: BulletinStudentOption[];
+  semesters: SemesterOption[];
+  years: YearOption[];
 };
 
 export type BulletinStudentAnalyticsRecord = {
@@ -264,10 +277,40 @@ function normalizeFilterIds(values: string[] | undefined): string[] {
   return [...new Set(normalized)];
 }
 
+export function deriveYearsFromDateRange(startDate: unknown, endDate: unknown): number[] {
+  const readYear = (value: unknown): number | null => {
+    if (typeof value !== 'string') return null;
+    const match = value.trim().match(/^(\d{4})/);
+    if (!match) return null;
+
+    const parsed = Number(match[1]);
+    return Number.isInteger(parsed) ? parsed : null;
+  };
+
+  const startYear = readYear(startDate);
+  const endYear = readYear(endDate);
+
+  if (startYear === null && endYear === null) return [];
+  if (startYear === null) return endYear === null ? [] : [endYear];
+  if (endYear === null) return [startYear];
+
+  const lowerBound = Math.min(startYear, endYear);
+  const upperBound = Math.max(startYear, endYear);
+  const years: number[] = [];
+
+  for (let year = upperBound; year >= lowerBound; year -= 1) {
+    years.push(year);
+  }
+
+  return years;
+}
+
 function buildFilterExpression(options: BulletinStudentListOptions): string {
   const clauses = ['is_deleted != true'];
   const gradeId = toStringValue(options.gradeId);
   const semesterId = toStringValue(options.semesterId);
+  const hasSemesterIds = Array.isArray(options.semesterIds);
+  const semesterIds = normalizeFilterIds(options.semesterIds);
   const studentQuery = toStringValue(options.studentQuery);
   const studentIds = normalizeFilterIds(options.studentIds);
 
@@ -277,6 +320,15 @@ function buildFilterExpression(options: BulletinStudentListOptions): string {
 
   if (semesterId.length > 0) {
     clauses.push(`semester_id = "${escapeFilterValue(semesterId)}"`);
+  } else if (hasSemesterIds) {
+    if (semesterIds.length === 0) {
+      clauses.push('id = ""');
+    } else {
+      const semesterIdClause = semesterIds
+        .map((value) => `semester_id = "${escapeFilterValue(value)}"`)
+        .join(' || ');
+      clauses.push(`(${semesterIdClause})`);
+    }
   }
 
   if (studentIds.length > 0) {
@@ -466,6 +518,20 @@ export async function listBulletinStudentFormOptions(): Promise<BulletinStudentF
         sort: 'name',
       }),
     ]);
+    const semesterOptions = semesters.map((record) => ({
+      id: toStringValue(record.id),
+      label: toStringValue(record.get?.('name') ?? record.name) || toStringValue(record.id),
+      years: deriveYearsFromDateRange(
+        record.get?.('start_date') ?? record.start_date,
+        record.get?.('end_date') ?? record.end_date,
+      ),
+    }));
+    const years = [...new Set(semesterOptions.flatMap((semester) => semester.years))]
+      .sort((left, right) => right - left)
+      .map((year) => ({
+        id: String(year),
+        label: String(year),
+      }));
 
     return {
       bulletins: bulletins.map((record) => {
@@ -490,10 +556,8 @@ export async function listBulletinStudentFormOptions(): Promise<BulletinStudentF
         id: toStringValue(record.id),
         label: toStringValue(record.get?.('name') ?? record.name) || toStringValue(record.id),
       })),
-      semesters: semesters.map((record) => ({
-        id: toStringValue(record.id),
-        label: toStringValue(record.get?.('name') ?? record.name) || toStringValue(record.id),
-      })),
+      semesters: semesterOptions,
+      years,
     };
   } catch (error) {
     throw normalizePocketBaseError(error);

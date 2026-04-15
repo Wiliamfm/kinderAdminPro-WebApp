@@ -1,6 +1,6 @@
 # Implementation Spec: `bulletins_students` Collection And Reports `Estudiantes` Page
 
-Last updated: 2026-03-07  
+Last updated: 2026-04-15  
 Status: Implemented
 
 ## Documentation Compliance
@@ -21,6 +21,12 @@ The page must follow the existing bulletins CRUD table patterns:
   - students by semester (grade cross-filter),
   - default all-grades + last-5 semesters view,
   - distinct-student aggregation by `student_id`.
+- year-aware report filters and chart grouping:
+  - `Año` filter derived from semester `start_date` and `end_date`,
+  - semester dropdown constrained by the selected year,
+  - cross-year semesters exposed in every overlapping year,
+  - trimester chart toggle between `Trimestre` and `Año`,
+  - year chart aggregation deduplicated by `student_id` within each year.
 
 Chosen decisions:
 - access model: admin-only,
@@ -153,12 +159,17 @@ Update root docs:
 ### 6) Chart Analytics Section
 In `src/pages/reports-students.tsx`:
 - render chart form below the main table,
+- add year filter support before the grade and semester filters,
+- derive year options from semester date ranges in `listBulletinStudentFormOptions()`,
+- translate an applied year filter into matching semester ids for table/export queries,
 - add chart controls:
   - `Semestre (para gráfico por grado)`,
-  - `Grado (para gráfico por semestre)`,
+  - `Grado (para gráfico por semestre o año)`,
+  - segmented toggle `Trimestre | Año` for the second chart,
 - draw two vertical bar charts with Chart.js,
 - use distinct `student_id` counting per bucket to avoid duplicate row overcount,
-- default to all grades and last 5 semesters when the related chart filter is `Todos`.
+- default to all grades and last 5 semesters when the related chart filter is `Todos`,
+- when `Año` is active, aggregate distinct students by derived year labels and include cross-year semesters in each overlapping year.
 
 ## Test Cases And Scenarios
 

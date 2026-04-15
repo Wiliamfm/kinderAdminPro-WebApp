@@ -6,15 +6,13 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   canAccessModule: vi.fn(),
   listBulletinsStudentsPage: vi.fn(),
-  listBulletinsStudentsForExport: vi.fn(),
   listBulletinStudentFormOptions: vi.fn(),
   listBulletinStudentsAnalyticsRecords: vi.fn(),
   createBulletinStudent: vi.fn(),
   updateBulletinStudent: vi.fn(),
   softDeleteBulletinStudent: vi.fn(),
-  buildStudentsExportPdfBlob: vi.fn(),
-  downloadBlobFile: vi.fn(),
-  formatFileTimestamp: vi.fn(),
+  exportStudentsReport: vi.fn(),
+  downloadBase64File: vi.fn(),
   chartCtor: vi.fn(),
   chartDestroy: vi.fn(),
 }));
@@ -29,7 +27,6 @@ vi.mock('../lib/pocketbase/auth', () => ({
 
 vi.mock('../lib/pocketbase/bulletins-students', () => ({
   listBulletinsStudentsPage: mocks.listBulletinsStudentsPage,
-  listBulletinsStudentsForExport: mocks.listBulletinsStudentsForExport,
   listBulletinStudentFormOptions: mocks.listBulletinStudentFormOptions,
   listBulletinStudentsAnalyticsRecords: mocks.listBulletinStudentsAnalyticsRecords,
   createBulletinStudent: mocks.createBulletinStudent,
@@ -37,13 +34,12 @@ vi.mock('../lib/pocketbase/bulletins-students', () => ({
   softDeleteBulletinStudent: mocks.softDeleteBulletinStudent,
 }));
 
-vi.mock('../lib/reports/students-export', () => ({
-  buildStudentsExportPdfBlob: mocks.buildStudentsExportPdfBlob,
+vi.mock('../lib/server/exports/students-export', () => ({
+  exportStudentsReport: mocks.exportStudentsReport,
 }));
 
 vi.mock('../lib/reports/download', () => ({
-  downloadBlobFile: mocks.downloadBlobFile,
-  formatFileTimestamp: mocks.formatFileTimestamp,
+  downloadBase64File: mocks.downloadBase64File,
 }));
 
 vi.mock('chart.js/auto', () => {
@@ -94,7 +90,8 @@ const formOptionsFixture = {
     { id: 's2', label: '1002 (Luis Díaz)', documentId: '1002' },
   ],
   grades: [{ id: 'g1', label: 'Primero A' }],
-  semesters: [{ id: 'sem1', label: '2026-1' }],
+  semesters: [{ id: 'sem1', label: '2026-1', years: [2026] }],
+  years: [{ id: '2026', label: '2026' }],
 };
 
 const analyticsFixture = [
@@ -113,14 +110,16 @@ describe('ReportsStudentsPage', () => {
     vi.clearAllMocks();
     mocks.canAccessModule.mockReturnValue(true);
     mocks.listBulletinsStudentsPage.mockResolvedValue(pageFixture);
-    mocks.listBulletinsStudentsForExport.mockResolvedValue(rowsFixture);
     mocks.listBulletinStudentFormOptions.mockResolvedValue(formOptionsFixture);
     mocks.listBulletinStudentsAnalyticsRecords.mockResolvedValue(analyticsFixture);
     mocks.createBulletinStudent.mockResolvedValue(rowsFixture[0]);
     mocks.updateBulletinStudent.mockResolvedValue(rowsFixture[0]);
     mocks.softDeleteBulletinStudent.mockResolvedValue(undefined);
-    mocks.buildStudentsExportPdfBlob.mockReturnValue(new Blob(['pdf'], { type: 'application/pdf' }));
-    mocks.formatFileTimestamp.mockReturnValue('20260307_1000');
+    mocks.exportStudentsReport.mockResolvedValue({
+      fileName: 'reportes_estudiantes_20260307_1000.pdf',
+      data: 'YmFzZTY0',
+      mimeType: 'application/pdf',
+    });
   });
 
   it('redirects non-admin users to reports index', async () => {
@@ -155,6 +154,52 @@ describe('ReportsStudentsPage', () => {
     });
   });
 
+  it('filters semesters by the selected year and uses matching semester ids when applying', async () => {
+    mocks.listBulletinStudentFormOptions.mockResolvedValue({
+      bulletins: [{ id: 'b1', label: 'Académico: Notas de periodo' }],
+      students: [{ id: 's1', label: '1001 (Ana Pérez)', documentId: '1001' }],
+      grades: [{ id: 'g1', label: 'Primero A' }],
+      semesters: [
+        { id: 'sem2025', label: '2025-4', years: [2025] },
+        { id: 'sem-cross', label: '2025-2026', years: [2026, 2025] },
+        { id: 'sem2026', label: '2026-1', years: [2026] },
+      ],
+      years: [
+        { id: '2026', label: '2026' },
+        { id: '2025', label: '2025' },
+      ],
+    });
+
+    render(() => <ReportsStudentsPage />);
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
+
+    fireEvent.change(screen.getByLabelText('Trimestre'), { target: { value: 'sem2025' } });
+    fireEvent.change(screen.getByLabelText('Año'), { target: { value: '2026' } });
+
+    await waitFor(() => {
+      const semesterSelect = screen.getByLabelText('Trimestre') as HTMLSelectElement;
+      expect(semesterSelect.value).toBe('');
+    });
+
+    const semesterSelect = screen.getByLabelText('Trimestre');
+    expect(within(semesterSelect).queryByRole('option', { name: '2025-4' })).not.toBeInTheDocument();
+    expect(within(semesterSelect).getByRole('option', { name: '2025-2026' })).toBeInTheDocument();
+    expect(within(semesterSelect).getByRole('option', { name: '2026-1' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
+
+    await waitFor(() => {
+      expect(mocks.listBulletinsStudentsPage).toHaveBeenLastCalledWith(1, 10, {
+        sortField: 'created_at',
+        sortDirection: 'desc',
+        gradeId: '',
+        semesterId: '',
+        semesterIds: ['sem-cross', 'sem2026'],
+        studentIds: [],
+      });
+    });
+  });
+
   it('builds initial charts using all grades and last 5 semesters with distinct student counts', async () => {
     mocks.listBulletinStudentFormOptions.mockResolvedValue({
       bulletins: [{ id: 'b1', label: 'Académico: Notas de periodo' }],
@@ -168,13 +213,14 @@ describe('ReportsStudentsPage', () => {
         { id: 'g6', label: 'Grado 6' },
       ],
       semesters: [
-        { id: 'sem1', label: '2026-1' },
-        { id: 'sem2', label: '2026-2' },
-        { id: 'sem3', label: '2026-3' },
-        { id: 'sem4', label: '2026-4' },
-        { id: 'sem5', label: '2026-5' },
-        { id: 'sem6', label: '2026-6' },
+        { id: 'sem1', label: '2026-1', years: [2026] },
+        { id: 'sem2', label: '2026-2', years: [2026] },
+        { id: 'sem3', label: '2026-3', years: [2026] },
+        { id: 'sem4', label: '2026-4', years: [2026] },
+        { id: 'sem5', label: '2026-5', years: [2026] },
+        { id: 'sem6', label: '2026-6', years: [2026] },
       ],
+      years: [{ id: '2026', label: '2026' }],
     });
     mocks.listBulletinStudentsAnalyticsRecords.mockResolvedValue([
       { student_id: 'sA', grade_id: 'g2', semester_id: 'sem3' },
@@ -220,13 +266,14 @@ describe('ReportsStudentsPage', () => {
         { id: 'g6', label: 'Grado 6' },
       ],
       semesters: [
-        { id: 'sem1', label: '2026-1' },
-        { id: 'sem2', label: '2026-2' },
-        { id: 'sem3', label: '2026-3' },
-        { id: 'sem4', label: '2026-4' },
-        { id: 'sem5', label: '2026-5' },
-        { id: 'sem6', label: '2026-6' },
+        { id: 'sem1', label: '2026-1', years: [2026] },
+        { id: 'sem2', label: '2026-2', years: [2026] },
+        { id: 'sem3', label: '2026-3', years: [2026] },
+        { id: 'sem4', label: '2026-4', years: [2026] },
+        { id: 'sem5', label: '2026-5', years: [2026] },
+        { id: 'sem6', label: '2026-6', years: [2026] },
       ],
+      years: [{ id: '2026', label: '2026' }],
     });
     mocks.listBulletinStudentsAnalyticsRecords.mockResolvedValue([
       { student_id: 'sA', grade_id: 'g2', semester_id: 'sem3' },
@@ -518,30 +565,70 @@ describe('ReportsStudentsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Exportar' }));
 
     await waitFor(() => {
-      expect(mocks.listBulletinsStudentsForExport).toHaveBeenCalledWith({
+      expect(mocks.exportStudentsReport).toHaveBeenCalledWith({
         gradeId: 'g1',
         semesterId: 'sem1',
         studentIds: [],
       });
     });
 
-    expect(mocks.buildStudentsExportPdfBlob).toHaveBeenCalledWith(rowsFixture, expect.any(Date));
-    expect(mocks.downloadBlobFile).toHaveBeenCalledWith(
+    expect(mocks.downloadBase64File).toHaveBeenCalledWith(
       'reportes_estudiantes_20260307_1000.pdf',
-      expect.any(Blob),
+      'YmFzZTY0',
+      'application/pdf',
     );
   });
 
   it('shows message when there is no data to export', async () => {
-    mocks.listBulletinsStudentsForExport.mockResolvedValueOnce([]);
+    mocks.exportStudentsReport.mockRejectedValueOnce(new Error('No hay datos para exportar con los filtros aplicados.'));
     render(() => <ReportsStudentsPage />);
     await screen.findByRole('cell', { name: 'Ana Pérez' });
 
     fireEvent.click(screen.getByRole('button', { name: 'Exportar' }));
 
     expect(await screen.findByText('No hay datos para exportar con los filtros aplicados.')).toBeInTheDocument();
-    expect(mocks.buildStudentsExportPdfBlob).not.toHaveBeenCalled();
-    expect(mocks.downloadBlobFile).not.toHaveBeenCalled();
+    expect(mocks.downloadBase64File).not.toHaveBeenCalled();
+  });
+
+  it('aggregates distinct students by year when the chart grouping switches', async () => {
+    mocks.listBulletinStudentFormOptions.mockResolvedValue({
+      bulletins: [{ id: 'b1', label: 'Académico: Notas de periodo' }],
+      students: [{ id: 's1', label: '1001 (Ana Pérez)', documentId: '1001' }],
+      grades: [
+        { id: 'g1', label: 'Grado 1' },
+        { id: 'g2', label: 'Grado 2' },
+      ],
+      semesters: [
+        { id: 'sem2024', label: '2024-2', years: [2024] },
+        { id: 'semCross', label: '2025-2026', years: [2026, 2025] },
+        { id: 'sem2026', label: '2026-1', years: [2026] },
+      ],
+      years: [
+        { id: '2026', label: '2026' },
+        { id: '2025', label: '2025' },
+        { id: '2024', label: '2024' },
+      ],
+    });
+    mocks.listBulletinStudentsAnalyticsRecords.mockResolvedValue([
+      { student_id: 'sA', grade_id: 'g1', semester_id: 'semCross' },
+      { student_id: 'sA', grade_id: 'g1', semester_id: 'sem2026' },
+      { student_id: 'sB', grade_id: 'g2', semester_id: 'semCross' },
+      { student_id: 'sC', grade_id: 'g2', semester_id: 'sem2024' },
+    ]);
+
+    render(() => <ReportsStudentsPage />);
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Año' }));
+
+    await waitFor(() => {
+      const byYear = findChartConfigByLabel('Estudiantes (por año)') as {
+        data: { labels: string[]; datasets: Array<{ data: number[] }> };
+      };
+      expect(byYear).toBeDefined();
+      expect(byYear.data.labels).toEqual(['2026', '2025', '2024']);
+      expect(byYear.data.datasets[0]?.data).toEqual([2, 2, 1]);
+    });
   });
 
   it('blocks create submission for invalid note values', async () => {

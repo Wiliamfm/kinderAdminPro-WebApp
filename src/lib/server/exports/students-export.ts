@@ -155,6 +155,7 @@ function createStudentsExportPdf(records: BulletinStudentRecord[], generatedAt: 
 export type StudentsExportOptions = {
   gradeId?: string;
   semesterId?: string;
+  semesterIds?: string[];
   studentIds?: string[];
 };
 
@@ -168,6 +169,7 @@ export async function exportStudentsReport(options: StudentsExportOptions = {}):
   const records = await listBulletinsStudentsForExport({
     gradeId: options.gradeId,
     semesterId: options.semesterId,
+    semesterIds: options.semesterIds,
     studentIds: options.studentIds,
   });
 
