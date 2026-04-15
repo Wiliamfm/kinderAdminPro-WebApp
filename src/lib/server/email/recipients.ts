@@ -36,6 +36,15 @@ function toBooleanValue(value: unknown): boolean {
   return value === true;
 }
 
+function hasLegacyAdminFlag(record: Record<string, unknown> & { get?: (key: string) => unknown }): boolean {
+  if (toBooleanValue(record.get?.('is_admin') ?? record.is_admin)) {
+    return true;
+  }
+
+  const roles = record.get?.('roles') ?? record.roles;
+  return Array.isArray(roles) && roles.some((role) => toStringValue(role) === 'admin');
+}
+
 export function normalizeSource(rawSource: unknown): Source | null {
   const source = rawSource as Record<string, unknown> | undefined;
   if (!source) return null;
@@ -125,6 +134,19 @@ async function findEmployeeRecord(employeeId: string) {
   try {
     const record = await pb.collection('employees').getOne(employeeId, {
       requestKey: `email-recipient-employee-${employeeId}`,
+    });
+    return record;
+  } catch {
+    return null;
+  }
+}
+
+async function findAdminUserRecord(userId: string) {
+  const pb = await getAuthenticatedPb();
+  try {
+    const record = await pb.collection('users').getOne(userId, {
+      requestKey: `email-recipient-admin-user-${userId}`,
+      fields: 'id,name,email,is_admin,roles',
     });
     return record;
   } catch {
@@ -223,24 +245,36 @@ export async function resolveRecipientSnapshot(
 
   if (recipient.recipientType === 'employee') {
     const employee = await findEmployeeRecord(recipient.recipientId);
-    if (!employee || !toBooleanValue(employee.active)) {
+    if (employee && toBooleanValue(employee.active)) {
       return {
-        ok: false,
-        data: createFallbackSnapshot(
-          recipient,
-          'skipped',
-          'El empleado ya no está activo o no existe.',
-        ),
+        ok: true,
+        data: {
+          ...createFallbackSnapshot(recipient, 'pending', ''),
+          recipientName: toStringValue(employee.name) || recipient.recipientName,
+          recipientEmail: toStringValue(employee.email) || recipient.recipientEmail,
+        },
+      };
+    }
+
+    const adminUser = await findAdminUserRecord(recipient.recipientId);
+    if (adminUser && hasLegacyAdminFlag(adminUser as Record<string, unknown> & { get?: (key: string) => unknown })) {
+      return {
+        ok: true,
+        data: {
+          ...createFallbackSnapshot(recipient, 'pending', ''),
+          recipientName: toStringValue(adminUser.name) || recipient.recipientName,
+          recipientEmail: toStringValue(adminUser.email) || recipient.recipientEmail,
+        },
       };
     }
 
     return {
-      ok: true,
-      data: {
-        ...createFallbackSnapshot(recipient, 'pending', ''),
-        recipientName: toStringValue(employee.name) || recipient.recipientName,
-        recipientEmail: toStringValue(employee.email) || recipient.recipientEmail,
-      },
+      ok: false,
+      data: createFallbackSnapshot(
+        recipient,
+        'skipped',
+        'El empleado o administrador ya no está disponible.',
+      ),
     };
   }
 

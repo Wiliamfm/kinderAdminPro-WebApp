@@ -394,7 +394,7 @@ export default function RegisterPage() {
                   </label>
 
                   <label class="block">
-                    <span class="text-sm font-medium text-gray-700">Peso</span>
+                    <span class="text-sm font-medium text-gray-700">Peso (kg)</span>
                     <input
                       class="mt-2 w-full rounded-xl border border-yellow-300 bg-white px-4 py-3"
                       type="text"
@@ -406,7 +406,7 @@ export default function RegisterPage() {
                   </label>
 
                   <label class="block">
-                    <span class="text-sm font-medium text-gray-700">Altura</span>
+                    <span class="text-sm font-medium text-gray-700">Altura (cm)</span>
                     <input
                       class="mt-2 w-full rounded-xl border border-yellow-300 bg-white px-4 py-3"
                       type="text"

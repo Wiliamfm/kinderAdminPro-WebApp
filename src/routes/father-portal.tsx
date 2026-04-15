@@ -21,7 +21,6 @@ import {
 } from '../lib/forms/student-registration';
 import { type BulletinStudentRecord } from '../lib/pocketbase/bulletins-students';
 import {
-  resolveEmployeeRecipients,
   sendEventEmail,
 } from '../lib/pocketbase/event-email-messaging';
 import { type EmployeeRecord, listActiveEmployees } from '../lib/pocketbase/employees';
@@ -35,10 +34,15 @@ import {
   type FatherStudentRecord,
   type FatherStudentStatus,
 } from '../lib/pocketbase/father-portal';
+import { type AppUserRecord, listAppUsers } from '../lib/pocketbase/users';
 import { canAccessModule } from '../lib/pocketbase/auth';
 import { downloadBase64File } from '../lib/reports/download';
 import { exportFatherStudentReport } from '../lib/server/exports/father-student-report';
 import { getAuthenticatedPbWithUserId } from '../lib/server/get-authenticated-pb';
+import {
+  buildEmailRecipientKey,
+  type ResolvedEmailRecipient,
+} from '../lib/event-email-messaging';
 
 type BulletinGroup = {
   key: string;
@@ -50,6 +54,11 @@ type BulletinGroup = {
 type FatherContactProfile = {
   fullName: string;
   email: string;
+};
+
+type ContactRecipientOption = ResolvedEmailRecipient & {
+  selectionValue: string;
+  optionLabel: string;
 };
 
 function formatText(value: unknown, fallback = '—'): string {
@@ -127,6 +136,62 @@ function buildContactSubjectPrefix(profile: FatherContactProfile | undefined): s
   return `${base || 'Acudiente'}:`;
 }
 
+function buildContactRecipientOptions(
+  employees: EmployeeRecord[],
+  appUsers: AppUserRecord[],
+): ContactRecipientOption[] {
+  const employeeUserIds = new Set(
+    employees
+      .map((employee) => employee.userId.trim())
+      .filter((userId) => userId.length > 0),
+  );
+
+  const options: ContactRecipientOption[] = employees.map((employee) => ({
+    key: buildEmailRecipientKey('employee', employee.id),
+    selectionValue: buildEmailRecipientKey('employee', employee.id),
+    recipientType: 'employee',
+    recipientId: employee.id,
+    recipientName: employee.name,
+    recipientEmail: employee.email.trim(),
+    hasEmail: employee.email.trim().length > 0,
+    sources: [{
+      kind: 'employee',
+      id: employee.id,
+      label: employee.name,
+    }],
+    optionLabel: `${employee.name} - ${employee.email || 'Sin correo'}`,
+  }));
+
+  for (const user of appUsers) {
+    if (!user.roles.includes('admin') || employeeUserIds.has(user.id)) {
+      continue;
+    }
+
+    const displayName = user.name.trim() || user.email.trim() || user.id;
+    const email = user.email.trim();
+
+    options.push({
+      key: buildEmailRecipientKey('employee', user.id),
+      selectionValue: buildEmailRecipientKey('employee', user.id),
+      recipientType: 'employee',
+      recipientId: user.id,
+      recipientName: displayName,
+      recipientEmail: email,
+      hasEmail: email.length > 0,
+      sources: [{
+        kind: 'employee',
+        id: user.id,
+        label: displayName,
+      }],
+      optionLabel: `${displayName} - ${email || 'Sin correo'}`,
+    });
+  }
+
+  return options.sort((left, right) => (
+    left.optionLabel.localeCompare(right.optionLabel, 'es-CO', { sensitivity: 'base' })
+  ));
+}
+
 async function getFatherContactProfile(): Promise<FatherContactProfile> {
   "use server";
 
@@ -171,7 +236,7 @@ export default function FatherPortalPage() {
   const [successMessage, setSuccessMessage] = createSignal<string | null>(null);
   const [registrationOpen, setRegistrationOpen] = createSignal(false);
   const [contactModalOpen, setContactModalOpen] = createSignal(false);
-  const [selectedEmployeeIds, setSelectedEmployeeIds] = createSignal<string[]>([]);
+  const [selectedRecipientIds, setSelectedRecipientIds] = createSignal<string[]>([]);
   const [subjectInput, setSubjectInput] = createSignal('');
   const [bodyText, setBodyText] = createSignal('');
   const [sendBusy, setSendBusy] = createSignal(false);
@@ -204,9 +269,12 @@ export default function FatherPortalPage() {
     () => (contactModalOpen() ? true : undefined),
     () => getFatherContactProfile(),
   );
-  const [contactEmployees] = createResource(
+  const [contactRecipients] = createResource(
     () => (contactModalOpen() ? true : undefined),
-    () => listActiveEmployees(),
+    async () => buildContactRecipientOptions(
+      await listActiveEmployees(),
+      await listAppUsers(),
+    ),
   );
 
   const isExpanded = (studentId: string) => expandedIds().includes(studentId);
@@ -225,15 +293,19 @@ export default function FatherPortalPage() {
       return getErrorMessage(fatherContact.error);
     }
 
-    if (contactEmployees.error) {
-      return getErrorMessage(contactEmployees.error);
+    if (contactRecipients.error) {
+      return getErrorMessage(contactRecipients.error);
     }
 
     return null;
   });
   const contactSubjectPrefix = createMemo(() => buildContactSubjectPrefix(fatherContact()));
+  const selectedContactRecipients = createMemo(() => {
+    const selectedIds = new Set(selectedRecipientIds());
+    return (contactRecipients() ?? []).filter((recipient) => selectedIds.has(recipient.selectionValue));
+  });
   const selectedEmployeesError = createMemo(() => (
-    selectedEmployeeIds().length === 0 ? 'Selecciona al menos un destinatario.' : undefined
+    selectedContactRecipients().length === 0 ? 'Selecciona al menos un destinatario.' : undefined
   ));
   const subjectInputError = createMemo(() => (
     subjectInput().trim().length === 0 ? 'Escribe un asunto.' : undefined
@@ -244,7 +316,7 @@ export default function FatherPortalPage() {
   const canSendContactMessage = createMemo(() => (
     !sendBusy()
     && !fatherContact.loading
-    && !contactEmployees.loading
+    && !contactRecipients.loading
     && !contactLoadError()
     && !selectedEmployeesError()
     && !subjectInputError()
@@ -265,7 +337,7 @@ export default function FatherPortalPage() {
     setDocumentValidationBusy(false);
   };
   const resetContactState = (options: { clearFeedback?: boolean } = {}) => {
-    setSelectedEmployeeIds([]);
+    setSelectedRecipientIds([]);
     setSubjectInput('');
     setBodyText('');
 
@@ -484,7 +556,7 @@ export default function FatherPortalPage() {
     setSendBusy(true);
 
     try {
-      const recipients = await resolveEmployeeRecipients(selectedEmployeeIds());
+      const recipients = selectedContactRecipients();
 
       if (recipients.length === 0) {
         setActionError('No se pudieron resolver los destinatarios seleccionados.');
@@ -784,7 +856,7 @@ export default function FatherPortalPage() {
       <Modal
         open={contactModalOpen()}
         title="Contactar administradores y profesores"
-        description="Selecciona uno o más empleados activos y escribe el mensaje que quieres enviar."
+        description="Selecciona uno o más administradores o profesores y escribe el mensaje que quieres enviar."
         confirmLabel="Enviar"
         busy={sendBusy()}
         size="xl"
@@ -828,31 +900,31 @@ export default function FatherPortalPage() {
             )}
           </Show>
 
-          <label class="block" for="father-contact-employees">
-            <span class="text-sm font-medium text-gray-700">Empleados</span>
+          <label class="block" for="father-contact-recipients">
+            <span class="text-sm font-medium text-gray-700">Destinatarios</span>
             <select
-              id="father-contact-employees"
-              aria-label="Empleados"
+              id="father-contact-recipients"
+              aria-label="Destinatarios"
               multiple
               size="8"
               class="mt-2 w-full rounded-xl border border-yellow-300 bg-white px-4 py-3 text-sm"
-              disabled={contactEmployees.loading || Boolean(contactLoadError()) || sendBusy()}
+              disabled={contactRecipients.loading || Boolean(contactLoadError()) || sendBusy()}
               onChange={(event) => {
-                setSelectedEmployeeIds(readSelectedValues(event.currentTarget));
+                setSelectedRecipientIds(readSelectedValues(event.currentTarget));
                 setActionError(null);
               }}
             >
-              <For each={contactEmployees() ?? []}>
-                {(employee: EmployeeRecord) => (
-                  <option value={employee.id}>
-                    {employee.name} - {employee.email || 'Sin correo'}
+              <For each={contactRecipients() ?? []}>
+                {(recipient) => (
+                  <option value={recipient.selectionValue}>
+                    {recipient.optionLabel}
                   </option>
                 )}
               </For>
             </select>
             <Show
-              when={!contactEmployees.loading}
-              fallback={<p class="mt-2 text-xs text-gray-500">Cargando empleados activos...</p>}
+              when={!contactRecipients.loading}
+              fallback={<p class="mt-2 text-xs text-gray-500">Cargando destinatarios...</p>}
             >
               <p class="mt-2 text-xs text-gray-500">
                 Mantén presionada la tecla Ctrl o Cmd para seleccionar varios destinatarios.

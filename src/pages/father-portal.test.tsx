@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => {
       })),
     },
     listActiveEmployees: vi.fn(),
-    resolveEmployeeRecipients: vi.fn(),
+    listAppUsers: vi.fn(),
     sendEventEmail: vi.fn(),
     listPublicGrades: vi.fn(),
     checkFatherStudentDocumentIdAvailable: vi.fn(),
@@ -51,8 +51,11 @@ vi.mock('../lib/pocketbase/employees', () => ({
   listActiveEmployees: mocks.listActiveEmployees,
 }));
 
+vi.mock('../lib/pocketbase/users', () => ({
+  listAppUsers: mocks.listAppUsers,
+}));
+
 vi.mock('../lib/pocketbase/event-email-messaging', () => ({
-  resolveEmployeeRecipients: mocks.resolveEmployeeRecipients,
   sendEventEmail: mocks.sendEventEmail,
 }));
 
@@ -133,31 +136,39 @@ describe('FatherPortalPage', () => {
         name: 'Ana Gómez',
         documentId: '1001',
         email: 'ana@example.com',
+        userId: 'user-emp1',
       },
       {
         id: 'emp2',
         name: 'Carlos Ruiz',
         documentId: '1002',
         email: 'carlos@example.com',
+        userId: 'user-emp2',
       },
     ]);
-    mocks.resolveEmployeeRecipients.mockImplementation(async (employeeIds: string[]) => (
-      employeeIds
-        .filter((employeeId) => employeeId === 'emp1' || employeeId === 'emp2')
-        .map((employeeId) => ({
-          key: `employee:${employeeId}`,
-          recipientType: 'employee',
-          recipientId: employeeId,
-          recipientName: employeeId === 'emp1' ? 'Ana Gómez' : 'Carlos Ruiz',
-          recipientEmail: employeeId === 'emp1' ? 'ana@example.com' : 'carlos@example.com',
-          hasEmail: true,
-          sources: [{
-            kind: 'employee',
-            id: employeeId,
-            label: employeeId === 'emp1' ? 'Ana Gómez' : 'Carlos Ruiz',
-          }],
-        }))
-    ));
+    mocks.listAppUsers.mockResolvedValue([
+      {
+        id: 'admin1',
+        name: 'Marta Admin',
+        email: 'marta@example.com',
+        roles: ['admin'],
+        verified: true,
+      },
+      {
+        id: 'user-emp1',
+        name: 'Ana Gómez',
+        email: 'ana@example.com',
+        roles: ['admin'],
+        verified: true,
+      },
+      {
+        id: 'father1',
+        name: 'Pedro Father',
+        email: 'pedro@example.com',
+        roles: ['father'],
+        verified: true,
+      },
+    ]);
     mocks.sendEventEmail.mockResolvedValue({
       messageId: 'msg-1',
       totalResolved: 1,
@@ -306,7 +317,7 @@ describe('FatherPortalPage', () => {
     expect(mocks.submitFatherStudentRegistration).not.toHaveBeenCalled();
   });
 
-  it('opens the contact modal and loads father data plus employees', async () => {
+  it('opens the contact modal and loads father data plus recipients', async () => {
     render(() => <FatherPortalPage />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Contactar' }));
@@ -316,11 +327,15 @@ describe('FatherPortalPage', () => {
     await waitFor(() => {
       expect(mocks.getAuthenticatedPbWithUserId).toHaveBeenCalled();
       expect(mocks.listActiveEmployees).toHaveBeenCalled();
+      expect(mocks.listAppUsers).toHaveBeenCalled();
     });
 
     expect(await screen.findByText('laura@example.com - Laura Tutor:')).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Ana Gómez - ana@example.com' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Carlos Ruiz - carlos@example.com' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Marta Admin - marta@example.com' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Pedro Father - pedro@example.com' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('option', { name: 'Ana Gómez - ana@example.com' })).toHaveLength(1);
   });
 
   it('keeps contact send disabled until recipients, subject, and body are provided', async () => {
@@ -329,14 +344,17 @@ describe('FatherPortalPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Contactar' }));
 
     const sendButton = await screen.findByRole('button', { name: 'Enviar' });
-    const employeesSelect = screen.getByLabelText('Empleados') as HTMLSelectElement;
+    const recipientsSelect = screen.getByLabelText('Destinatarios') as HTMLSelectElement;
     const subjectInput = screen.getByLabelText('Asunto');
     const bodyInput = screen.getByLabelText('Mensaje');
 
     expect(sendButton).toBeDisabled();
 
-    employeesSelect.options[0]!.selected = true;
-    fireEvent.change(employeesSelect);
+    await waitFor(() => {
+      expect(recipientsSelect.options.length).toBeGreaterThan(0);
+    });
+    recipientsSelect.options[0]!.selected = true;
+    fireEvent.change(recipientsSelect);
     expect(sendButton).toBeDisabled();
 
     fireEvent.input(subjectInput, { target: { value: 'Necesito información' } });
@@ -360,9 +378,12 @@ describe('FatherPortalPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Contactar' }));
 
-    const employeesSelect = await screen.findByLabelText('Empleados') as HTMLSelectElement;
-    employeesSelect.options[0]!.selected = true;
-    fireEvent.change(employeesSelect);
+    const recipientsSelect = await screen.findByLabelText('Destinatarios') as HTMLSelectElement;
+    await waitFor(() => {
+      expect(recipientsSelect.options.length).toBeGreaterThan(0);
+    });
+    recipientsSelect.options[0]!.selected = true;
+    fireEvent.change(recipientsSelect);
     fireEvent.input(screen.getByLabelText('Asunto'), { target: { value: 'Solicitud de reunión' } });
     fireEvent.input(screen.getByLabelText('Mensaje'), { target: { value: 'Necesito una reunión esta semana.' } });
 
@@ -374,20 +395,20 @@ describe('FatherPortalPage', () => {
     fireEvent.click(sendButton);
 
     await waitFor(() => {
-      expect(mocks.resolveEmployeeRecipients).toHaveBeenCalledWith(['emp1']);
       expect(mocks.sendEventEmail).toHaveBeenCalledWith({
         subject: 'laura@example.com - Laura Tutor: Solicitud de reunión',
         bodyText: 'Necesito una reunión esta semana.',
         recipients: [
-          {
+          expect.objectContaining({
             key: 'employee:emp1',
+            selectionValue: 'employee:emp1',
             recipientType: 'employee',
             recipientId: 'emp1',
             recipientName: 'Ana Gómez',
             recipientEmail: 'ana@example.com',
             hasEmail: true,
             sources: [{ kind: 'employee', id: 'emp1', label: 'Ana Gómez' }],
-          },
+          }),
         ],
       });
     });
@@ -406,9 +427,12 @@ describe('FatherPortalPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Contactar' }));
 
-    const employeesSelect = await screen.findByLabelText('Empleados') as HTMLSelectElement;
-    employeesSelect.options[0]!.selected = true;
-    fireEvent.change(employeesSelect);
+    const recipientsSelect = await screen.findByLabelText('Destinatarios') as HTMLSelectElement;
+    await waitFor(() => {
+      expect(recipientsSelect.options.length).toBeGreaterThan(0);
+    });
+    recipientsSelect.options[0]!.selected = true;
+    fireEvent.change(recipientsSelect);
     fireEvent.input(screen.getByLabelText('Asunto'), { target: { value: 'Seguimiento' } });
     fireEvent.input(screen.getByLabelText('Mensaje'), { target: { value: 'Necesito un seguimiento del caso.' } });
 
