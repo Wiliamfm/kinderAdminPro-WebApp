@@ -3,6 +3,7 @@ import { createEffect, createMemo, createResource, createSignal, For, Show } fro
 import { canAccessModule, getAuthUserId } from '../../../lib/pocketbase/auth';
 import {
   createBulletinStudent,
+  deriveYearsFromDateRange,
   listBulletinStudentsByStudentAndGrade,
   updateBulletinStudent,
   type BulletinStudentRecord,
@@ -11,7 +12,7 @@ import { listBulletinsByGradeId, type BulletinRecord } from '../../../lib/pocket
 import type { PocketBaseRequestError } from '../../../lib/pocketbase/errors';
 import { getEmployeeByUserId } from '../../../lib/pocketbase/employees';
 import { listGradesByEmployeeId } from '../../../lib/pocketbase/grades';
-import { getCurrentSemester } from '../../../lib/pocketbase/semesters';
+import { getCurrentSemester, listSemesterOptions } from '../../../lib/pocketbase/semesters';
 import { getStudentById } from '../../../lib/pocketbase/students';
 
 type EditingState = {
@@ -106,6 +107,46 @@ export default function ProfessorStudentDetailPage() {
     (employeeId) => listGradesByEmployeeId(employeeId),
   );
 
+  const [allSemesters] = createResource(listSemesterOptions);
+
+  const semesterYearsMap = createMemo(() => {
+    const semesters = allSemesters() ?? [];
+    const map = new Map<string, number[]>();
+    for (const semester of semesters) {
+      map.set(semester.id, deriveYearsFromDateRange(semester.start_date, semester.end_date));
+    }
+    return map;
+  });
+
+  const yearOptions = createMemo(() => {
+    const semesters = allSemesters() ?? [];
+    const allYears = new Set<number>();
+    for (const semester of semesters) {
+      for (const year of deriveYearsFromDateRange(semester.start_date, semester.end_date)) {
+        allYears.add(year);
+      }
+    }
+    return [...allYears].sort((a, b) => b - a);
+  });
+
+  const [selectedYear, setSelectedYear] = createSignal<number | null>(null);
+
+  createEffect(() => {
+    if (selectedYear() !== null) return;
+    const semester = currentSemester();
+    if (semester) {
+      const years = deriveYearsFromDateRange(semester.start_date, semester.end_date);
+      if (years.length > 0) {
+        setSelectedYear(years[0]);
+        return;
+      }
+    }
+    const options = yearOptions();
+    if (options.length > 0) {
+      setSelectedYear(options[0]);
+    }
+  });
+
   const [detailData] = createResource(
     () => {
       const studentRecord = student();
@@ -151,11 +192,23 @@ export default function ProfessorStudentDetailPage() {
     }
   });
 
+  const semesterBelongsToYear = (semesterId: string, year: number): boolean => {
+    const years = semesterYearsMap().get(semesterId);
+    return years ? years.includes(year) : false;
+  };
+
+  const isCurrentYearSelected = createMemo(() => {
+    const semester = currentSemester();
+    const year = selectedYear();
+    if (!semester || year === null) return false;
+    return semesterBelongsToYear(semester.id, year);
+  });
+
   const currentEntryByBulletinId = createMemo(() => {
     const semesterId = currentSemester()?.id;
     const lookup = new Map<string, BulletinStudentRecord>();
 
-    if (!semesterId) return lookup;
+    if (!semesterId || !isCurrentYearSelected()) return lookup;
 
     for (const entry of entries()) {
       if (entry.semester_id === semesterId && !lookup.has(entry.bulletin_id)) {
@@ -168,8 +221,22 @@ export default function ProfessorStudentDetailPage() {
 
   const historyEntries = createMemo(() => {
     const semesterId = currentSemester()?.id;
+    const year = selectedYear();
+    if (year === null) return [];
     return [...entries()]
-      .filter((entry) => !semesterId || entry.semester_id !== semesterId)
+      .filter((entry) => {
+        if (!semesterBelongsToYear(entry.semester_id, year)) return false;
+        if (isCurrentYearSelected() && semesterId) return entry.semester_id !== semesterId;
+        return true;
+      })
+      .sort(sortByCreatedAtDesc);
+  });
+
+  const allYearEntries = createMemo(() => {
+    const year = selectedYear();
+    if (year === null) return [];
+    return [...entries()]
+      .filter((entry) => semesterBelongsToYear(entry.semester_id, year))
       .sort(sortByCreatedAtDesc);
   });
 
@@ -179,10 +246,11 @@ export default function ProfessorStudentDetailPage() {
     ?? student.error
     ?? currentSemester.error
     ?? detailData.error
+    ?? allSemesters.error
   ));
 
   const isLoading = createMemo(() => {
-    if (employee.loading || student.loading || currentSemester.loading) return true;
+    if (employee.loading || student.loading || currentSemester.loading || allSemesters.loading) return true;
     if (employee() && grades.loading) return true;
     if (student() && detailData.loading) return true;
     return false;
@@ -310,169 +378,227 @@ export default function ProfessorStudentDetailPage() {
                       </div>
                     </div>
 
-                    <Show when={!currentSemester()}>
-                      <div class="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                        No hay un trimestre activo configurado. Puedes consultar la información, pero las acciones de agregar y editar están deshabilitadas.
+                    <Show when={yearOptions().length > 0}>
+                      <div class="mt-4 flex items-center gap-3">
+                        <label for="year-select" class="text-sm font-semibold text-gray-700">Año:</label>
+                        <select
+                          id="year-select"
+                          class="rounded-lg border border-yellow-300 bg-yellow-50 px-3 py-2 text-sm text-gray-800"
+                          value={selectedYear() ?? ''}
+                          onChange={(event) => {
+                            const value = Number(event.currentTarget.value);
+                            setSelectedYear(Number.isFinite(value) ? value : null);
+                            cancelEditing();
+                          }}
+                        >
+                          <For each={yearOptions()}>
+                            {(year) => <option value={year}>{year}</option>}
+                          </For>
+                        </select>
                       </div>
                     </Show>
 
-                    <div class="mt-6 overflow-x-auto rounded-lg border border-yellow-200">
-                      <table class="min-w-[760px] w-full text-left text-sm">
-                        <thead class="bg-yellow-100 text-gray-700">
-                          <tr>
-                            <th class="px-4 py-3 font-semibold">Boletín</th>
-                            <th class="px-4 py-3 font-semibold">Nota</th>
-                            <th class="px-4 py-3 font-semibold">Comentarios</th>
-                            <th class="px-4 py-3 font-semibold">Acción</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <Show
-                            when={(detailData()?.bulletins ?? []).length > 0}
-                            fallback={
-                              <tr class="border-t border-yellow-100">
-                                <td class="px-4 py-4 text-gray-600" colSpan={4}>
-                                  No hay boletines configurados para este grado.
-                                </td>
-                              </tr>
-                            }
-                          >
-                            <For each={detailData()?.bulletins ?? []}>
-                              {(bulletin) => {
-                                const currentEntry = () => currentEntryByBulletinId().get(bulletin.id);
-                                const isEditing = () => editing()?.bulletinId === bulletin.id;
-                                const isSaving = () => savingBulletinId() === bulletin.id;
+                    <Show when={isCurrentYearSelected()}>
+                      <Show when={!currentSemester()}>
+                        <div class="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                          No hay un trimestre activo configurado. Puedes consultar la información, pero las acciones de agregar y editar están deshabilitadas.
+                        </div>
+                      </Show>
 
-                                return (
-                                  <tr class="border-t border-yellow-100 align-top">
-                                    <td class="px-4 py-3 font-medium text-gray-800">{formatText(bulletin.description)}</td>
-                                    <td class="px-4 py-3">
-                                      <Show
-                                        when={isEditing()}
-                                        fallback={<span>{formatNote(currentEntry()?.note ?? '')}</span>}
-                                      >
-                                        <div class="space-y-2">
-                                          <input
-                                            aria-label={`Nota para ${bulletin.description}`}
-                                            class="w-full rounded-lg border border-gray-300 px-3 py-2"
-                                            type="number"
-                                            min="0"
-                                            max="10"
-                                            step="0.1"
-                                            value={editing()?.note ?? ''}
+                      <div class="mt-6 overflow-x-auto rounded-lg border border-yellow-200">
+                        <table class="min-w-[760px] w-full text-left text-sm">
+                          <thead class="bg-yellow-100 text-gray-700">
+                            <tr>
+                              <th class="px-4 py-3 font-semibold">Boletín</th>
+                              <th class="px-4 py-3 font-semibold">Nota</th>
+                              <th class="px-4 py-3 font-semibold">Comentarios</th>
+                              <th class="px-4 py-3 font-semibold">Acción</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <Show
+                              when={(detailData()?.bulletins ?? []).length > 0}
+                              fallback={
+                                <tr class="border-t border-yellow-100">
+                                  <td class="px-4 py-4 text-gray-600" colSpan={4}>
+                                    No hay boletines configurados para este grado.
+                                  </td>
+                                </tr>
+                              }
+                            >
+                              <For each={detailData()?.bulletins ?? []}>
+                                {(bulletin) => {
+                                  const currentEntry = () => currentEntryByBulletinId().get(bulletin.id);
+                                  const isEditing = () => editing()?.bulletinId === bulletin.id;
+                                  const isSaving = () => savingBulletinId() === bulletin.id;
+
+                                  return (
+                                    <tr class="border-t border-yellow-100 align-top">
+                                      <td class="px-4 py-3 font-medium text-gray-800">{formatText(bulletin.description)}</td>
+                                      <td class="px-4 py-3">
+                                        <Show
+                                          when={isEditing()}
+                                          fallback={<span>{formatNote(currentEntry()?.note ?? '')}</span>}
+                                        >
+                                          <div class="space-y-2">
+                                            <input
+                                              aria-label={`Nota para ${bulletin.description}`}
+                                              class="w-full rounded-lg border border-gray-300 px-3 py-2"
+                                              type="number"
+                                              min="0"
+                                              max="10"
+                                              step="0.1"
+                                              value={editing()?.note ?? ''}
+                                              onInput={(event) => {
+                                                setEditing((current) => (current && current.bulletinId === bulletin.id
+                                                  ? { ...current, note: event.currentTarget.value }
+                                                  : current));
+                                                setRowError(null);
+                                              }}
+                                            />
+                                            <p class="text-xs text-gray-500">Rango permitido: 0 a 10.</p>
+                                          </div>
+                                        </Show>
+                                      </td>
+                                      <td class="px-4 py-3">
+                                        <Show
+                                          when={isEditing()}
+                                          fallback={<span>{formatText(currentEntry()?.comments ?? '')}</span>}
+                                        >
+                                          <textarea
+                                            aria-label={`Comentarios para ${bulletin.description}`}
+                                            class="min-h-24 w-full rounded-lg border border-gray-300 px-3 py-2"
+                                            value={editing()?.comments ?? ''}
                                             onInput={(event) => {
                                               setEditing((current) => (current && current.bulletinId === bulletin.id
-                                                ? { ...current, note: event.currentTarget.value }
+                                                ? { ...current, comments: event.currentTarget.value }
                                                 : current));
                                               setRowError(null);
                                             }}
                                           />
-                                          <p class="text-xs text-gray-500">Rango permitido: 0 a 10.</p>
-                                        </div>
-                                      </Show>
-                                    </td>
-                                    <td class="px-4 py-3">
-                                      <Show
-                                        when={isEditing()}
-                                        fallback={<span>{formatText(currentEntry()?.comments ?? '')}</span>}
-                                      >
-                                        <textarea
-                                          aria-label={`Comentarios para ${bulletin.description}`}
-                                          class="min-h-24 w-full rounded-lg border border-gray-300 px-3 py-2"
-                                          value={editing()?.comments ?? ''}
-                                          onInput={(event) => {
-                                            setEditing((current) => (current && current.bulletinId === bulletin.id
-                                              ? { ...current, comments: event.currentTarget.value }
-                                              : current));
-                                            setRowError(null);
-                                          }}
-                                        />
-                                      </Show>
-                                      <Show when={isEditing() && rowError()}>
-                                        <p class="mt-2 text-sm text-red-700">{rowError()}</p>
-                                      </Show>
-                                    </td>
-                                    <td class="px-4 py-3">
-                                      <Show
-                                        when={!isEditing()}
-                                        fallback={
-                                          <div class="flex flex-wrap gap-2">
-                                            <button
-                                              type="button"
-                                              class="rounded-lg bg-yellow-600 px-3 py-2 text-white transition-colors hover:bg-yellow-700 disabled:cursor-not-allowed disabled:bg-gray-300"
-                                              disabled={isSaving()}
-                                              onClick={() => void saveEditing(bulletin)}
-                                            >
-                                              {isSaving() ? 'Guardando...' : 'Guardar'}
-                                            </button>
-                                            <button
-                                              type="button"
-                                              class="rounded-lg border border-gray-300 px-3 py-2 text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
-                                              disabled={isSaving()}
-                                              onClick={cancelEditing}
-                                            >
-                                              Cancelar
-                                            </button>
-                                          </div>
-                                        }
-                                      >
-                                        <button
-                                          type="button"
-                                          class="rounded-lg bg-yellow-600 px-3 py-2 text-white transition-colors hover:bg-yellow-700 disabled:cursor-not-allowed disabled:bg-gray-300"
-                                          disabled={!currentSemester()}
-                                          onClick={() => startEditing(bulletin.id)}
+                                        </Show>
+                                        <Show when={isEditing() && rowError()}>
+                                          <p class="mt-2 text-sm text-red-700">{rowError()}</p>
+                                        </Show>
+                                      </td>
+                                      <td class="px-4 py-3">
+                                        <Show
+                                          when={!isEditing()}
+                                          fallback={
+                                            <div class="flex flex-wrap gap-2">
+                                              <button
+                                                type="button"
+                                                class="rounded-lg bg-yellow-600 px-3 py-2 text-white transition-colors hover:bg-yellow-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                                                disabled={isSaving()}
+                                                onClick={() => void saveEditing(bulletin)}
+                                              >
+                                                {isSaving() ? 'Guardando...' : 'Guardar'}
+                                              </button>
+                                              <button
+                                                type="button"
+                                                class="rounded-lg border border-gray-300 px-3 py-2 text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
+                                                disabled={isSaving()}
+                                                onClick={cancelEditing}
+                                              >
+                                                Cancelar
+                                              </button>
+                                            </div>
+                                          }
                                         >
-                                          {currentEntry() ? 'Editar' : 'Agregar'}
-                                        </button>
-                                      </Show>
-                                    </td>
-                                  </tr>
-                                );
-                              }}
-                            </For>
-                          </Show>
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <Show when={historyEntries().length > 0}>
-                      <section class="mt-6 rounded-lg border border-yellow-200">
-                        <button
-                          type="button"
-                          class="flex w-full items-center justify-between bg-yellow-100 px-4 py-3 text-left text-sm font-semibold text-gray-800"
-                          onClick={() => setHistoryOpen((current) => !current)}
-                        >
-                          <span>Historial de trimestres anteriores ({historyEntries().length})</span>
-                          <span>{historyOpen() ? 'Ocultar' : 'Mostrar'}</span>
-                        </button>
-
-                        <Show when={historyOpen()}>
-                          <div class="overflow-x-auto">
-                            <table class="min-w-[760px] w-full text-left text-sm">
-                              <thead class="bg-yellow-50 text-gray-700">
-                                <tr>
-                                  <th class="px-4 py-3 font-semibold">Boletín</th>
-                                  <th class="px-4 py-3 font-semibold">Nota</th>
-                                  <th class="px-4 py-3 font-semibold">Comentarios</th>
-                                  <th class="px-4 py-3 font-semibold">Trimestre</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                <For each={historyEntries()}>
-                                  {(entry) => (
-                                    <tr class="border-t border-yellow-100 align-top">
-                                      <td class="px-4 py-3">{formatText(entry.bulletin_description)}</td>
-                                      <td class="px-4 py-3">{formatNote(entry.note)}</td>
-                                      <td class="px-4 py-3">{formatText(entry.comments)}</td>
-                                      <td class="px-4 py-3">{formatText(entry.semester_name)}</td>
+                                          <button
+                                            type="button"
+                                            class="rounded-lg bg-yellow-600 px-3 py-2 text-white transition-colors hover:bg-yellow-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                                            disabled={!currentSemester()}
+                                            onClick={() => startEditing(bulletin.id)}
+                                          >
+                                            {currentEntry() ? 'Editar' : 'Agregar'}
+                                          </button>
+                                        </Show>
+                                      </td>
                                     </tr>
-                                  )}
-                                </For>
-                              </tbody>
-                            </table>
+                                  );
+                                }}
+                              </For>
+                            </Show>
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <Show when={historyEntries().length > 0}>
+                        <section class="mt-6 rounded-lg border border-yellow-200">
+                          <button
+                            type="button"
+                            class="flex w-full items-center justify-between bg-yellow-100 px-4 py-3 text-left text-sm font-semibold text-gray-800"
+                            onClick={() => setHistoryOpen((current) => !current)}
+                          >
+                            <span>Historial de trimestres anteriores ({historyEntries().length})</span>
+                            <span>{historyOpen() ? 'Ocultar' : 'Mostrar'}</span>
+                          </button>
+
+                          <Show when={historyOpen()}>
+                            <div class="overflow-x-auto">
+                              <table class="min-w-[760px] w-full text-left text-sm">
+                                <thead class="bg-yellow-50 text-gray-700">
+                                  <tr>
+                                    <th class="px-4 py-3 font-semibold">Boletín</th>
+                                    <th class="px-4 py-3 font-semibold">Nota</th>
+                                    <th class="px-4 py-3 font-semibold">Comentarios</th>
+                                    <th class="px-4 py-3 font-semibold">Trimestre</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <For each={historyEntries()}>
+                                    {(entry) => (
+                                      <tr class="border-t border-yellow-100 align-top">
+                                        <td class="px-4 py-3">{formatText(entry.bulletin_description)}</td>
+                                        <td class="px-4 py-3">{formatNote(entry.note)}</td>
+                                        <td class="px-4 py-3">{formatText(entry.comments)}</td>
+                                        <td class="px-4 py-3">{formatText(entry.semester_name)}</td>
+                                      </tr>
+                                    )}
+                                  </For>
+                                </tbody>
+                              </table>
+                            </div>
+                          </Show>
+                        </section>
+                      </Show>
+                    </Show>
+
+                    <Show when={!isCurrentYearSelected()}>
+                      <Show
+                        when={allYearEntries().length > 0}
+                        fallback={
+                          <div class="mt-6 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-gray-600">
+                            No hay registros para el año {selectedYear()}.
                           </div>
-                        </Show>
-                      </section>
+                        }
+                      >
+                        <div class="mt-6 overflow-x-auto rounded-lg border border-yellow-200">
+                          <table class="min-w-[760px] w-full text-left text-sm">
+                            <thead class="bg-yellow-100 text-gray-700">
+                              <tr>
+                                <th class="px-4 py-3 font-semibold">Boletín</th>
+                                <th class="px-4 py-3 font-semibold">Nota</th>
+                                <th class="px-4 py-3 font-semibold">Comentarios</th>
+                                <th class="px-4 py-3 font-semibold">Trimestre</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <For each={allYearEntries()}>
+                                {(entry) => (
+                                  <tr class="border-t border-yellow-100 align-top">
+                                    <td class="px-4 py-3">{formatText(entry.bulletin_description)}</td>
+                                    <td class="px-4 py-3">{formatNote(entry.note)}</td>
+                                    <td class="px-4 py-3">{formatText(entry.comments)}</td>
+                                    <td class="px-4 py-3">{formatText(entry.semester_name)}</td>
+                                  </tr>
+                                )}
+                              </For>
+                            </tbody>
+                          </table>
+                        </div>
+                      </Show>
                     </Show>
                   </>
                 )}
