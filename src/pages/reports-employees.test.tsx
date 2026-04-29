@@ -64,8 +64,8 @@ const rowsFixture = [
     employee_id: 'e1',
     employee_name: 'Ana Pérez',
     employee_document_id: '9001',
-    job_id: 'j1',
     job_name: 'Docente',
+    job_salary: 1000,
     semester_id: 'sem1',
     semester_name: '2026-1',
     comments: 'Excelente rendimiento',
@@ -92,7 +92,7 @@ const formOptionsFixture = {
     { id: 'e1', label: '9001 (Ana Pérez)', documentId: '9001' },
     { id: 'e2', label: '9002 (Luis Díaz)', documentId: '9002' },
   ],
-  jobs: [{ id: 'j1', label: 'Docente' }],
+  jobs: [{ name: 'Docente', salary: 1000 }],
   semesters: [{
     id: 'sem1',
     label: '2026-1',
@@ -103,8 +103,8 @@ const formOptionsFixture = {
 };
 
 const analyticsFixture = [
-  { employee_id: 'e1', job_id: 'j1', semester_id: 'sem1' },
-  { employee_id: 'e1', job_id: 'j1', semester_id: 'sem1' },
+  { employee_id: 'e1', job_name: 'Docente', semester_id: 'sem1' },
+  { employee_id: 'e1', job_name: 'Docente', semester_id: 'sem1' },
 ];
 
 const leaveAnalyticsFixture = [
@@ -171,7 +171,7 @@ describe('ReportsEmployeesPage', () => {
     expect(mocks.listEmployeeReportsPage).toHaveBeenCalledWith(1, 10, {
       sortField: 'created_at',
       sortDirection: 'desc',
-      jobId: '',
+      jobName: '',
       semesterId: '',
       employeeIds: [],
     });
@@ -181,9 +181,9 @@ describe('ReportsEmployeesPage', () => {
     mocks.listEmployeeReportFormOptions.mockResolvedValue({
       employees: [{ id: 'e1', label: '9001 (Ana Pérez)', documentId: '9001' }],
       jobs: [
-        { id: 'j1', label: 'Cargo 1' },
-        { id: 'j2', label: 'Cargo 2' },
-        { id: 'j3', label: 'Cargo 3' },
+        { name: 'Cargo 1', salary: 1000 },
+        { name: 'Cargo 2', salary: 1200 },
+        { name: 'Cargo 3', salary: 1400 },
       ],
       semesters: [
         { id: 'sem1', label: '2026-1', isCurrent: false, startDate: '2026-01-01T00:00:00.000Z', endDate: '2026-01-31T23:59:59.000Z' },
@@ -195,11 +195,11 @@ describe('ReportsEmployeesPage', () => {
       ],
     });
     mocks.listEmployeeReportsAnalyticsRecords.mockResolvedValue([
-      { employee_id: 'eA', job_id: 'j2', semester_id: 'sem3' },
-      { employee_id: 'eA', job_id: 'j2', semester_id: 'sem3' },
-      { employee_id: 'eB', job_id: 'j2', semester_id: 'sem3' },
-      { employee_id: 'eC', job_id: 'j3', semester_id: 'sem6' },
-      { employee_id: 'eD', job_id: 'j1', semester_id: 'sem1' },
+      { employee_id: 'eA', job_name: 'Cargo 2', semester_id: 'sem3' },
+      { employee_id: 'eA', job_name: 'Cargo 2', semester_id: 'sem3' },
+      { employee_id: 'eB', job_name: 'Cargo 2', semester_id: 'sem3' },
+      { employee_id: 'eC', job_name: 'Cargo 3', semester_id: 'sem6' },
+      { employee_id: 'eD', job_name: 'Cargo 1', semester_id: 'sem1' },
     ]);
 
     render(() => <ReportsEmployeesPage />);
@@ -228,9 +228,9 @@ describe('ReportsEmployeesPage', () => {
     mocks.listEmployeeReportFormOptions.mockResolvedValue({
       employees: [{ id: 'e1', label: '9001 (Ana Pérez)', documentId: '9001' }],
       jobs: [
-        { id: 'j1', label: 'Cargo 1' },
-        { id: 'j2', label: 'Cargo 2' },
-        { id: 'j3', label: 'Cargo 3' },
+        { name: 'Cargo 1', salary: 1000 },
+        { name: 'Cargo 2', salary: 1200 },
+        { name: 'Cargo 3', salary: 1400 },
       ],
       semesters: [
         { id: 'sem1', label: '2026-1', isCurrent: false, startDate: '2026-01-01T00:00:00.000Z', endDate: '2026-01-31T23:59:59.000Z' },
@@ -242,12 +242,12 @@ describe('ReportsEmployeesPage', () => {
       ],
     });
     mocks.listEmployeeReportsAnalyticsRecords.mockResolvedValue([
-      { employee_id: 'eA', job_id: 'j2', semester_id: 'sem3' },
-      { employee_id: 'eA', job_id: 'j2', semester_id: 'sem3' },
-      { employee_id: 'eB', job_id: 'j2', semester_id: 'sem3' },
-      { employee_id: 'eD', job_id: 'j1', semester_id: 'sem6' },
-      { employee_id: 'eC', job_id: 'j3', semester_id: 'sem6' },
-      { employee_id: 'eZ', job_id: 'j1', semester_id: 'sem1' },
+      { employee_id: 'eA', job_name: 'Cargo 2', semester_id: 'sem3' },
+      { employee_id: 'eA', job_name: 'Cargo 2', semester_id: 'sem3' },
+      { employee_id: 'eB', job_name: 'Cargo 2', semester_id: 'sem3' },
+      { employee_id: 'eD', job_name: 'Cargo 1', semester_id: 'sem6' },
+      { employee_id: 'eC', job_name: 'Cargo 3', semester_id: 'sem6' },
+      { employee_id: 'eZ', job_name: 'Cargo 1', semester_id: 'sem1' },
     ]);
 
     render(() => <ReportsEmployeesPage />);
@@ -267,7 +267,7 @@ describe('ReportsEmployeesPage', () => {
     });
 
     fireEvent.change(screen.getByLabelText('Cargo (para gráfico por trimestre)'), {
-      target: { value: 'j2' },
+      target: { value: 'Cargo 2' },
     });
 
     await waitFor(() => {
@@ -290,7 +290,7 @@ describe('ReportsEmployeesPage', () => {
   it('builds the default leave chart with current semester active employees only', async () => {
     mocks.listEmployeeReportFormOptions.mockResolvedValue({
       employees: [{ id: 'e1', label: '9001 (Ana Pérez)', documentId: '9001' }],
-      jobs: [{ id: 'j1', label: 'Docente' }],
+      jobs: [{ name: 'Docente', salary: 1000 }],
       semesters: [
         {
           id: 'sem1',
@@ -360,7 +360,7 @@ describe('ReportsEmployeesPage', () => {
         { id: 'e1', label: '9001 (Ana Pérez)', documentId: '9001' },
         { id: 'e2', label: '9002 (Luis Díaz)', documentId: '9002' },
       ],
-      jobs: [{ id: 'j1', label: 'Docente' }],
+      jobs: [{ name: 'Docente', salary: 1000 }],
       semesters: [
         {
           id: 'sem1',
@@ -421,7 +421,7 @@ describe('ReportsEmployeesPage', () => {
   it('falls back to the latest semester when no current semester exists', async () => {
     mocks.listEmployeeReportFormOptions.mockResolvedValue({
       employees: [{ id: 'e1', label: '9001 (Ana Pérez)', documentId: '9001' }],
-      jobs: [{ id: 'j1', label: 'Docente' }],
+      jobs: [{ name: 'Docente', salary: 1000 }],
       semesters: [
         {
           id: 'sem1',
@@ -488,7 +488,7 @@ describe('ReportsEmployeesPage', () => {
     const createModalQueries = within(createModal as HTMLElement);
 
     fireEvent.change(createModalQueries.getByLabelText('Empleado'), { target: { value: 'e1' } });
-    fireEvent.change(createModalQueries.getByLabelText('Cargo'), { target: { value: 'j1' } });
+    fireEvent.change(createModalQueries.getByLabelText('Cargo'), { target: { value: 'Docente' } });
     fireEvent.change(createModalQueries.getByLabelText('Trimestre'), { target: { value: 'sem1' } });
     fireEvent.input(createModalQueries.getByLabelText('Comentarios'), { target: { value: 'Muy bien.' } });
     fireEvent.click(screen.getByRole('button', { name: 'Crear reporte' }));
@@ -496,14 +496,15 @@ describe('ReportsEmployeesPage', () => {
     await waitFor(() => {
       expect(mocks.createEmployeeReport).toHaveBeenCalledWith({
         employee_id: 'e1',
-        job_id: 'j1',
+        job_name: 'Docente',
+        job_salary: 1000,
         semester_id: 'sem1',
         comments: 'Muy bien.',
       });
     });
   });
 
-  it('submits edit modal payload', async () => {
+  it('submits edit modal payload without job snapshot fields', async () => {
     render(() => <ReportsEmployeesPage />);
     await screen.findByRole('cell', { name: 'Ana Pérez' });
 
@@ -513,13 +514,17 @@ describe('ReportsEmployeesPage', () => {
       expect(mocks.listEmployeeReportFormOptions).toHaveBeenCalled();
     });
 
+    expect(screen.getByDisplayValue('Docente')).toBeDisabled();
+    expect(screen.getByLabelText('Salario del cargo')).toBeDisabled();
+    expect((screen.getByLabelText('Salario del cargo') as HTMLInputElement).value).toContain('1');
+    expect((screen.getByLabelText('Salario del cargo') as HTMLInputElement).value).toContain('000');
+
     fireEvent.input(screen.getByLabelText('Comentarios'), { target: { value: 'Actualizado' } });
     fireEvent.click(screen.getByText('Guardar cambios'));
 
     await waitFor(() => {
       expect(mocks.updateEmployeeReport).toHaveBeenCalledWith('er1', {
         employee_id: 'e1',
-        job_id: 'j1',
         semester_id: 'sem1',
         comments: 'Actualizado',
       });
@@ -548,7 +553,7 @@ describe('ReportsEmployeesPage', () => {
       expect(mocks.listEmployeeReportsPage).toHaveBeenCalledWith(1, 10, {
         sortField: 'created_by_name',
         sortDirection: 'asc',
-        jobId: '',
+        jobName: '',
         semesterId: '',
         employeeIds: [],
       });
@@ -585,7 +590,7 @@ describe('ReportsEmployeesPage', () => {
       expect(mocks.listEmployeeReportsPage).toHaveBeenCalledWith(2, 10, {
         sortField: 'created_at',
         sortDirection: 'desc',
-        jobId: '',
+        jobName: '',
         semesterId: '',
         employeeIds: [],
       });
@@ -596,7 +601,7 @@ describe('ReportsEmployeesPage', () => {
     render(() => <ReportsEmployeesPage />);
     await screen.findByRole('cell', { name: 'Ana Pérez' });
 
-    fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'j1' } });
+    fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'Docente' } });
     fireEvent.change(screen.getByLabelText('Trimestre'), { target: { value: 'sem1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
 
@@ -604,7 +609,7 @@ describe('ReportsEmployeesPage', () => {
       expect(mocks.listEmployeeReportsPage).toHaveBeenLastCalledWith(1, 10, {
         sortField: 'created_at',
         sortDirection: 'desc',
-        jobId: 'j1',
+        jobName: 'Docente',
         semesterId: 'sem1',
         employeeIds: [],
       });
@@ -624,7 +629,7 @@ describe('ReportsEmployeesPage', () => {
       expect(mocks.listEmployeeReportsPage).toHaveBeenLastCalledWith(1, 10, {
         sortField: 'created_at',
         sortDirection: 'desc',
-        jobId: '',
+        jobName: '',
         semesterId: '',
         employeeIds: ['e1', 'e2'],
       });
@@ -635,7 +640,7 @@ describe('ReportsEmployeesPage', () => {
     render(() => <ReportsEmployeesPage />);
     await screen.findByRole('cell', { name: 'Ana Pérez' });
 
-    fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'j1' } });
+    fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'Docente' } });
     fireEvent.change(screen.getByLabelText('Trimestre'), { target: { value: 'sem1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
 
@@ -643,7 +648,7 @@ describe('ReportsEmployeesPage', () => {
       expect(mocks.listEmployeeReportsPage).toHaveBeenLastCalledWith(1, 10, {
         sortField: 'created_at',
         sortDirection: 'desc',
-        jobId: 'j1',
+        jobName: 'Docente',
         semesterId: 'sem1',
         employeeIds: [],
       });
@@ -655,7 +660,7 @@ describe('ReportsEmployeesPage', () => {
       expect(mocks.listEmployeeReportsPage).toHaveBeenLastCalledWith(1, 10, {
         sortField: 'created_by_name',
         sortDirection: 'asc',
-        jobId: 'j1',
+        jobName: 'Docente',
         semesterId: 'sem1',
         employeeIds: [],
       });
@@ -667,7 +672,7 @@ describe('ReportsEmployeesPage', () => {
       expect(mocks.listEmployeeReportsPage).toHaveBeenLastCalledWith(1, 10, {
         sortField: 'created_at',
         sortDirection: 'desc',
-        jobId: '',
+        jobName: '',
         semesterId: '',
         employeeIds: [],
       });
@@ -678,7 +683,7 @@ describe('ReportsEmployeesPage', () => {
     render(() => <ReportsEmployeesPage />);
     await screen.findByRole('cell', { name: 'Ana Pérez' });
 
-    fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'j1' } });
+    fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'Docente' } });
     fireEvent.change(screen.getByLabelText('Trimestre'), { target: { value: 'sem1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
 
@@ -686,7 +691,7 @@ describe('ReportsEmployeesPage', () => {
       expect(mocks.listEmployeeReportsPage).toHaveBeenLastCalledWith(1, 10, {
         sortField: 'created_at',
         sortDirection: 'desc',
-        jobId: 'j1',
+        jobName: 'Docente',
         semesterId: 'sem1',
         employeeIds: [],
       });
@@ -698,7 +703,7 @@ describe('ReportsEmployeesPage', () => {
       expect(mocks.listEmployeeReportsPage).toHaveBeenLastCalledWith(1, 10, {
         sortField: 'job_name',
         sortDirection: 'asc',
-        jobId: 'j1',
+        jobName: 'Docente',
         semesterId: 'sem1',
         employeeIds: [],
       });
@@ -710,7 +715,7 @@ describe('ReportsEmployeesPage', () => {
       expect(mocks.exportEmployeesReport).toHaveBeenCalledWith({
         sortField: 'job_name',
         sortDirection: 'asc',
-        jobId: 'j1',
+        jobName: 'Docente',
         semesterId: 'sem1',
         employeeIds: [],
       });

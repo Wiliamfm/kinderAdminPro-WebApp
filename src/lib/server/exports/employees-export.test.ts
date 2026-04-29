@@ -30,8 +30,8 @@ describe('exportEmployeesReport', () => {
         employee_id: 'e1',
         employee_name: 'Ana Pérez',
         employee_document_id: '9001',
-        job_id: 'j1',
         job_name: 'Coordinación',
+        job_salary: 1500,
         semester_id: 'sem1',
         semester_name: '2026-1',
         comments: 'Niñez y gestión académica',
@@ -52,16 +52,17 @@ describe('exportEmployeesReport', () => {
     expect(hoisted.listEmployeeReportsForExport).toHaveBeenCalledWith({
       sortField: 'created_at',
       sortDirection: 'desc',
-      jobId: undefined,
+      jobName: undefined,
       semesterId: undefined,
       employeeIds: undefined,
     });
     expect(result.fileName).toMatch(/^reportes_empleados_\d{8}_\d{4}\.csv$/);
     expect(result.mimeType).toBe('text/csv;charset=utf-8');
     expect(Array.from(csvBytes.slice(0, 3))).toEqual([0xef, 0xbb, 0xbf]);
-    expect(csv.startsWith('Empleado,Documento,Cargo,Semestre,Comentarios,Creado')).toBe(true);
+    expect(csv.startsWith('Empleado,Documento,Cargo,Salario cargo,Semestre,Comentarios,Creado')).toBe(true);
     expect(csv).toContain('Ana Pérez');
     expect(csv).toContain('Coordinación');
+    expect(csv).toContain('$ 1.500');
     expect(csv).toContain('Niñez y gestión académica');
   });
 

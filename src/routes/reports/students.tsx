@@ -311,6 +311,7 @@ export default function ReportsStudentsPage() {
 
   const [gradeChartYearId, setGradeChartYearId] = createSignal('');
   const [gradeChartSemesterId, setGradeChartSemesterId] = createSignal('');
+  const [semesterChartYearId, setSemesterChartYearId] = createSignal('');
   const [semesterChartGradeId, setSemesterChartGradeId] = createSignal('');
   const [semesterChartGrouping, setSemesterChartGrouping] = createSignal<SemesterChartGrouping>('semester');
   const [gradeChartCanvas, setGradeChartCanvas] = createSignal<HTMLCanvasElement | undefined>(undefined);
@@ -497,6 +498,15 @@ export default function ReportsStudentsPage() {
 
     return formOptions().semesters.filter((semester) => semester.years.includes(selectedYear));
   });
+  const semesterChartFilteredSemesters = createMemo(() => {
+    const selectedYearId = semesterChartYearId().trim();
+    if (selectedYearId.length === 0) return formOptions().semesters;
+
+    const selectedYear = Number(selectedYearId);
+    if (!Number.isInteger(selectedYear)) return [];
+
+    return formOptions().semesters.filter((semester) => semester.years.includes(selectedYear));
+  });
 
   const availableStudentLookupOptions = createMemo<StudentLookupOption[]>(() => {
     const selectedIds = new Set(filterDraft().studentIds);
@@ -554,26 +564,18 @@ export default function ReportsStudentsPage() {
       .map((grade) => grade.id.trim())
       .filter((id) => id.length > 0)
   ));
-  const semesterIdsOrdered = createMemo(() => (
-    formOptions().semesters
-      .map((semester) => semester.id.trim())
-      .filter((id) => id.length > 0)
-  ));
   const yearIdsOrdered = createMemo(() => (
     formOptions().years
       .map((year) => year.id.trim())
       .filter((id) => id.length > 0)
   ));
-  const appliedChartSemesterIdsOrdered = createMemo(() => {
-    const semesterIds = resolvedAppliedSemesterIds();
-    if (!Array.isArray(semesterIds)) {
-      return semesterIdsOrdered();
-    }
-
-    return semesterIds;
-  });
   const chartSemesterIdsOrdered = createMemo(() => (
     gradeChartFilteredSemesters()
+      .map((semester) => semester.id.trim())
+      .filter((id) => id.length > 0)
+  ));
+  const semesterChartSemesterIdsOrdered = createMemo(() => (
+    semesterChartFilteredSemesters()
       .map((semester) => semester.id.trim())
       .filter((id) => id.length > 0)
   ));
@@ -584,7 +586,7 @@ export default function ReportsStudentsPage() {
     return analyticsRows().filter((row) => visibleSemesterIds.has(row.semester_id));
   });
   const analyticsRowsForCharts = createMemo<BulletinStudentAnalyticsRecord[]>(() => {
-    const visibleSemesterIds = new Set(appliedChartSemesterIdsOrdered());
+    const visibleSemesterIds = new Set(semesterChartSemesterIdsOrdered());
     if (visibleSemesterIds.size === 0) return [];
 
     return analyticsRows().filter((row) => visibleSemesterIds.has(row.semester_id));
@@ -609,7 +611,12 @@ export default function ReportsStudentsPage() {
   createEffect(() => {
     const selectedGradeId = semesterChartGradeId().trim();
     if (selectedGradeId.length === 0) return;
-    if (!gradeIdsOrdered().includes(selectedGradeId)) {
+    const visibleGradeIds = new Set(
+      analyticsRowsForCharts()
+        .map((row) => row.grade_id.trim())
+        .filter((id) => id.length > 0),
+    );
+    if (!visibleGradeIds.has(selectedGradeId)) {
       setSemesterChartGradeId('');
     }
   });
@@ -650,8 +657,8 @@ export default function ReportsStudentsPage() {
     ));
 
     const visibleSemesterIds = selectedGradeId.length === 0
-      ? getLastItems(appliedChartSemesterIdsOrdered(), 5)
-      : appliedChartSemesterIdsOrdered();
+      ? getLastItems(semesterChartSemesterIdsOrdered(), 5)
+      : semesterChartSemesterIdsOrdered();
 
     if (filteredRows.length === 0 || visibleSemesterIds.length === 0) return [];
 
@@ -679,8 +686,9 @@ export default function ReportsStudentsPage() {
     const filteredRows = analyticsRowsForCharts().filter((row) => (
       selectedGradeId.length === 0 || row.grade_id === selectedGradeId
     ));
-    const visibleYearIds = appliedFilters().yearId.trim().length > 0
-      ? [appliedFilters().yearId.trim()]
+    const selectedYearId = semesterChartYearId().trim();
+    const visibleYearIds = selectedYearId.length > 0
+      ? [selectedYearId]
       : yearIdsOrdered();
 
     if (filteredRows.length === 0 || visibleYearIds.length === 0) return [];
@@ -706,20 +714,28 @@ export default function ReportsStudentsPage() {
       .map((yearId) => ({
         label: yearId,
         value: studentsByYear.get(yearId)?.size ?? 0,
-      }))
-      .filter((point) => point.value > 0);
+      }));
   });
-  const hasVisibleChartData = createMemo(() => {
-    if (gradeChartPoints().length > 0) return true;
-    return semesterChartGrouping() === 'semester'
+  const hasGradeChartData = createMemo(() => gradeChartPoints().length > 0);
+  const hasSemesterChartData = createMemo(() => (
+    semesterChartGrouping() === 'semester'
       ? semesterChartPoints().length > 0
-      : yearChartPoints().length > 0;
-  });
+      : yearChartPoints().length > 0
+  ));
+
+  const handleSemesterChartGroupingChange = (grouping: 'semester' | 'year') => {
+    if (semesterChartGrouping() === grouping) return;
+
+    setSemesterChartGrouping(grouping);
+    setSemesterChartYearId('');
+    setSemesterChartGradeId('');
+  };
 
   createEffect(() => {
     const canvas = gradeChartCanvas();
     const points = gradeChartPoints();
     const selectedSemesterId = gradeChartSemesterId().trim();
+    let frameId: number | undefined;
 
     if (!canvas) return;
 
@@ -729,35 +745,41 @@ export default function ReportsStudentsPage() {
     if (points.length === 0) return;
 
     const semesterLabel = semesterLabelById().get(selectedSemesterId) ?? selectedSemesterId;
-    gradeChartInstance = new Chart(canvas, {
-      type: 'bar',
-      data: {
-        labels: points.map((point) => point.label),
-        datasets: [
-          {
-            label: selectedSemesterId.length > 0
-              ? `Estudiantes (${semesterLabel})`
-              : 'Estudiantes (todos los grados)',
-            data: points.map((point) => point.value),
-            backgroundColor: '#facc15',
-            borderColor: '#ca8a04',
-            borderWidth: 1,
-            borderRadius: 6,
-            maxBarThickness: 48,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: { precision: 0, stepSize: 1 },
+    frameId = requestAnimationFrame(() => {
+      gradeChartInstance = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: points.map((point) => point.label),
+          datasets: [
+            {
+              label: selectedSemesterId.length > 0
+                ? `Estudiantes (${semesterLabel})`
+                : 'Estudiantes (todos los grados)',
+              data: points.map((point) => point.value),
+              backgroundColor: '#facc15',
+              borderColor: '#ca8a04',
+              borderWidth: 1,
+              borderRadius: 6,
+              maxBarThickness: 48,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { precision: 0, stepSize: 1 },
+            },
           },
         },
-      },
+      });
+    });
+
+    onCleanup(() => {
+      if (frameId !== undefined) cancelAnimationFrame(frameId);
     });
   });
 
@@ -765,6 +787,7 @@ export default function ReportsStudentsPage() {
     const canvas = semesterChartCanvas();
     const points = semesterChartPoints();
     const selectedGradeId = semesterChartGradeId().trim();
+    let frameId: number | undefined;
 
     if (!canvas) return;
 
@@ -775,35 +798,41 @@ export default function ReportsStudentsPage() {
     if (points.length === 0) return;
 
     const gradeLabel = gradeLabelById().get(selectedGradeId) ?? selectedGradeId;
-    semesterChartInstance = new Chart(canvas, {
-      type: 'bar',
-      data: {
-        labels: points.map((point) => point.label),
-        datasets: [
-          {
-            label: selectedGradeId.length > 0
-              ? `Estudiantes (${gradeLabel})`
-              : 'Estudiantes (últimos 5 trimestres)',
-            data: points.map((point) => point.value),
-            backgroundColor: '#93c5fd',
-            borderColor: '#2563eb',
-            borderWidth: 1,
-            borderRadius: 6,
-            maxBarThickness: 48,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: { precision: 0, stepSize: 1 },
+    frameId = requestAnimationFrame(() => {
+      semesterChartInstance = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: points.map((point) => point.label),
+          datasets: [
+            {
+              label: selectedGradeId.length > 0
+                ? `Estudiantes (${gradeLabel})`
+                : 'Estudiantes (últimos 5 trimestres)',
+              data: points.map((point) => point.value),
+              backgroundColor: '#93c5fd',
+              borderColor: '#2563eb',
+              borderWidth: 1,
+              borderRadius: 6,
+              maxBarThickness: 48,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { precision: 0, stepSize: 1 },
+            },
           },
         },
-      },
+      });
+    });
+
+    onCleanup(() => {
+      if (frameId !== undefined) cancelAnimationFrame(frameId);
     });
   });
 
@@ -811,6 +840,7 @@ export default function ReportsStudentsPage() {
     const canvas = semesterChartCanvas();
     const points = yearChartPoints();
     const selectedGradeId = semesterChartGradeId().trim();
+    let frameId: number | undefined;
 
     if (!canvas || semesterChartGrouping() !== 'year') return;
 
@@ -820,35 +850,41 @@ export default function ReportsStudentsPage() {
     if (points.length === 0) return;
 
     const gradeLabel = gradeLabelById().get(selectedGradeId) ?? selectedGradeId;
-    semesterChartInstance = new Chart(canvas, {
-      type: 'bar',
-      data: {
-        labels: points.map((point) => point.label),
-        datasets: [
-          {
-            label: selectedGradeId.length > 0
-              ? `Estudiantes (${gradeLabel} por año)`
-              : 'Estudiantes (por año)',
-            data: points.map((point) => point.value),
-            backgroundColor: '#93c5fd',
-            borderColor: '#2563eb',
-            borderWidth: 1,
-            borderRadius: 6,
-            maxBarThickness: 48,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: { precision: 0, stepSize: 1 },
+    frameId = requestAnimationFrame(() => {
+      semesterChartInstance = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: points.map((point) => point.label),
+          datasets: [
+            {
+              label: selectedGradeId.length > 0
+                ? `Estudiantes (${gradeLabel} por año)`
+                : 'Estudiantes (por año)',
+              data: points.map((point) => point.value),
+              backgroundColor: '#93c5fd',
+              borderColor: '#2563eb',
+              borderWidth: 1,
+              borderRadius: 6,
+              maxBarThickness: 48,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { precision: 0, stepSize: 1 },
+            },
           },
         },
-      },
+      });
+    });
+
+    onCleanup(() => {
+      if (frameId !== undefined) cancelAnimationFrame(frameId);
     });
   });
 
@@ -1278,113 +1314,138 @@ export default function ReportsStudentsPage() {
                   </div>
                 )}
               >
-                <Show
-                  when={hasVisibleChartData()}
-                  fallback={(
-                    <div class="mt-4 rounded-lg border border-yellow-200 bg-white px-4 py-3 text-sm text-gray-600">
-                      No hay datos suficientes para generar las gráficas.
-                    </div>
-                  )}
-                >
-                  <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
-                    <div class="rounded-lg border border-yellow-200 bg-white p-4">
-                      <h4 class="text-sm font-semibold text-gray-700">Estudiantes por grado</h4>
-                      <label class="mt-3 block">
-                        <span class="text-sm text-gray-700">Año (gráfico)</span>
-                        <select
-                          aria-label="Año (gráfico)"
-                          class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                          value={gradeChartYearId()}
-                          onChange={(event) => setGradeChartYearId(event.currentTarget.value)}
-                          disabled={formOptionsLoading() || bulletinsStudentsAnalytics.loading}
-                        >
-                          <option value="">Todos los años</option>
-                          <For each={formOptions().years}>
-                            {(year) => <option value={year.id}>{year.label}</option>}
-                          </For>
-                        </select>
-                      </label>
-                      <label class="mt-3 block">
-                        <span class="text-sm text-gray-700">Filtro por trimestre</span>
-                        <select
-                          aria-label="Trimestre (para gráfico por grado)"
-                          class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                          value={gradeChartSemesterId()}
-                          onChange={(event) => setGradeChartSemesterId(event.currentTarget.value)}
-                          disabled={formOptionsLoading() || bulletinsStudentsAnalytics.loading}
-                        >
-                          <option value="">Todos los trimestres</option>
-                          <For each={gradeChartFilteredSemesters()}>
-                            {(semester) => <option value={semester.id}>{semester.label}</option>}
-                          </For>
-                        </select>
-                      </label>
-                      <div class="mt-3 h-72">
+                <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+                  <div class="rounded-lg border border-yellow-200 bg-white p-4">
+                    <h4 class="text-sm font-semibold text-gray-700">Estudiantes por grado</h4>
+                    <label class="mt-3 block">
+                      <span class="text-sm text-gray-700">Año (gráfico)</span>
+                      <select
+                        aria-label="Año (gráfico)"
+                        class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                        value={gradeChartYearId()}
+                        onChange={(event) => setGradeChartYearId(event.currentTarget.value)}
+                        disabled={formOptionsLoading() || bulletinsStudentsAnalytics.loading}
+                      >
+                        <option value="">Todos los años</option>
+                        <For each={formOptions().years}>
+                          {(year) => <option value={year.id}>{year.label}</option>}
+                        </For>
+                      </select>
+                    </label>
+                    <label class="mt-3 block">
+                      <span class="text-sm text-gray-700">Filtro por trimestre</span>
+                      <select
+                        aria-label="Trimestre (para gráfico por grado)"
+                        class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                        value={gradeChartSemesterId()}
+                        onChange={(event) => setGradeChartSemesterId(event.currentTarget.value)}
+                        disabled={formOptionsLoading() || bulletinsStudentsAnalytics.loading}
+                      >
+                        <option value="">Todos los trimestres</option>
+                        <For each={gradeChartFilteredSemesters()}>
+                          {(semester) => <option value={semester.id}>{semester.label}</option>}
+                        </For>
+                      </select>
+                    </label>
+                    <div class="relative mt-3 h-72">
+                      <Show when={!hasGradeChartData()}>
+                        <div class="absolute inset-0 z-10 flex items-center justify-center rounded-lg border border-dashed border-yellow-200 bg-yellow-50 px-4 py-6 text-center text-sm text-gray-600">
+                          Sin datos para mostrar.
+                        </div>
+                      </Show>
+                      <div class="h-full w-full" style={{ visibility: hasGradeChartData() ? 'visible' : 'hidden' }}>
                         <canvas
                           ref={(element) => setGradeChartCanvas(element)}
+                          class="h-full w-full"
                           role="img"
                           aria-label="Gráfico de estudiantes por grado"
                         />
                       </div>
                     </div>
+                  </div>
 
-                    <div class="rounded-lg border border-yellow-200 bg-white p-4">
-                      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <h4 class="text-sm font-semibold text-gray-700">Estudiantes por trimestre</h4>
-                          <p class="mt-1 text-xs text-gray-600">
-                            Alterna entre una vista por trimestre o una agregación por año.
-                          </p>
-                        </div>
-                        <div
-                          class="inline-flex rounded-lg border border-yellow-300 bg-yellow-100 p-1"
-                          role="group"
-                          aria-label="Agrupación del gráfico por periodo"
-                        >
-                          <button
-                            type="button"
-                            class="rounded-md px-3 py-1.5 text-sm transition-colors"
-                            classList={{
-                              'bg-yellow-400 font-semibold text-gray-900 shadow-sm': semesterChartGrouping() === 'semester',
-                              'text-gray-600 hover:bg-yellow-200': semesterChartGrouping() !== 'semester',
-                            }}
-                            aria-pressed={semesterChartGrouping() === 'semester'}
-                            onClick={() => setSemesterChartGrouping('semester')}
-                          >
-                            Trimestre
-                          </button>
-                          <button
-                            type="button"
-                            class="rounded-md px-3 py-1.5 text-sm transition-colors"
-                            classList={{
-                              'bg-yellow-400 font-semibold text-gray-900 shadow-sm': semesterChartGrouping() === 'year',
-                              'text-gray-600 hover:bg-yellow-200': semesterChartGrouping() !== 'year',
-                            }}
-                            aria-pressed={semesterChartGrouping() === 'year'}
-                            onClick={() => setSemesterChartGrouping('year')}
-                          >
-                            Año
-                          </button>
-                        </div>
+                  <div class="rounded-lg border border-yellow-200 bg-white p-4">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h4 class="text-sm font-semibold text-gray-700">Estudiantes por trimestre</h4>
+                        <p class="mt-1 text-xs text-gray-600">
+                          Alterna entre una vista por trimestre o una agregación por año.
+                        </p>
                       </div>
-                      <label class="mt-3 block">
-                        <span class="text-sm text-gray-700">Filtro por grado</span>
-                        <select
-                          aria-label="Grado (para gráfico por trimestre)"
-                          class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                          value={semesterChartGradeId()}
-                          onChange={(event) => setSemesterChartGradeId(event.currentTarget.value)}
-                          disabled={formOptionsLoading() || bulletinsStudentsAnalytics.loading}
+                      <div
+                        class="inline-flex rounded-lg border border-yellow-300 bg-yellow-100 p-1"
+                        role="group"
+                        aria-label="Agrupación del gráfico por periodo"
+                      >
+                        <button
+                          type="button"
+                          class="rounded-md px-3 py-1.5 text-sm transition-colors"
+                          classList={{
+                            'bg-yellow-400 font-semibold text-gray-900 shadow-sm': semesterChartGrouping() === 'semester',
+                            'text-gray-600 hover:bg-yellow-200': semesterChartGrouping() !== 'semester',
+                          }}
+                          aria-pressed={semesterChartGrouping() === 'semester'}
+                          onClick={() => handleSemesterChartGroupingChange('semester')}
                         >
-                          <option value="">Todos los grados</option>
-                          <For each={formOptions().grades}>
-                            {(grade) => <option value={grade.id}>{grade.label}</option>}
-                          </For>
-                        </select>
-                      </label>
-                      <div class="mt-3 h-72">
+                          Trimestre
+                        </button>
+                        <button
+                          type="button"
+                          class="rounded-md px-3 py-1.5 text-sm transition-colors"
+                          classList={{
+                            'bg-yellow-400 font-semibold text-gray-900 shadow-sm': semesterChartGrouping() === 'year',
+                            'text-gray-600 hover:bg-yellow-200': semesterChartGrouping() !== 'year',
+                          }}
+                          aria-pressed={semesterChartGrouping() === 'year'}
+                          onClick={() => handleSemesterChartGroupingChange('year')}
+                        >
+                          Año
+                        </button>
+                      </div>
+                    </div>
+                    <label class="mt-3 block">
+                      <span class="text-sm text-gray-700">Año (gráfico)</span>
+                      <select
+                        aria-label="Año (para gráfico por trimestre)"
+                        class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                        value={semesterChartYearId()}
+                        onChange={(event) => setSemesterChartYearId(event.currentTarget.value)}
+                        disabled={formOptionsLoading() || bulletinsStudentsAnalytics.loading}
+                      >
+                        <option value="">Todos los años</option>
+                        <For each={formOptions().years}>
+                          {(year) => <option value={year.id}>{year.label}</option>}
+                        </For>
+                      </select>
+                    </label>
+                    <label class="mt-3 block">
+                      <span class="text-sm text-gray-700">Filtro por grado</span>
+                      <select
+                        aria-label="Grado (para gráfico por trimestre)"
+                        class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                        value={semesterChartGradeId()}
+                        onChange={(event) => setSemesterChartGradeId(event.currentTarget.value)}
+                        disabled={formOptionsLoading() || bulletinsStudentsAnalytics.loading}
+                      >
+                        <option value="">Todos los grados</option>
+                        <For each={formOptions().grades}>
+                          {(grade) => <option value={grade.id}>{grade.label}</option>}
+                        </For>
+                      </select>
+                    </label>
+                    <div class="relative mt-3 h-72">
+                      <Show when={!hasSemesterChartData()}>
+                        <div class="absolute inset-0 z-10 flex items-center justify-center rounded-lg border border-dashed border-yellow-200 bg-yellow-50 px-4 py-6 text-center text-sm text-gray-600">
+                          Sin datos para mostrar.
+                        </div>
+                      </Show>
+                      <div
+                        class="h-full w-full"
+                        style={{ visibility: hasSemesterChartData() ? 'visible' : 'hidden' }}
+                      >
                         <canvas
                           ref={(element) => setSemesterChartCanvas(element)}
+                          class="h-full w-full"
                           role="img"
                           aria-label={semesterChartGrouping() === 'year'
                             ? 'Gráfico de estudiantes por año'
@@ -1393,7 +1454,7 @@ export default function ReportsStudentsPage() {
                       </div>
                     </div>
                   </div>
-                </Show>
+                </div>
               </Show>
             </Show>
           </div>

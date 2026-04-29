@@ -7,8 +7,8 @@ export type EmployeeReportRecord = {
   employee_id: string;
   employee_name: string;
   employee_document_id: string;
-  job_id: string;
   job_name: string;
+  job_salary: number | string;
   semester_id: string;
   semester_name: string;
   comments: string;
@@ -23,12 +23,17 @@ export type EmployeeReportRecord = {
 
 export type EmployeeReportCreateInput = {
   employee_id: string;
-  job_id: string;
+  job_name: string;
+  job_salary: number;
   semester_id: string;
   comments?: string;
 };
 
-export type EmployeeReportUpdateInput = EmployeeReportCreateInput;
+export type EmployeeReportUpdateInput = {
+  employee_id: string;
+  semester_id: string;
+  comments?: string;
+};
 
 export type EmployeeReportListSortField =
   | 'employee_name'
@@ -45,7 +50,7 @@ export type EmployeeReportListSortDirection = 'asc' | 'desc';
 export type EmployeeReportListOptions = {
   sortField?: EmployeeReportListSortField;
   sortDirection?: EmployeeReportListSortDirection;
-  jobId?: string;
+  jobName?: string;
   semesterId?: string;
   employeeQuery?: string;
   employeeIds?: string[];
@@ -61,6 +66,11 @@ export type EmployeeReportOption = {
   documentId?: string;
 };
 
+export type EmployeeReportJobOption = {
+  name: string;
+  salary: number | string;
+};
+
 export type EmployeeReportSemesterOption = EmployeeReportOption & {
   isCurrent: boolean;
   startDate: string;
@@ -69,13 +79,13 @@ export type EmployeeReportSemesterOption = EmployeeReportOption & {
 
 export type EmployeeReportFormOptions = {
   employees: EmployeeReportOption[];
-  jobs: EmployeeReportOption[];
+  jobs: EmployeeReportJobOption[];
   semesters: EmployeeReportSemesterOption[];
 };
 
 export type EmployeeReportAnalyticsRecord = {
   employee_id: string;
-  job_id: string;
+  job_name: string;
   semester_id: string;
 };
 
@@ -85,6 +95,23 @@ function toStringValue(value: unknown): string {
 
 function toBooleanValue(value: unknown): boolean {
   return value === true;
+}
+
+function toSalaryValue(value: unknown): number | string {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed.length > 0) {
+      const numeric = Number(trimmed);
+      if (Number.isFinite(numeric)) return numeric;
+      return trimmed;
+    }
+  }
+
+  return '';
 }
 
 function normalizeDateTimeInput(value: string): string {
@@ -169,13 +196,11 @@ function mapEmployeeReportRecord(
   record: Record<string, unknown> & { id: string; get?: (key: string) => unknown },
 ): EmployeeReportRecord {
   const expandedEmployee = getExpandedRecord(record, 'employee_id');
-  const expandedJob = getExpandedRecord(record, 'job_id');
   const expandedSemester = getExpandedRecord(record, 'semester_id');
   const expandedCreatedBy = getExpandedRecord(record, 'created_by');
   const expandedUpdatedBy = getExpandedRecord(record, 'updated_by');
 
   const employeeId = toStringValue(record.get?.('employee_id') ?? record.employee_id);
-  const jobId = toStringValue(record.get?.('job_id') ?? record.job_id);
   const semesterId = toStringValue(record.get?.('semester_id') ?? record.semester_id);
   const createdBy = toStringValue(record.get?.('created_by') ?? record.created_by);
   const updatedBy = toStringValue(record.get?.('updated_by') ?? record.updated_by);
@@ -185,8 +210,8 @@ function mapEmployeeReportRecord(
     employee_id: employeeId,
     employee_name: toStringValue(expandedEmployee?.name),
     employee_document_id: toStringValue(expandedEmployee?.document_id),
-    job_id: jobId,
-    job_name: toStringValue(expandedJob?.name),
+    job_name: toStringValue(record.get?.('job_name') ?? record.job_name),
+    job_salary: toSalaryValue(record.get?.('job_salary') ?? record.job_salary),
     semester_id: semesterId,
     semester_name: toStringValue(expandedSemester?.name),
     comments: toStringValue(record.get?.('comments') ?? record.comments),
@@ -202,7 +227,7 @@ function mapEmployeeReportRecord(
 
 const EMPLOYEE_REPORT_SORT_FIELD_MAP: Record<EmployeeReportListSortField, string> = {
   employee_name: 'employee_id.name',
-  job_name: 'job_id.name',
+  job_name: 'job_name',
   semester_name: 'semester_id.name',
   comments: 'comments',
   created_at: 'created_at',
@@ -235,13 +260,13 @@ function normalizeFilterIds(values: string[] | undefined): string[] {
 
 function buildFilterExpression(options: EmployeeReportListOptions): string {
   const clauses = ['is_deleted != true'];
-  const jobId = toStringValue(options.jobId);
+  const jobName = toStringValue(options.jobName);
   const semesterId = toStringValue(options.semesterId);
   const employeeQuery = toStringValue(options.employeeQuery);
   const employeeIds = normalizeFilterIds(options.employeeIds);
 
-  if (jobId.length > 0) {
-    clauses.push(`job_id = "${escapeFilterValue(jobId)}"`);
+  if (jobName.length > 0) {
+    clauses.push(`job_name = "${escapeFilterValue(jobName)}"`);
   }
 
   if (semesterId.length > 0) {
@@ -261,10 +286,19 @@ function buildFilterExpression(options: EmployeeReportListOptions): string {
   return clauses.join(' && ');
 }
 
-function mapEmployeeReportPayload(payload: EmployeeReportCreateInput | EmployeeReportUpdateInput) {
+function mapEmployeeReportCreatePayload(payload: EmployeeReportCreateInput) {
   return {
     employee_id: payload.employee_id.trim(),
-    job_id: payload.job_id.trim(),
+    job_name: payload.job_name.trim(),
+    job_salary: payload.job_salary,
+    semester_id: payload.semester_id.trim(),
+    comments: (payload.comments ?? '').trim(),
+  };
+}
+
+function mapEmployeeReportUpdatePayload(payload: EmployeeReportUpdateInput) {
+  return {
+    employee_id: payload.employee_id.trim(),
     semester_id: payload.semester_id.trim(),
     comments: (payload.comments ?? '').trim(),
   };
@@ -285,7 +319,7 @@ export async function listEmployeeReportsPage(
     const result = await pb.collection('employee_reports').getList(page, perPage, {
       sort: buildSortExpression(sortField, sortDirection),
       filter: filterExpression,
-      expand: 'employee_id,job_id,semester_id,created_by,updated_by',
+      expand: 'employee_id,semester_id,created_by,updated_by',
       requestKey: 'reports-employees-table-list',
     });
 
@@ -314,7 +348,7 @@ export async function listEmployeeReportsForExport(
     const records = await pb.collection('employee_reports').getFullList({
       sort: buildSortExpression(sortField, sortDirection),
       filter: filterExpression,
-      expand: 'employee_id,job_id,semester_id,created_by,updated_by',
+      expand: 'employee_id,semester_id,created_by,updated_by',
       requestKey: 'reports-employees-export-list',
     });
 
@@ -333,13 +367,13 @@ export async function createEmployeeReport(
   try {
     const record = await pb.collection('employee_reports').create(
       {
-        ...mapEmployeeReportPayload(payload),
+        ...mapEmployeeReportCreatePayload(payload),
         created_by: authUserId,
         updated_by: authUserId,
         is_deleted: false,
       },
       {
-        expand: 'employee_id,job_id,semester_id,created_by,updated_by',
+        expand: 'employee_id,semester_id,created_by,updated_by',
       },
     );
 
@@ -360,11 +394,11 @@ export async function updateEmployeeReport(
     const record = await pb.collection('employee_reports').update(
       id,
       {
-        ...mapEmployeeReportPayload(payload),
+        ...mapEmployeeReportUpdatePayload(payload),
         updated_by: authUserId,
       },
       {
-        expand: 'employee_id,job_id,semester_id,created_by,updated_by',
+        expand: 'employee_id,semester_id,created_by,updated_by',
       },
     );
 
@@ -434,8 +468,8 @@ export async function listEmployeeReportFormOptions(): Promise<EmployeeReportFor
         documentId: toStringValue(record.get?.('document_id') ?? record.document_id),
       })),
       jobs: jobs.map((record) => ({
-        id: toStringValue(record.id),
-        label: toStringValue(record.get?.('name') ?? record.name) || toStringValue(record.id),
+        name: toStringValue(record.get?.('name') ?? record.name) || toStringValue(record.id),
+        salary: toSalaryValue(record.get?.('salary') ?? record.salary),
       })),
       semesters: semesterOptions,
     };
@@ -451,19 +485,19 @@ export async function listEmployeeReportsAnalyticsRecords(): Promise<EmployeeRep
     const records = await pb.collection('employee_reports').getFullList({
       sort: '-created_at',
       filter: 'is_deleted != true',
-      fields: 'employee_id,job_id,semester_id',
+      fields: 'employee_id,job_name,semester_id',
       requestKey: 'reports-employees-analytics-list',
     });
 
     return records
       .map((record) => ({
         employee_id: toStringValue(record.get?.('employee_id') ?? record.employee_id),
-        job_id: toStringValue(record.get?.('job_id') ?? record.job_id),
+        job_name: toStringValue(record.get?.('job_name') ?? record.job_name),
         semester_id: toStringValue(record.get?.('semester_id') ?? record.semester_id),
       }))
       .filter((record) => (
         record.employee_id.length > 0
-        && record.job_id.length > 0
+        && record.job_name.length > 0
         && record.semester_id.length > 0
       ));
   } catch (error) {

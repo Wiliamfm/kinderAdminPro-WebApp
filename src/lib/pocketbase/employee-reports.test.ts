@@ -67,7 +67,8 @@ describe('employee-reports pocketbase client', () => {
         {
           id: 'er1',
           employee_id: 'e1',
-          job_id: 'j1',
+          job_name: 'Docente',
+          job_salary: 1000,
           semester_id: 'sem1',
           comments: ' Excelente desempeño ',
           created_by: 'u1',
@@ -77,7 +78,6 @@ describe('employee-reports pocketbase client', () => {
           is_deleted: false,
           expand: {
             employee_id: { name: 'Ana Pérez', document_id: '9001' },
-            job_id: { name: 'Docente' },
             semester_id: { name: '2026-1' },
             created_by: { name: 'Admin Uno' },
             updated_by: { email: 'admin2@example.com' },
@@ -98,7 +98,7 @@ describe('employee-reports pocketbase client', () => {
     expect(hoisted.getList).toHaveBeenCalledWith(2, 10, {
       sort: 'employee_id.name',
       filter: 'is_deleted != true',
-      expand: 'employee_id,job_id,semester_id,created_by,updated_by',
+      expand: 'employee_id,semester_id,created_by,updated_by',
       requestKey: 'reports-employees-table-list',
     });
     expect(result.page).toBe(2);
@@ -108,6 +108,7 @@ describe('employee-reports pocketbase client', () => {
       employee_name: 'Ana Pérez',
       employee_document_id: '9001',
       job_name: 'Docente',
+      job_salary: 1000,
       semester_name: '2026-1',
       comments: 'Excelente desempeño',
       created_by_name: 'Admin Uno',
@@ -130,7 +131,7 @@ describe('employee-reports pocketbase client', () => {
     expect(hoisted.getList).toHaveBeenCalledWith(1, 10, {
       sort: '-created_at',
       filter: 'is_deleted != true',
-      expand: 'employee_id,job_id,semester_id,created_by,updated_by',
+      expand: 'employee_id,semester_id,created_by,updated_by',
       requestKey: 'reports-employees-table-list',
     });
   });
@@ -140,7 +141,8 @@ describe('employee-reports pocketbase client', () => {
       {
         id: 'er1',
         employee_id: 'e1',
-        job_id: 'j1',
+        job_name: 'Docente',
+        job_salary: 1000,
         semester_id: 'sem1',
         comments: ' Excelente desempeño ',
         created_by: 'u1',
@@ -150,7 +152,6 @@ describe('employee-reports pocketbase client', () => {
         is_deleted: false,
         expand: {
           employee_id: { name: 'Ana Pérez', document_id: '9001' },
-          job_id: { name: 'Docente' },
           semester_id: { name: '2026-1' },
           created_by: { name: 'Admin Uno' },
           updated_by: { email: 'admin2@example.com' },
@@ -161,20 +162,21 @@ describe('employee-reports pocketbase client', () => {
     const result = await listEmployeeReportsForExport({
       sortField: 'job_name',
       sortDirection: 'asc',
-      jobId: ' j1 ',
+      jobName: ' Docente ',
       semesterId: ' sem1 ',
       employeeIds: [' e1 ', 'e1'],
     });
 
     expect(hoisted.getFullList).toHaveBeenCalledWith({
-      sort: 'job_id.name',
-      filter: 'is_deleted != true && job_id = "j1" && semester_id = "sem1" && (employee_id = "e1")',
-      expand: 'employee_id,job_id,semester_id,created_by,updated_by',
+      sort: 'job_name',
+      filter: 'is_deleted != true && job_name = "Docente" && semester_id = "sem1" && (employee_id = "e1")',
+      expand: 'employee_id,semester_id,created_by,updated_by',
       requestKey: 'reports-employees-export-list',
     });
     expect(result[0]).toEqual(expect.objectContaining({
       employee_name: 'Ana Pérez',
       job_name: 'Docente',
+      job_salary: 1000,
       semester_name: '2026-1',
       comments: 'Excelente desempeño',
     }));
@@ -190,15 +192,15 @@ describe('employee-reports pocketbase client', () => {
     });
 
     await listEmployeeReportsPage(1, 10, {
-      jobId: ' j1 ',
+      jobName: ' Docente ',
       semesterId: ' sem1 ',
       employeeQuery: 'Ana "123" \\ x',
     });
 
     expect(hoisted.getList).toHaveBeenCalledWith(1, 10, {
       sort: '-created_at',
-      filter: 'is_deleted != true && job_id = "j1" && semester_id = "sem1" && employee_id.document_id ~ "Ana \\"123\\" \\\\ x"',
-      expand: 'employee_id,job_id,semester_id,created_by,updated_by',
+      filter: 'is_deleted != true && job_name = "Docente" && semester_id = "sem1" && employee_id.document_id ~ "Ana \\"123\\" \\\\ x"',
+      expand: 'employee_id,semester_id,created_by,updated_by',
       requestKey: 'reports-employees-table-list',
     });
   });
@@ -220,7 +222,7 @@ describe('employee-reports pocketbase client', () => {
     expect(hoisted.getList).toHaveBeenCalledWith(1, 10, {
       sort: '-created_at',
       filter: 'is_deleted != true && (employee_id = "e1" || employee_id = "e2")',
-      expand: 'employee_id,job_id,semester_id,created_by,updated_by',
+      expand: 'employee_id,semester_id,created_by,updated_by',
       requestKey: 'reports-employees-table-list',
     });
   });
@@ -229,7 +231,8 @@ describe('employee-reports pocketbase client', () => {
     hoisted.create.mockResolvedValue({
       id: 'er1',
       employee_id: 'e1',
-      job_id: 'j1',
+      job_name: 'Docente',
+      job_salary: 1000,
       semester_id: 'sem1',
       comments: 'Excelente',
       created_by: 'u-admin',
@@ -239,7 +242,6 @@ describe('employee-reports pocketbase client', () => {
       is_deleted: false,
       expand: {
         employee_id: { name: 'Ana' },
-        job_id: { name: 'Docente' },
         semester_id: { name: '2026-1' },
         created_by: { name: 'Admin' },
         updated_by: { name: 'Admin' },
@@ -248,7 +250,8 @@ describe('employee-reports pocketbase client', () => {
 
     await createEmployeeReport({
       employee_id: ' e1 ',
-      job_id: ' j1 ',
+      job_name: ' Docente ',
+      job_salary: 1000,
       semester_id: ' sem1 ',
       comments: ' Excelente ',
     });
@@ -256,7 +259,8 @@ describe('employee-reports pocketbase client', () => {
     expect(hoisted.create).toHaveBeenCalledWith(
       {
         employee_id: 'e1',
-        job_id: 'j1',
+        job_name: 'Docente',
+        job_salary: 1000,
         semester_id: 'sem1',
         comments: 'Excelente',
         created_by: 'u-admin',
@@ -264,16 +268,17 @@ describe('employee-reports pocketbase client', () => {
         is_deleted: false,
       },
       {
-        expand: 'employee_id,job_id,semester_id,created_by,updated_by',
+        expand: 'employee_id,semester_id,created_by,updated_by',
       },
     );
   });
 
-  it('updates employee report and refreshes updated_by', async () => {
+  it('updates employee report and refreshes updated_by without job snapshot fields', async () => {
     hoisted.update.mockResolvedValue({
       id: 'er1',
       employee_id: 'e1',
-      job_id: 'j2',
+      job_name: 'Coordinador',
+      job_salary: 1500,
       semester_id: 'sem2',
       comments: 'Actualizado',
       created_by: 'u1',
@@ -283,7 +288,6 @@ describe('employee-reports pocketbase client', () => {
       is_deleted: false,
       expand: {
         employee_id: { name: 'Ana' },
-        job_id: { name: 'Coordinador' },
         semester_id: { name: '2026-2' },
         created_by: { name: 'Admin Uno' },
         updated_by: { name: 'Admin Dos' },
@@ -292,7 +296,6 @@ describe('employee-reports pocketbase client', () => {
 
     await updateEmployeeReport('er1', {
       employee_id: ' e1 ',
-      job_id: ' j2 ',
       semester_id: ' sem2 ',
       comments: ' Actualizado ',
     });
@@ -301,13 +304,12 @@ describe('employee-reports pocketbase client', () => {
       'er1',
       {
         employee_id: 'e1',
-        job_id: 'j2',
         semester_id: 'sem2',
         comments: 'Actualizado',
         updated_by: 'u-admin',
       },
       {
-        expand: 'employee_id,job_id,semester_id,created_by,updated_by',
+        expand: 'employee_id,semester_id,created_by,updated_by',
       },
     );
   });
@@ -335,7 +337,7 @@ describe('employee-reports pocketbase client', () => {
 
       if (name === 'employee_jobs') {
         return {
-          getFullList: vi.fn().mockResolvedValue([{ id: 'j1', name: 'Docente' }]),
+          getFullList: vi.fn().mockResolvedValue([{ id: 'j1', name: 'Docente', salary: 1000 }]),
         };
       }
 
@@ -367,7 +369,7 @@ describe('employee-reports pocketbase client', () => {
 
     expect(options).toEqual({
       employees: [{ id: 'e1', label: '10001 (Ana Pérez)', documentId: '10001' }],
-      jobs: [{ id: 'j1', label: 'Docente' }],
+      jobs: [{ name: 'Docente', salary: 1000 }],
       semesters: [
         {
           id: 'sem1',
@@ -391,12 +393,12 @@ describe('employee-reports pocketbase client', () => {
     hoisted.getFullList.mockResolvedValue([
       {
         employee_id: ' e1 ',
-        job_id: ' j1 ',
+        job_name: ' Docente ',
         semester_id: ' sem1 ',
       },
       {
         employee_id: 'e2',
-        job_id: '',
+        job_name: '',
         semester_id: 'sem2',
       },
     ]);
@@ -406,13 +408,13 @@ describe('employee-reports pocketbase client', () => {
     expect(hoisted.getFullList).toHaveBeenCalledWith({
       sort: '-created_at',
       filter: 'is_deleted != true',
-      fields: 'employee_id,job_id,semester_id',
+      fields: 'employee_id,job_name,semester_id',
       requestKey: 'reports-employees-analytics-list',
     });
     expect(records).toEqual([
       {
         employee_id: 'e1',
-        job_id: 'j1',
+        job_name: 'Docente',
         semester_id: 'sem1',
       },
     ]);
@@ -437,7 +439,8 @@ describe('employee-reports pocketbase client', () => {
 
     await expect(createEmployeeReport({
       employee_id: 'e1',
-      job_id: 'j1',
+      job_name: 'Docente',
+      job_salary: 1000,
       semester_id: 'sem1',
       comments: '',
     })).rejects.toMatchObject({

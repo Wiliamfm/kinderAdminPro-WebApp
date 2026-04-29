@@ -5,6 +5,7 @@ export type EmployeeReportsCsvRow = {
   Empleado: string;
   Documento: string;
   Cargo: string;
+  'Salario cargo': string;
   Semestre: string;
   Comentarios: string;
   Creado: string;
@@ -27,11 +28,24 @@ function formatCreatedAt(value: string): string {
   }).format(parsed);
 }
 
+function formatSalary(value: number | string): string {
+  if (typeof value === 'number') {
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      maximumFractionDigits: 0,
+    }).format(value);
+  }
+
+  return normalizeText(value);
+}
+
 export function mapEmployeeReportsToCsvRows(records: EmployeeReportRecord[]): EmployeeReportsCsvRow[] {
   return records.map((record) => ({
     Empleado: normalizeText(record.employee_name),
     Documento: normalizeText(record.employee_document_id),
     Cargo: normalizeText(record.job_name),
+    'Salario cargo': formatSalary(record.job_salary),
     Semestre: normalizeText(record.semester_name),
     Comentarios: normalizeText(record.comments),
     Creado: formatCreatedAt(record.created_at),

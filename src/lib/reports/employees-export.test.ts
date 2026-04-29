@@ -8,8 +8,8 @@ const recordsFixture: EmployeeReportRecord[] = [
     employee_id: 'e1',
     employee_name: '=Ana',
     employee_document_id: '9001',
-    job_id: 'j1',
     job_name: 'Docente',
+    job_salary: 1000,
     semester_id: 'sem1',
     semester_name: '2026-1',
     comments: ' Observacion ',
@@ -31,6 +31,7 @@ describe('employees export utilities', () => {
       Empleado: '=Ana',
       Documento: '9001',
       Cargo: 'Docente',
+      'Salario cargo': '$ 1.000',
       Semestre: '2026-1',
       Comentarios: 'Observacion',
     });
@@ -40,8 +41,9 @@ describe('employees export utilities', () => {
   it('builds csv with utf8 bom and formula escaping', () => {
     const csv = buildEmployeeReportsCsv(recordsFixture);
 
-    expect(csv.startsWith('\uFEFFEmpleado,Documento,Cargo,Semestre,Comentarios,Creado')).toBe(true);
+    expect(csv.startsWith('\uFEFFEmpleado,Documento,Cargo,Salario cargo,Semestre,Comentarios,Creado')).toBe(true);
     expect(csv).toContain("'=Ana");
+    expect(csv).toContain('$ 1.000');
     expect(csv).not.toContain('Actualizado');
     expect(csv).not.toContain('Creado por');
   });

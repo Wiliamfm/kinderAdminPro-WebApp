@@ -281,8 +281,11 @@ describe('ReportsStudentsPage', () => {
     render(() => <ReportsStudentsPage />);
     await screen.findByRole('cell', { name: 'Ana Pérez' });
 
-    const chartYearSelect = screen.getByLabelText('Año (gráfico)');
-    const chartSemesterSelect = screen.getByLabelText('Trimestre (para gráfico por grado)');
+    const gradeChartPanelHeading = screen.getByRole('heading', { name: 'Estudiantes por grado' });
+    const gradeChartPanel = gradeChartPanelHeading.closest('div');
+    expect(gradeChartPanel).not.toBeNull();
+    const chartYearSelect = within(gradeChartPanel as HTMLElement).getByLabelText('Año (gráfico)');
+    const chartSemesterSelect = within(gradeChartPanel as HTMLElement).getByLabelText('Trimestre (para gráfico por grado)');
 
     expect(within(chartSemesterSelect).getByRole('option', { name: '2025-4' })).toBeInTheDocument();
     expect(within(chartSemesterSelect).getByRole('option', { name: '2026-1' })).toBeInTheDocument();
@@ -346,8 +349,11 @@ describe('ReportsStudentsPage', () => {
     });
 
     const callsBeforeChartChange = mocks.listBulletinsStudentsPage.mock.calls.length;
-    const chartYearSelect = screen.getByLabelText('Año (gráfico)');
-    const chartSemesterSelect = screen.getByLabelText('Trimestre (para gráfico por grado)');
+    const gradeChartPanelHeading = screen.getByRole('heading', { name: 'Estudiantes por grado' });
+    const gradeChartPanel = gradeChartPanelHeading.closest('div');
+    expect(gradeChartPanel).not.toBeNull();
+    const chartYearSelect = within(gradeChartPanel as HTMLElement).getByLabelText('Año (gráfico)');
+    const chartSemesterSelect = within(gradeChartPanel as HTMLElement).getByLabelText('Trimestre (para gráfico por grado)');
 
     fireEvent.change(chartYearSelect, { target: { value: '2026' } });
 
@@ -440,7 +446,10 @@ describe('ReportsStudentsPage', () => {
     mocks.listBulletinStudentsAnalyticsRecords.mockResolvedValue([]);
     render(() => <ReportsStudentsPage />);
 
-    expect(await screen.findByText('No hay datos suficientes para generar las gráficas.')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getAllByText('Sin datos para mostrar.')).toHaveLength(2);
+    });
+    expect(screen.queryByText('No hay datos suficientes para generar las gráficas.')).not.toBeInTheDocument();
   });
 
   it('submits create modal payload', async () => {
@@ -715,6 +724,7 @@ describe('ReportsStudentsPage', () => {
         { id: '2026', label: '2026' },
         { id: '2025', label: '2025' },
         { id: '2024', label: '2024' },
+        { id: '2023', label: '2023' },
       ],
     });
     mocks.listBulletinStudentsAnalyticsRecords.mockResolvedValue([
@@ -727,15 +737,109 @@ describe('ReportsStudentsPage', () => {
     render(() => <ReportsStudentsPage />);
     await screen.findByRole('cell', { name: 'Ana Pérez' });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Año' }));
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Agrupación del gráfico por periodo' }))
+        .getByRole('button', { name: 'Año' }),
+    );
 
     await waitFor(() => {
       const byYear = findChartConfigByLabel('Estudiantes (por año)') as {
         data: { labels: string[]; datasets: Array<{ data: number[] }> };
       };
       expect(byYear).toBeDefined();
-      expect(byYear.data.labels).toEqual(['2026', '2025', '2024']);
-      expect(byYear.data.datasets[0]?.data).toEqual([2, 2, 1]);
+      expect(byYear.data.labels).toEqual(['2026', '2025', '2024', '2023']);
+      expect(byYear.data.datasets[0]?.data).toEqual([2, 2, 1, 0]);
+    });
+  });
+
+  it('resets semester chart filters when switching chart grouping', async () => {
+    mocks.listBulletinStudentFormOptions.mockResolvedValue({
+      bulletins: [{ id: 'b1', label: 'Académico: Notas de periodo' }],
+      students: [{ id: 's1', label: '1001 (Ana Pérez)', documentId: '1001' }],
+      grades: [
+        { id: 'g1', label: 'Grado 1' },
+        { id: 'g2', label: 'Grado 2' },
+      ],
+      semesters: [
+        { id: 'sem2025', label: '2025-4', years: [2025] },
+        { id: 'sem2026', label: '2026-1', years: [2026] },
+      ],
+      years: [
+        { id: '2026', label: '2026' },
+        { id: '2025', label: '2025' },
+      ],
+    });
+    mocks.listBulletinStudentsAnalyticsRecords.mockResolvedValue([
+      { student_id: 'sA', grade_id: 'g1', semester_id: 'sem2025' },
+      { student_id: 'sB', grade_id: 'g2', semester_id: 'sem2026' },
+    ]);
+
+    render(() => <ReportsStudentsPage />);
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
+
+    const chartYearSelect = screen.getByLabelText('Año (para gráfico por trimestre)') as HTMLSelectElement;
+    const chartGradeSelect = screen.getByLabelText('Grado (para gráfico por trimestre)') as HTMLSelectElement;
+
+    fireEvent.change(chartYearSelect, { target: { value: '2026' } });
+    fireEvent.change(chartGradeSelect, { target: { value: 'g2' } });
+
+    await waitFor(() => {
+      expect(chartYearSelect.value).toBe('2026');
+      expect(chartGradeSelect.value).toBe('g2');
+    });
+
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Agrupación del gráfico por periodo' }))
+        .getByRole('button', { name: 'Año' }),
+    );
+
+    await waitFor(() => {
+      expect(chartYearSelect.value).toBe('');
+      expect(chartGradeSelect.value).toBe('');
+    });
+
+    fireEvent.change(chartYearSelect, { target: { value: '2025' } });
+    fireEvent.change(chartGradeSelect, { target: { value: 'g1' } });
+
+    await waitFor(() => {
+      expect(chartYearSelect.value).toBe('2025');
+      expect(chartGradeSelect.value).toBe('g1');
+    });
+
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Agrupación del gráfico por periodo' }))
+        .getByRole('button', { name: 'Trimestre' }),
+    );
+
+    await waitFor(() => {
+      expect(chartYearSelect.value).toBe('');
+      expect(chartGradeSelect.value).toBe('');
+    });
+  });
+
+  it('shows an empty state only for the year-grouped chart when year options are unavailable', async () => {
+    mocks.listBulletinStudentFormOptions.mockResolvedValue({
+      bulletins: [{ id: 'b1', label: 'Académico: Notas de periodo' }],
+      students: [{ id: 's1', label: '1001 (Ana Pérez)', documentId: '1001' }],
+      grades: [{ id: 'g1', label: 'Grado 1' }],
+      semesters: [{ id: 'sem1', label: '2026-1', years: [2026] }],
+      years: [],
+    });
+    mocks.listBulletinStudentsAnalyticsRecords.mockResolvedValue([
+      { student_id: 'sA', grade_id: 'g1', semester_id: 'sem1' },
+    ]);
+
+    render(() => <ReportsStudentsPage />);
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
+
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Agrupación del gráfico por periodo' }))
+        .getByRole('button', { name: 'Año' }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Gráfico de estudiantes por grado')).toBeInTheDocument();
+      expect(screen.getByText('Sin datos para mostrar.')).toBeInTheDocument();
     });
   });
 

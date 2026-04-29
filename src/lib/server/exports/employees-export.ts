@@ -8,6 +8,7 @@ export type EmployeeReportsCsvRow = {
   Empleado: string;
   Documento: string;
   Cargo: string;
+  'Salario cargo': string;
   Semestre: string;
   Comentarios: string;
   Creado: string;
@@ -30,11 +31,24 @@ function formatCreatedAt(value: string): string {
   }).format(parsed);
 }
 
+function formatSalary(value: number | string): string {
+  if (typeof value === 'number') {
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      maximumFractionDigits: 0,
+    }).format(value);
+  }
+
+  return normalizeText(value);
+}
+
 function mapEmployeeReportsToCsvRows(records: EmployeeReportRecord[]): EmployeeReportsCsvRow[] {
   return records.map((record) => ({
     Empleado: normalizeText(record.employee_name),
     Documento: normalizeText(record.employee_document_id),
     Cargo: normalizeText(record.job_name),
+    'Salario cargo': formatSalary(record.job_salary),
     Semestre: normalizeText(record.semester_name),
     Comentarios: normalizeText(record.comments),
     Creado: formatCreatedAt(record.created_at),
@@ -55,7 +69,7 @@ function buildEmployeeReportsCsv(records: EmployeeReportRecord[]): string {
 export type EmployeeReportExportOptions = {
   sortField?: 'employee_name' | 'job_name' | 'semester_name' | 'comments' | 'created_at' | 'updated_at' | 'created_by_name' | 'updated_by_name';
   sortDirection?: 'asc' | 'desc';
-  jobId?: string;
+  jobName?: string;
   semesterId?: string;
   employeeIds?: string[];
 };
@@ -70,7 +84,7 @@ export async function exportEmployeesReport(options: EmployeeReportExportOptions
   const records = await listEmployeeReportsForExport({
     sortField: options.sortField ?? 'created_at',
     sortDirection: options.sortDirection ?? 'desc',
-    jobId: options.jobId,
+    jobName: options.jobName,
     semesterId: options.semesterId,
     employeeIds: options.employeeIds,
   });

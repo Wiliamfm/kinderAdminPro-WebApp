@@ -389,13 +389,14 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - `/reports/students`.
 
 ## Reports Employees Data Model
-- `employee_reports` collection stores report rows linking employee, job, and semester.
+- `employee_reports` collection stores report rows linking employee and semester plus a point-in-time job snapshot.
 - Access rules:
   - synchronized through `scripts/sync-role-based-authorization.sh`,
   - `reports_admin` has read/write access.
 - Fields:
   - `employee_id` (required relation to `employees`, `maxSelect = 1`, `cascadeDelete = false`),
-  - `job_id` (required relation to `employee_jobs`, `maxSelect = 1`, `cascadeDelete = false`),
+  - `job_name` (required text snapshot copied from `employee_jobs.name` on create),
+  - `job_salary` (required number snapshot copied from `employee_jobs.salary` on create),
   - `semester_id` (required relation to `semesters`, `maxSelect = 1`, `cascadeDelete = false`),
   - `comments` (optional text),
   - `created_by` (required relation to `users`, `maxSelect = 1`),
@@ -407,19 +408,21 @@ Provide a stable technical reference for module responsibilities, data flow, and
   - list/create/edit/delete page: `src/pages/reports-employees.tsx`,
   - wrapper/API access: `src/lib/pocketbase/employee-reports.ts`.
 - Data flow:
-  - list queries are paginated and server-sorted with relation expansions for employee, job, semester, and users,
+  - list queries are paginated and server-sorted with relation expansions for employee, semester, and users,
   - default list sort is `created_at` descending; users can switch sort through column headers,
-  - list filters are server-side and combined with `AND` for `job_id`, `semester_id`, and exact selected `employee_id` values,
+  - list filters are server-side and combined with `AND` for `job_name`, `semester_id`, and exact selected `employee_id` values,
   - filter form includes specific-employee datalist search by `employees.document_id`; suggestions appear only after typing and selecting one or more employees applies exact `employee_id` matches for those selections,
   - suggestion labels use `document_id (name)`,
   - filter form uses explicit apply/clear actions; clear restores default filters and `created_at` descending sort,
   - export action fetches all rows matching currently applied filters (ignoring pagination) and generates one CSV file,
-  - employee CSV export uses current table sort and includes columns `Empleado`, `Documento`, `Cargo`, `Semestre`, `Comentarios`, `Creado`,
+  - employee CSV export uses current table sort and includes columns `Empleado`, `Documento`, `Cargo`, `Salario cargo`, `Semestre`, `Comentarios`, `Creado`,
   - chart section below the table renders three vertical bar charts (Chart.js): employees by job, employees by semester, and leaves by employee,
   - charts use cross-filters: semester select filters the job chart, and job select filters the semester chart,
   - default chart scope shows all jobs and only the last 5 semesters from current option lists,
   - chart aggregation counts distinct employees (`employee_id`) per bucket to avoid duplicate report-row overcount,
-  - chart analytics data is fetched from `employee_reports` with minimal fields (`employee_id`, `job_id`, `semester_id`) and `is_deleted != true`,
+  - create loads current `employee_jobs` options for the dropdown but stores `job_name` and `job_salary` directly on the report record,
+  - edit keeps `job_name` and `job_salary` visible as disabled snapshot fields and excludes them from update payloads,
+  - chart analytics data is fetched from `employee_reports` with minimal fields (`employee_id`, `job_name`, `semester_id`) and `is_deleted != true`,
 - leave analytics data is fetched separately from `leaves` with expanded employee metadata (`name`, `document_id`, `active`) plus persisted `semester_id`,
 - leave chart semester options include `isCurrent`, `startDate`, and `endDate` metadata so the page can determine the preferred semester without a second semester query,
 - leave chart filters rows by persisted `leaves.semester_id`,

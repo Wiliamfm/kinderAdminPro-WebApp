@@ -37,20 +37,20 @@ import { toggleSort, type SortState } from '../../lib/table/sorting';
 
 type EmployeeReportForm = {
   employee_id: string;
-  job_id: string;
+  job_name: string;
   semester_id: string;
   comments: string;
 };
 
 type ReportFilters = {
-  jobId: string;
+  jobName: string;
   semesterId: string;
   employeeIds: string[];
 };
 
 const EMPLOYEE_REPORT_FIELDS = [
   'employee_id',
-  'job_id',
+  'job_name',
   'semester_id',
 ] as const;
 
@@ -70,14 +70,14 @@ type BarChartPoint = {
 
 const emptyForm: EmployeeReportForm = {
   employee_id: '',
-  job_id: '',
+  job_name: '',
   semester_id: '',
   comments: '',
 };
 
 function createEmptyReportFilters(): ReportFilters {
   return {
-    jobId: '',
+    jobName: '',
     semesterId: '',
     employeeIds: [],
   };
@@ -132,6 +132,34 @@ function formatDateTime(value: unknown): string {
   }).format(parsed);
 }
 
+function formatSalary(value: number | string): string {
+  if (typeof value === 'number') {
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      maximumFractionDigits: 0,
+    }).format(value);
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed.length > 0) return trimmed;
+  }
+
+  return '—';
+}
+
+function toNumericSalary(value: number | string): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+
+  if (typeof value === 'string') {
+    const parsed = Number(value.trim());
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  return 0;
+}
+
 function buildPersonLookupLabel(documentId: string, name: string, fallbackId: string): string {
   const normalizedDocumentId = documentId.trim();
   const normalizedName = name.trim();
@@ -156,8 +184,8 @@ function validateForm(form: EmployeeReportForm): FieldErrorMap<EmployeeReportFie
     errors.employee_id = 'Empleado es obligatorio.';
   }
 
-  if (form.job_id.trim().length === 0) {
-    errors.job_id = 'Cargo es obligatorio.';
+  if (form.job_name.trim().length === 0) {
+    errors.job_name = 'Cargo es obligatorio.';
   }
 
   if (form.semester_id.trim().length === 0) {
@@ -167,10 +195,22 @@ function validateForm(form: EmployeeReportForm): FieldErrorMap<EmployeeReportFie
   return errors;
 }
 
-function buildPayload(form: EmployeeReportForm) {
+function buildCreatePayload(
+  form: EmployeeReportForm,
+  selectedJob: EmployeeReportFormOptions['jobs'][number],
+) {
   return {
     employee_id: form.employee_id,
-    job_id: form.job_id,
+    job_name: form.job_name,
+    job_salary: toNumericSalary(selectedJob.salary),
+    semester_id: form.semester_id,
+    comments: form.comments,
+  };
+}
+
+function buildUpdatePayload(form: EmployeeReportForm) {
+  return {
+    employee_id: form.employee_id,
     semester_id: form.semester_id,
     comments: form.comments,
   };
@@ -227,18 +267,18 @@ export default function ReportsEmployeesPage() {
         page: reportPage(),
         sortField: reportSort().key,
         sortDirection: reportSort().direction,
-        jobId: filters.jobId,
+        jobName: filters.jobName,
         semesterId: filters.semesterId,
         employeeIds: filters.employeeIds,
       };
     },
-    ({ page, sortField, sortDirection, jobId, semesterId, employeeIds }) => listEmployeeReportsPage(
+    ({ page, sortField, sortDirection, jobName, semesterId, employeeIds }) => listEmployeeReportsPage(
       page,
       DEFAULT_TABLE_PAGE_SIZE,
       {
         sortField,
         sortDirection,
-        jobId,
+        jobName,
         semesterId,
         employeeIds,
       },
@@ -319,6 +359,10 @@ export default function ReportsEmployeesPage() {
     setEditError(null);
   };
 
+  const selectedCreateJob = createMemo(() => (
+    formOptions().jobs.find((job) => job.name === createForm().job_name) ?? null
+  ));
+
   const submitCreate = async () => {
     setCreateTouched((current) => touchAllFields(current));
     if (hasAnyError(createFieldErrors())) return;
@@ -328,7 +372,13 @@ export default function ReportsEmployeesPage() {
     setActionError(null);
 
     try {
-      await createEmployeeReport(buildPayload(createForm()));
+      const selectedJob = selectedCreateJob();
+      if (!selectedJob) {
+        setCreateError('Selecciona un cargo valido.');
+        return;
+      }
+
+      await createEmployeeReport(buildCreatePayload(createForm(), selectedJob));
       await refetch();
       setCreateOpen(false);
       setCreateForm(emptyForm);
@@ -347,7 +397,7 @@ export default function ReportsEmployeesPage() {
     setEditTouched(createInitialTouchedMap(EMPLOYEE_REPORT_FIELDS));
     setEditForm({
       employee_id: record.employee_id,
-      job_id: record.job_id,
+      job_name: record.job_name,
       semester_id: record.semester_id,
       comments: record.comments,
     });
@@ -365,7 +415,7 @@ export default function ReportsEmployeesPage() {
     setActionError(null);
 
     try {
-      await updateEmployeeReport(target.id, buildPayload(editForm()));
+      await updateEmployeeReport(target.id, buildUpdatePayload(editForm()));
       await refetch();
       setEditTarget(null);
       setEditForm(emptyForm);
@@ -465,14 +515,15 @@ export default function ReportsEmployeesPage() {
     leaveAnalytics.latest ?? []
   ));
 
-  const jobLabelById = createMemo(() => new Map(formOptions().jobs.map((job) => [job.id, job.label])));
   const semesterLabelById = createMemo(() => (
     new Map(formOptions().semesters.map((semester) => [semester.id, semester.label]))
   ));
-  const jobIdsOrdered = createMemo(() => (
-    formOptions().jobs
-      .map((job) => job.id.trim())
-      .filter((id) => id.length > 0)
+  const jobNamesOrdered = createMemo(() => (
+    [...new Set(
+      formOptions().jobs
+        .map((job) => job.name.trim())
+        .filter((name) => name.length > 0),
+    )]
   ));
   const semesterIdsOrdered = createMemo(() => (
     formOptions().semesters
@@ -501,7 +552,7 @@ export default function ReportsEmployeesPage() {
   createEffect(() => {
     const selectedJobId = semesterChartJobId().trim();
     if (selectedJobId.length === 0) return;
-    if (!jobIdsOrdered().includes(selectedJobId)) {
+    if (!jobNamesOrdered().includes(selectedJobId)) {
       setSemesterChartJobId('');
     }
   });
@@ -540,33 +591,32 @@ export default function ReportsEmployeesPage() {
       selectedSemesterId.length === 0 || row.semester_id === selectedSemesterId
     ));
 
-    const visibleJobIds = jobIdsOrdered();
+    const visibleJobNames = jobNamesOrdered();
 
-    if (visibleJobIds.length === 0) return [];
+    if (visibleJobNames.length === 0) return [];
 
-    const visibleJobIdSet = new Set(visibleJobIds);
+    const visibleJobNameSet = new Set(visibleJobNames);
     const uniqueByJobEmployee = new Set<string>();
-    const countsByJobId = new Map(visibleJobIds.map((jobId) => [jobId, 0]));
+    const countsByJobName = new Map(visibleJobNames.map((jobName) => [jobName, 0]));
 
     for (const row of filteredRows) {
-      if (!visibleJobIdSet.has(row.job_id)) continue;
-      const key = `${row.job_id}::${row.employee_id}`;
+      if (!visibleJobNameSet.has(row.job_name)) continue;
+      const key = `${row.job_name}::${row.employee_id}`;
       if (uniqueByJobEmployee.has(key)) continue;
       uniqueByJobEmployee.add(key);
-      countsByJobId.set(row.job_id, (countsByJobId.get(row.job_id) ?? 0) + 1);
+      countsByJobName.set(row.job_name, (countsByJobName.get(row.job_name) ?? 0) + 1);
     }
 
-    const labels = jobLabelById();
-    return visibleJobIds.map((jobId) => ({
-      label: labels.get(jobId) ?? jobId,
-      value: countsByJobId.get(jobId) ?? 0,
+    return visibleJobNames.map((jobName) => ({
+      label: jobName,
+      value: countsByJobName.get(jobName) ?? 0,
     }));
   });
 
   const semesterChartPoints = createMemo<BarChartPoint[]>(() => {
     const selectedJobId = semesterChartJobId().trim();
     const filteredRows = analyticsRows().filter((row) => (
-      selectedJobId.length === 0 || row.job_id === selectedJobId
+      selectedJobId.length === 0 || row.job_name === selectedJobId
     ));
 
     const visibleSemesterIds = selectedJobId.length === 0
@@ -698,7 +748,6 @@ export default function ReportsEmployeesPage() {
 
     if (!hasChartData(points)) return;
 
-    const jobLabel = jobLabelById().get(selectedJobId) ?? selectedJobId;
     semesterChartInstance = new Chart(canvas, {
       type: 'bar',
       data: {
@@ -706,7 +755,7 @@ export default function ReportsEmployeesPage() {
         datasets: [
           {
             label: selectedJobId.length > 0
-              ? `Empleados (${jobLabel})`
+              ? `Empleados (${selectedJobId})`
               : 'Empleados (últimos 5 trimestres)',
             data: points.map((point) => point.value),
             backgroundColor: '#93c5fd',
@@ -787,7 +836,7 @@ export default function ReportsEmployeesPage() {
 
   const applyFilters = () => {
     const normalized: ReportFilters = {
-      jobId: filterDraft().jobId.trim(),
+      jobName: filterDraft().jobName.trim(),
       semesterId: filterDraft().semesterId.trim(),
       employeeIds: [...new Set(filterDraft().employeeIds.map((id) => id.trim()).filter((id) => id.length > 0))],
     };
@@ -819,7 +868,7 @@ export default function ReportsEmployeesPage() {
       const result = await exportEmployeesReport({
         sortField: sort.key,
         sortDirection: sort.direction,
-        jobId: filters.jobId,
+        jobName: filters.jobName,
         semesterId: filters.semesterId,
         employeeIds: filters.employeeIds,
       });
@@ -900,13 +949,13 @@ export default function ReportsEmployeesPage() {
                 <span class="text-sm text-gray-700">Cargo</span>
                 <select
                   class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                  value={filterDraft().jobId}
-                  onChange={(event) => setFilterField('jobId', event.currentTarget.value)}
+                  value={filterDraft().jobName}
+                  onChange={(event) => setFilterField('jobName', event.currentTarget.value)}
                   disabled={formOptionsLoading() || employeeReports.loading}
                 >
                   <option value="">Todos los cargos</option>
                   <For each={formOptions().jobs}>
-                    {(job) => <option value={job.id}>{job.label}</option>}
+                    {(job) => <option value={job.name}>{job.name}</option>}
                   </For>
                 </select>
               </label>
@@ -1257,7 +1306,7 @@ export default function ReportsEmployeesPage() {
                       >
                         <option value="">Todos los cargos</option>
                         <For each={formOptions().jobs}>
-                          {(job) => <option value={job.id}>{job.label}</option>}
+                          {(job) => <option value={job.name}>{job.name}</option>}
                         </For>
                       </select>
                     </label>
@@ -1323,22 +1372,28 @@ export default function ReportsEmployeesPage() {
             <span class="text-sm text-gray-700">Cargo</span>
             <select
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              classList={{ 'field-input-invalid': !!createFieldError('job_id') }}
-              value={createForm().job_id}
-              onChange={(event) => setCreateField('job_id', event.currentTarget.value)}
+              classList={{ 'field-input-invalid': !!createFieldError('job_name') }}
+              value={createForm().job_name}
+              onChange={(event) => setCreateField('job_name', event.currentTarget.value)}
               disabled={createBusy() || formOptionsLoading()}
-              aria-invalid={!!createFieldError('job_id')}
-              aria-describedby={createFieldError('job_id') ? 'create-report-job-error' : undefined}
+              aria-invalid={!!createFieldError('job_name')}
+              aria-describedby={createFieldError('job_name') ? 'create-report-job-error' : undefined}
             >
               <option value="">
                 {formOptionsLoading() ? 'Cargando cargos...' : 'Selecciona un cargo'}
               </option>
               <For each={formOptions().jobs}>
-                {(job) => <option value={job.id}>{job.label}</option>}
+                {(job) => <option value={job.name}>{job.name}</option>}
               </For>
             </select>
-            <InlineFieldAlert id="create-report-job-error" message={createFieldError('job_id')} />
+            <InlineFieldAlert id="create-report-job-error" message={createFieldError('job_name')} />
           </label>
+
+          <Show when={selectedCreateJob()}>
+            <p class="rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-gray-700">
+              Salario del cargo: {formatSalary(selectedCreateJob()?.salary ?? '')}
+            </p>
+          </Show>
 
           <label class="block">
             <span class="text-sm text-gray-700">Trimestre</span>
@@ -1415,23 +1470,24 @@ export default function ReportsEmployeesPage() {
 
           <label class="block">
             <span class="text-sm text-gray-700">Cargo</span>
-            <select
+            <input
+              type="text"
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              classList={{ 'field-input-invalid': !!editFieldError('job_id') }}
-              value={editForm().job_id}
-              onChange={(event) => setEditField('job_id', event.currentTarget.value)}
-              disabled={editBusy() || formOptionsLoading()}
-              aria-invalid={!!editFieldError('job_id')}
-              aria-describedby={editFieldError('job_id') ? 'edit-report-job-error' : undefined}
-            >
-              <option value="">
-                {formOptionsLoading() ? 'Cargando cargos...' : 'Selecciona un cargo'}
-              </option>
-              <For each={formOptions().jobs}>
-                {(job) => <option value={job.id}>{job.label}</option>}
-              </For>
-            </select>
-            <InlineFieldAlert id="edit-report-job-error" message={editFieldError('job_id')} />
+              value={editTarget()?.job_name ?? ''}
+              disabled
+              readOnly
+            />
+          </label>
+
+          <label class="block">
+            <span class="text-sm text-gray-700">Salario del cargo</span>
+            <input
+              type="text"
+              class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              value={formatSalary(editTarget()?.job_salary ?? '')}
+              disabled
+              readOnly
+            />
           </label>
 
           <label class="block">
