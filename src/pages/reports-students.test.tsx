@@ -752,6 +752,47 @@ describe('ReportsStudentsPage', () => {
     });
   });
 
+  it('counts distinct student-grade pairs by year so all-grades totals match the grade rollup', async () => {
+    mocks.listBulletinStudentFormOptions.mockResolvedValue({
+      bulletins: [{ id: 'b1', label: 'Académico: Notas de periodo' }],
+      students: [{ id: 's1', label: '1001 (Ana Pérez)', documentId: '1001' }],
+      grades: [
+        { id: 'g1', label: 'Grado 1' },
+        { id: 'g2', label: 'Grado 2' },
+      ],
+      semesters: [
+        { id: 'sem2027a', label: '2027-1', years: [2027] },
+        { id: 'sem2027b', label: '2027-2', years: [2027] },
+      ],
+      years: [{ id: '2027', label: '2027' }],
+    });
+    mocks.listBulletinStudentsAnalyticsRecords.mockResolvedValue([
+      { student_id: 'sA', grade_id: 'g1', semester_id: 'sem2027a' },
+      { student_id: 'sB', grade_id: 'g1', semester_id: 'sem2027a' },
+      { student_id: 'sC', grade_id: 'g1', semester_id: 'sem2027a' },
+      { student_id: 'sD', grade_id: 'g1', semester_id: 'sem2027a' },
+      { student_id: 'sA', grade_id: 'g2', semester_id: 'sem2027b' },
+      { student_id: 'sE', grade_id: 'g2', semester_id: 'sem2027b' },
+    ]);
+
+    render(() => <ReportsStudentsPage />);
+    await screen.findByRole('cell', { name: 'Ana Pérez' });
+
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Agrupación del gráfico por periodo' }))
+        .getByRole('button', { name: 'Año' }),
+    );
+
+    await waitFor(() => {
+      const byYear = findChartConfigByLabel('Estudiantes (por año)') as {
+        data: { labels: string[]; datasets: Array<{ data: number[] }> };
+      };
+      expect(byYear).toBeDefined();
+      expect(byYear.data.labels).toEqual(['2027']);
+      expect(byYear.data.datasets[0]?.data).toEqual([6]);
+    });
+  });
+
   it('resets semester chart filters when switching chart grouping', async () => {
     mocks.listBulletinStudentFormOptions.mockResolvedValue({
       bulletins: [{ id: 'b1', label: 'Académico: Notas de periodo' }],

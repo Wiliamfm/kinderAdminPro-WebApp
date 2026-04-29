@@ -694,26 +694,27 @@ export default function ReportsStudentsPage() {
     if (filteredRows.length === 0 || visibleYearIds.length === 0) return [];
 
     const visibleYearIdSet = new Set(visibleYearIds);
-    const studentsByYear = new Map<string, Set<string>>();
+    const studentKeysByYear = new Map<string, Set<string>>();
 
     for (const yearId of visibleYearIds) {
-      studentsByYear.set(yearId, new Set());
+      studentKeysByYear.set(yearId, new Set());
     }
 
     for (const row of filteredRows) {
       const years = semesterYearsById().get(row.semester_id) ?? [];
+      const studentKey = `${row.grade_id}::${row.student_id}`;
 
       for (const year of years) {
         const yearId = String(year);
         if (!visibleYearIdSet.has(yearId)) continue;
-        studentsByYear.get(yearId)?.add(row.student_id);
+        studentKeysByYear.get(yearId)?.add(studentKey);
       }
     }
 
     return visibleYearIds
       .map((yearId) => ({
         label: yearId,
-        value: studentsByYear.get(yearId)?.size ?? 0,
+        value: studentKeysByYear.get(yearId)?.size ?? 0,
       }));
   });
   const hasGradeChartData = createMemo(() => gradeChartPoints().length > 0);
