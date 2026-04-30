@@ -33,8 +33,8 @@ async function fillValidForm() {
   fireEvent.input(screen.getByLabelText('Lugar de nacimiento'), { target: { value: 'Bogota' } });
   fireEvent.input(screen.getByLabelText('Departamento'), { target: { value: 'Cundinamarca' } });
   fireEvent.input(screen.getAllByLabelText('Documento')[0], { target: { value: '1001' } });
-  fireEvent.input(screen.getByLabelText('Peso'), { target: { value: '20.5' } });
-  fireEvent.input(screen.getByLabelText('Altura'), { target: { value: '115' } });
+  fireEvent.input(screen.getByLabelText('Peso (kg)'), { target: { value: '20.5' } });
+  fireEvent.input(screen.getByLabelText('Altura (cm)'), { target: { value: '115' } });
   fireEvent.change(screen.getByLabelText('Tipo de sangre'), { target: { value: 'O+' } });
   fireEvent.input(screen.getByLabelText('Seguridad social'), { target: { value: 'EPS 01' } });
   fireEvent.input(screen.getByLabelText('Alergias'), { target: { value: 'Ninguna' } });
@@ -107,8 +107,8 @@ describe('RegisterPage', () => {
     fireEvent.input(screen.getByLabelText('Fecha de nacimiento'), { target: { value: '2016-01-10T08:30' } });
     fireEvent.input(screen.getByLabelText('Lugar de nacimiento'), { target: { value: 'Bogota' } });
     fireEvent.input(screen.getByLabelText('Departamento'), { target: { value: 'Cundinamarca' } });
-    fireEvent.input(screen.getByLabelText('Peso'), { target: { value: '20.5.1' } });
-    fireEvent.input(screen.getByLabelText('Altura'), { target: { value: '-1' } });
+    fireEvent.input(screen.getByLabelText('Peso (kg)'), { target: { value: '20.5.1' } });
+    fireEvent.input(screen.getByLabelText('Altura (cm)'), { target: { value: '-1' } });
     fireEvent.change(screen.getByLabelText('Tipo de sangre'), { target: { value: 'O+' } });
     fireEvent.input(screen.getByLabelText('Nombre completo'), { target: { value: 'Laura Perez' } });
     fireEvent.input(screen.getByLabelText('Teléfono'), { target: { value: '3001234567' } });

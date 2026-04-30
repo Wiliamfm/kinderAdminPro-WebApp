@@ -150,7 +150,7 @@ describe('canAccessModule', () => {
     expect(canAccessModule('professor-personal')).toBe(false);
     expect(canAccessModule('professor-students')).toBe(false);
     expect(canAccessModule('professor-events')).toBe(false);
-    expect(canAccessModule('father-portal')).toBe(true);
+    expect(canAccessModule('father-portal')).toBe(false);
   });
 
   it('grants both admin and professor modules to users with both roles', () => {

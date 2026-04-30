@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   listGradesByEmployeeId: vi.fn(),
   getStudentById: vi.fn(),
   getCurrentSemester: vi.fn(),
+  listSemesterOptions: vi.fn(),
   listBulletinsByGradeId: vi.fn(),
   listBulletinStudentsByStudentAndGrade: vi.fn(),
   createBulletinStudent: vi.fn(),
@@ -24,9 +25,6 @@ vi.mock('@solidjs/router', () => ({
 
 vi.mock('../lib/pocketbase/auth', () => ({
   canAccessModule: mocks.canAccessModule,
-}));
-
-vi.mock('../lib/pocketbase/users', () => ({
   getAuthUserId: mocks.getAuthUserId,
 }));
 
@@ -44,17 +42,23 @@ vi.mock('../lib/pocketbase/students', () => ({
 
 vi.mock('../lib/pocketbase/semesters', () => ({
   getCurrentSemester: mocks.getCurrentSemester,
+  listSemesterOptions: mocks.listSemesterOptions,
 }));
 
 vi.mock('../lib/pocketbase/bulletins', () => ({
   listBulletinsByGradeId: mocks.listBulletinsByGradeId,
 }));
 
-vi.mock('../lib/pocketbase/bulletins-students', () => ({
-  listBulletinStudentsByStudentAndGrade: mocks.listBulletinStudentsByStudentAndGrade,
-  createBulletinStudent: mocks.createBulletinStudent,
-  updateBulletinStudent: mocks.updateBulletinStudent,
-}));
+vi.mock('../lib/pocketbase/bulletins-students', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/pocketbase/bulletins-students')>();
+
+  return {
+    ...actual,
+    listBulletinStudentsByStudentAndGrade: mocks.listBulletinStudentsByStudentAndGrade,
+    createBulletinStudent: mocks.createBulletinStudent,
+    updateBulletinStudent: mocks.updateBulletinStudent,
+  };
+});
 
 const employeeFixture = {
   id: 'e1',
@@ -129,6 +133,17 @@ describe('ProfessorStudentDetailPage', () => {
       created_at: '2026-01-01T00:00:00.000Z',
       updated_at: '2026-01-01T00:00:00.000Z',
     });
+    mocks.listSemesterOptions.mockResolvedValue([
+      {
+        id: 'sem1',
+        name: '2026-1',
+        start_date: '2026-01-01T00:00:00.000Z',
+        end_date: '2026-06-30T00:00:00.000Z',
+        is_current: true,
+        created_at: '2026-01-01T00:00:00.000Z',
+        updated_at: '2026-01-01T00:00:00.000Z',
+      },
+    ]);
     mocks.listBulletinsByGradeId.mockResolvedValue(bulletinsFixture);
     mocks.listBulletinStudentsByStudentAndGrade.mockResolvedValue([]);
     mocks.createBulletinStudent.mockImplementation(async (payload) => ({
@@ -197,6 +212,7 @@ describe('ProfessorStudentDetailPage', () => {
 
   it('shows a banner and disables actions when no current semester is configured', async () => {
     mocks.getCurrentSemester.mockResolvedValue(null);
+    mocks.listSemesterOptions.mockResolvedValue([]);
 
     render(() => <ProfessorStudentDetailPage />);
 

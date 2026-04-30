@@ -17,9 +17,6 @@ vi.mock('@solidjs/router', () => ({
 
 vi.mock('../lib/pocketbase/auth', () => ({
   canAccessModule: mocks.canAccessModule,
-}));
-
-vi.mock('../lib/pocketbase/users', () => ({
   getAuthUserId: mocks.getAuthUserId,
 }));
 

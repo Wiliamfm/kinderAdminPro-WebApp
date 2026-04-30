@@ -204,6 +204,10 @@ export default function ProfessorStudentDetailPage() {
     return semesterBelongsToYear(semester.id, year);
   });
 
+  const shouldShowCurrentSemesterSection = createMemo(() => (
+    isCurrentYearSelected() || (!currentSemester() && yearOptions().length === 0)
+  ));
+
   const currentEntryByBulletinId = createMemo(() => {
     const semesterId = currentSemester()?.id;
     const lookup = new Map<string, BulletinStudentRecord>();
@@ -398,13 +402,13 @@ export default function ProfessorStudentDetailPage() {
                       </div>
                     </Show>
 
-                    <Show when={isCurrentYearSelected()}>
-                      <Show when={!currentSemester()}>
-                        <div class="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                          No hay un trimestre activo configurado. Puedes consultar la información, pero las acciones de agregar y editar están deshabilitadas.
-                        </div>
-                      </Show>
+                    <Show when={!currentSemester()}>
+                      <div class="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        No hay un trimestre activo configurado. Puedes consultar la información, pero las acciones de agregar y editar están deshabilitadas.
+                      </div>
+                    </Show>
 
+                    <Show when={shouldShowCurrentSemesterSection()}>
                       <div class="mt-6 overflow-x-auto rounded-lg border border-yellow-200">
                         <table class="min-w-[760px] w-full text-left text-sm">
                           <thead class="bg-yellow-100 text-gray-700">

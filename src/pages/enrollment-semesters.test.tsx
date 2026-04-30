@@ -73,7 +73,7 @@ describe('EnrollmentSemestersPage', () => {
     render(() => <EnrollmentSemestersPage />);
     await screen.findByText('2026-A');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Trimestre' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Semestre' }));
 
     await waitFor(() => {
       expect(mocks.listSemestersPage).toHaveBeenLastCalledWith(1, 10, {
